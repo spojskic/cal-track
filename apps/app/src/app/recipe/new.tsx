@@ -1,3 +1,4 @@
+import { AiRecipeButton } from '@/components/ai';
 import { RecipeEditor } from '@/components/recipes/RecipeEditor';
 import { replaceWith } from '@/components/recipes/nav';
 import { errorMessage } from '@/data/foods';
@@ -10,11 +11,8 @@ export default function NewRecipeScreen() {
   return (
     <RecipeEditor
       title="New recipe"
-      topSlot={
-        // >>> AI SLOT (new-recipe screen): the AI agent mounts <AiRecipeButton /> from '@/components/ai' here.
-        // It renders null unless AI is enabled. Do not import it until '@/components/ai' exists.
-        null
-      }
+      // Renders nothing unless the AI gate is open (valid key + image-capable model).
+      topSlot={<AiRecipeButton />}
       submitLabel="Save recipe"
       submitting={create.isPending}
       submitError={create.error ? errorMessage(create.error) : null}
