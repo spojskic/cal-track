@@ -30,6 +30,8 @@ import {
   type FoodSummary,
   type OnlineSearchResult,
 } from '@/data/foods';
+import { fetchDefaultServing } from '@/data/recipes';
+import { deliverPickedFood, hasFoodPickHandler } from '@/state/food-picker';
 import { useSelectedDate } from '@/state/selected-date';
 import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
 
@@ -54,7 +56,9 @@ function matches(food: FoodSummary, folded: string): boolean {
 
 export default function SearchScreen() {
   const { colors } = useTheme();
-  const params = useLocalSearchParams<{ mealGroupId?: string; q?: string }>();
+  const params = useLocalSearchParams<{ mealGroupId?: string; q?: string; mode?: string }>();
+  // /search?mode=pick: choose a food for another screen (recipe ingredient, saved meal) instead of logging it.
+  const pickMode = firstParam(params.mode) === 'pick';
   const [query, setQuery] = useState(firstParam(params.q) ?? '');
   const [tab, setTab] = useState<TabKey>('all');
   const debounced = useDebouncedValue(query, 250);
@@ -77,6 +81,7 @@ export default function SearchScreen() {
 
   const [opening, setOpening] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
+  const [pickingId, setPickingId] = useState<string | null>(null);
 
   useEffect(
     () => () => {
@@ -132,7 +137,39 @@ export default function SearchScreen() {
     });
   }
 
+  /** Pick mode: hand the food (with its default serving) to the waiting screen and go back. */
+  async function pickFood(food: { id: string; name: string; brand: string | null }) {
+    if (!hasFoodPickHandler()) {
+      // Nothing is waiting for a food (e.g. a stale link): behave like the normal search.
+      openFood(food.id);
+      return;
+    }
+    hapticSelection();
+    setPickingId(food.id);
+    try {
+      const serving = await fetchDefaultServing(food.id);
+      deliverPickedFood({
+        id: food.id,
+        name: food.name,
+        brand: food.brand,
+        grams: serving.grams,
+        amount: serving.amount,
+        portionLabel: serving.label,
+      });
+      if (router.canGoBack()) router.back();
+      else router.replace('/');
+    } catch (e) {
+      showToast(`Could not use this food: ${errorMessage(e)}`, 'error');
+    } finally {
+      setPickingId(null);
+    }
+  }
+
   function onQuickAdd(food: FoodSummary) {
+    if (pickMode) {
+      void pickFood(food);
+      return;
+    }
     if (!meal.mealGroupId) {
       showToast('Pick a meal first. No meal group is available yet.', 'error');
       return;
@@ -160,7 +197,9 @@ export default function SearchScreen() {
     setOpenError(null);
     const res = await lookupBarcode(result.gtin14);
     setOpening(null);
-    if (res.status === 'found') {
+    if (res.status === 'found' && pickMode) {
+      await pickFood({ id: res.foodId, name: result.name, brand: result.brand });
+    } else if (res.status === 'found') {
       router.push({
         pathname: '/food/[id]',
         params: { id: res.foodId, ...(meal.mealGroupId ? { mealGroupId: meal.mealGroupId } : {}) },
@@ -241,12 +280,20 @@ export default function SearchScreen() {
   const header = (
     <View style={styles.listHeader}>
       <View style={styles.destination}>
-        <AppText variant="small" muted>
-          Adding to {meal.mealGroupName ?? 'your diary'} {'\u00B7'} {formatDayLabel(date)}
-        </AppText>
-        {meal.groups.length > 0 ? (
-          <MealGroupChips groups={meal.groups} value={meal.mealGroupId} onChange={meal.setMealGroupId} />
-        ) : null}
+        {pickMode ? (
+          <AppText variant="small" muted>
+            Choose a food to add. You can set the amount next.
+          </AppText>
+        ) : (
+          <>
+            <AppText variant="small" muted>
+              Adding to {meal.mealGroupName ?? 'your diary'} {'\u00B7'} {formatDayLabel(date)}
+            </AppText>
+            {meal.groups.length > 0 ? (
+              <MealGroupChips groups={meal.groups} value={meal.mealGroupId} onChange={meal.setMealGroupId} />
+            ) : null}
+          </>
+        )}
       </View>
       {sectionTitle && rows.length > 0 ? <AppText variant="label" muted>{sectionTitle}</AppText> : null}
     </View>
@@ -254,7 +301,7 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ headerShown: true, title: 'Add food' }} />
+      <Stack.Screen options={{ headerShown: true, title: pickMode ? 'Add ingredient' : 'Add food' }} />
       <View style={styles.inner}>
         <View style={[styles.sticky, { backgroundColor: colors.background }]}>
           <View
@@ -316,12 +363,16 @@ export default function SearchScreen() {
           }
           renderItem={({ item }) => {
             const state: QuickAddState =
-              addingId === item.id ? 'pending' : addedIds.has(item.id) ? 'done' : 'idle';
+              addingId === item.id || pickingId === item.id
+                ? 'pending'
+                : addedIds.has(item.id)
+                  ? 'done'
+                  : 'idle';
             return (
               <FoodRow
                 food={item}
                 favorite={favoriteIds.has(item.id)}
-                onPress={() => openFood(item.id)}
+                onPress={() => (pickMode ? void pickFood(item) : openFood(item.id))}
                 onQuickAdd={() => onQuickAdd(item)}
                 quickAddState={state}
               />

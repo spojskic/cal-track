@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { formatNumber } from '@/components/charts/format';
 import { AppText } from '@/components/ui';
+import { SavedMealControls } from '@/components/recipes/SavedMealControls';
 import type { DiaryEntry } from '@/data/diary';
 import { radius, spacing, useTheme } from '@/theme';
 
@@ -13,6 +14,7 @@ export function MealGroupSection({
   name,
   kcal,
   entries,
+  mealGroupId,
   collapsed,
   onToggle,
   onAdd,
@@ -23,6 +25,8 @@ export function MealGroupSection({
   name: string;
   kcal: number;
   entries: DiaryEntry[];
+  /** Optional: id of this meal group (for "Add saved meal"). Derived from the entries or the name when omitted. */
+  mealGroupId?: string;
   collapsed: boolean;
   onToggle: () => void;
   onAdd?: () => void;
@@ -52,6 +56,7 @@ export function MealGroupSection({
             {formatNumber(kcal)} kcal
           </AppText>
         </Pressable>
+        <SavedMealControls name={name} groupId={mealGroupId} entries={entries} />
         {onAdd ? <IconButton glyph="+" label={`Add food to ${name}`} onPress={onAdd} size={34} /> : null}
         {onMenu ? <IconButton glyph="⋯" label={`${name} options`} onPress={onMenu} size={34} /> : null}
       </View>
