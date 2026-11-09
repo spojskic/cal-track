@@ -1,0 +1,57 @@
+name: Database backup
+
+# Supabase Free has NO automatic backups, so we dump user data nightly and keep 30 days
+# of encrypted artifacts. Reference data (foods, nutrients) is re-creatable by the importer,
+# so only user-owned tables are dumped to stay small.
+#
+# Required repository secrets:
+#   SUPABASE_DB_URL     Session-pooler connection string (IPv4; GitHub runners have no IPv6):
+#                       postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+#   BACKUP_PASSPHRASE   Any long random string used to encrypt the dump (store it somewhere safe!)
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install matching PostgreSQL client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+      - name: Dump user tables
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+            --data-only --no-owner --no-privileges \
+            --table=public.profiles --table=public.meal_groups --table=public.weight_goals \
+            --table=public.macro_targets --table=public.nutrient_targets \
+            --table=public.recipes --table=public.recipe_ingredients \
+            --table=public.saved_meals --table=public.saved_meal_items \
+            --table=public.favorites --table=public.food_usage \
+            --table=public.diary_entries --table=public.exercise_entries \
+            --table=public.biometrics --table=public.daily_energy --table=public.notes \
+            --table=public.water_entries --table=public.fasts --table=public.integrations \
+            --table=public.coach_threads --table=public.coach_messages \
+            > user-data.sql
+          # Custom foods/recipes/AI estimates owned by users (global foods are re-importable)
+          /usr/lib/postgresql/17/bin/psql "$SUPABASE_DB_URL" -c "\copy (select * from public.foods where owner_id is not null) to 'user-foods.csv' csv header"
+          /usr/lib/postgresql/17/bin/psql "$SUPABASE_DB_URL" -c "\copy (select * from public.food_portions where food_id in (select id from public.foods where owner_id is not null)) to 'user-food-portions.csv' csv header"
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          tar czf backup.tar.gz user-data.sql user-foods.csv user-food-portions.csv
+          gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$BACKUP_PASSPHRASE" -o "backup-$(date -u +%F).tar.gz.gpg" backup.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db-backup
+          path: backup-*.tar.gz.gpg
+          retention-days: 30

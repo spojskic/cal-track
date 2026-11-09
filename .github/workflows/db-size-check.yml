@@ -1,0 +1,25 @@
+name: Database size check
+
+# Supabase Free allows 500 MB. Warn at 400 MB.
+# Required secret: SUPABASE_DB_URL (session-pooler string, see db-backup.yml)
+
+on:
+  schedule:
+    - cron: '30 7 * * 1'
+  workflow_dispatch:
+
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check size
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          BYTES=$(psql "$SUPABASE_DB_URL" -At -c "select pg_database_size(current_database())")
+          MB=$((BYTES / 1024 / 1024))
+          echo "Database size: ${MB} MB of 500 MB"
+          if [ "$MB" -gt 400 ]; then
+            echo "::warning::Database is ${MB} MB (limit 500 MB on the Free plan)"
+          fi
