@@ -68,7 +68,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Cal Track lets you pick meal photos to log food."
+          "photosPermission": "Cal Track lets you pick meal photos to log food.",
+          "cameraPermission": "Cal Track uses the camera to scan barcodes and photograph meals.",
+          "microphonePermission": false
         }
       ],
       [
