@@ -45,7 +45,7 @@ export function NumberField({
   hint,
   error,
   ...input
-}: Omit<TextInputProps, 'value' | 'onChangeText'> & {
+}: Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange'> & {
   label: string;
   /** Raw text being edited. Parse with parseNumber from @cal/core when submitting. */
   value: string;

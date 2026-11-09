@@ -79,3 +79,26 @@ export function useWaterMl(date: string) {
     },
   });
 }
+
+/**
+ * Most recent biometric row of `type` (e.g. 'weight', 'bp_systolic'), or null when none exists.
+ * With `onOrBefore` (YYYY-MM-DD) only rows dated on/before that day are considered, so logging
+ * on a past diary date shows the value that was current back then.
+ */
+export function useRecentBiometric(type: string, onOrBefore?: string, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: ['biometrics', 'recent', type, onOrBefore ?? 'any'] as const,
+    queryFn: async (): Promise<BiometricEntry | null> => {
+      let q = supabase.from('biometrics').select('*').eq('type', type);
+      if (onOrBefore) q = q.lte('entry_date', onOrBefore);
+      const { data, error } = await q
+        .order('entry_date', { ascending: false })
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as BiometricEntry | null) ?? null;
+    },
+  });
+}
