@@ -82,3 +82,15 @@ enable_confirmations = false
 max_frequency = "1s"
 otp_length = 6
 otp_expiry = 3600
+
+# Edge Functions (supabase/functions/*). Both need a signed-in user: the gateway
+# verifies the JWT (verify_jwt) and the functions additionally refuse the anon key.
+# Secrets are NOT stored here: `npx supabase secrets set FDC_API_KEY=... OFF_USER_AGENT=...`
+# (see supabase/functions/README.md).
+[functions.barcode-lookup]
+enabled = true
+verify_jwt = true
+
+[functions.online-search]
+enabled = true
+verify_jwt = true
