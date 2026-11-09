@@ -31,6 +31,11 @@ const MENU: MenuItem[] = [
     href: '/settings/nutrients',
   },
   { label: 'Display & units', description: 'Metric or imperial units, appearance', href: '/settings/display' },
+  {
+    label: 'Connected apps & devices',
+    description: 'Apple Health, Health Connect (Garmin syncs through them)',
+    href: '/settings/integrations' as unknown as Href,
+  },
 ];
 
 export default function MoreScreen() {
