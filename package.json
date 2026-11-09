@@ -1,0 +1,25 @@
+{
+  "name": "cal-track",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Cronometer-style nutrition tracker (web, iOS, Android) with optional bring-your-own-key AI features.",
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @cal/app start",
+    "web": "pnpm --filter @cal/app web",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,sql,yml}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.5.0",
+    "typescript": "^5.9.0"
+  }
+}
