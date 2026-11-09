@@ -1,0 +1,81 @@
+// Read hooks for the non-food parts of a diary day. Write flows (forms/mutations) live in activity-write.ts.
+import { useQuery } from '@tanstack/react-query';
+
+import { supabase } from '@/lib/supabase';
+
+import { dayKey } from './keys';
+
+export interface ExerciseEntry {
+  id: string;
+  entry_date: string;
+  activity_code: string | null;
+  name: string;
+  minutes: number | null;
+  kcal: number;
+  source: 'manual' | 'apple_health' | 'health_connect' | 'garmin';
+  external_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  counts_toward_energy: boolean;
+}
+
+export interface BiometricEntry {
+  id: string;
+  entry_date: string;
+  type: string;
+  value: number;
+  unit: string;
+  source: string;
+  recorded_at: string | null;
+  meta: Record<string, unknown> | null;
+}
+
+export interface NoteEntry {
+  id: string;
+  entry_date: string;
+  body: string;
+  created_at: string;
+}
+
+export interface DailyEnergyRow {
+  local_date: string;
+  source: string;
+  active_kcal: number | null;
+  resting_kcal: number | null;
+  steps: number | null;
+}
+
+function dayQuery<T>(date: string, part: Parameters<typeof dayKey>[1], table: string, dateColumn = 'entry_date') {
+  return {
+    queryKey: dayKey(date, part),
+    queryFn: async (): Promise<T[]> => {
+      const { data, error } = await supabase.from(table).select('*').eq(dateColumn, date);
+      if (error) throw error;
+      return (data ?? []) as T[];
+    },
+  };
+}
+
+export const useExerciseEntries = (date: string) =>
+  useQuery(dayQuery<ExerciseEntry>(date, 'exercise', 'exercise_entries'));
+
+export const useBiometrics = (date: string) =>
+  useQuery(dayQuery<BiometricEntry>(date, 'biometrics', 'biometrics'));
+
+export const useNotes = (date: string) => useQuery(dayQuery<NoteEntry>(date, 'notes', 'notes'));
+
+/** Device-imported daily energy rows (Apple Health / Health Connect / Garmin) for the date. */
+export const useDailyEnergy = (date: string) =>
+  useQuery(dayQuery<DailyEnergyRow>(date, 'energy', 'daily_energy', 'local_date'));
+
+/** Total water logged for the date, in ml. */
+export function useWaterMl(date: string) {
+  return useQuery({
+    queryKey: dayKey(date, 'water'),
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase.from('water_entries').select('ml').eq('entry_date', date);
+      if (error) throw error;
+      return (data ?? []).reduce((sum, r) => sum + Number((r as { ml: number }).ml), 0);
+    },
+  });
+}
