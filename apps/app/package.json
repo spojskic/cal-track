@@ -15,6 +15,7 @@
   "dependencies": {
     "@cal/ai": "workspace:*",
     "@cal/core": "workspace:*",
+    "@cal/garmin": "workspace:*",
     "@expo/ui": "~58.0.27",
     "@kingstinct/react-native-healthkit": "^16.2.0",
     "@react-native-async-storage/async-storage": "2.2.0",

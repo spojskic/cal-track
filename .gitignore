@@ -38,3 +38,6 @@ tools/importer/.cache/
 .DS_Store
 *.log
 coverage/
+
+# garmin probe output (real personal data - never commit)
+tools/garmin-probe/out/
