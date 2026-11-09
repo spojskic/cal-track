@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { deriveNutrients, parseNumber, scaleNutrients } from '@cal/core';
@@ -104,20 +104,21 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
   const move = useMoveDiaryEntry();
   const remove = useDeleteDiaryEntry();
 
-  const [unitKey, setUnitKey] = useState('g');
-  const [text, setText] = useState(trimText(entry.grams));
-  const [touched, setTouched] = useState(false);
+  // Edits are stored as overrides; until the user edits, values are DERIVED from the entry and the loaded
+  // portions (portion entries show in their own unit once portions load) - no state syncing in effects.
+  const [unitOverride, setUnitOverride] = useState<string | null>(null);
+  const [textOverride, setTextOverride] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Once portions load, show portion entries in their own unit unless the user already started editing.
-  useEffect(() => {
-    if (touched || !entry.amount || !entry.portionLabel) return;
-    const match = units.find((u) => u.label.toLowerCase() === entry.portionLabel?.trim().toLowerCase());
-    if (match && match.key !== 'g') {
-      setUnitKey(match.key);
-      setText(trimText(entry.amount));
-    }
-  }, [units, touched, entry.amount, entry.portionLabel]);
+  const portionMatch = useMemo(() => {
+    if (!entry.amount || !entry.portionLabel) return null;
+    const label = entry.portionLabel.trim().toLowerCase();
+    const match = units.find((u) => u.label.toLowerCase() === label);
+    return match && match.key !== 'g' ? match : null;
+  }, [units, entry.amount, entry.portionLabel]);
+
+  const unitKey = unitOverride ?? portionMatch?.key ?? 'g';
+  const text = textOverride ?? (portionMatch ? trimText(entry.amount ?? entry.grams) : trimText(entry.grams));
 
   const unit = units.find((u) => u.key === unitKey) ?? GRAM_UNIT;
   const amount = parseNumber(text);
@@ -132,10 +133,9 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
 
   const selectUnit = (next: UnitOption) => {
     haptic('selection');
-    setTouched(true);
     const currentGrams = grams ?? entry.grams;
-    setUnitKey(next.key);
-    setText(trimText(currentGrams / next.gramsPerUnit));
+    setUnitOverride(next.key);
+    setTextOverride(trimText(currentGrams / next.gramsPerUnit));
   };
 
   const save = () => {
@@ -179,8 +179,8 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
         unit={unit.label}
         value={text}
         onChange={(t) => {
-          setTouched(true);
-          setText(t);
+          setUnitOverride(unitKey); // freeze the unit so late-loading portions don't change it under the user
+          setTextOverride(t);
         }}
         error={text.trim() !== '' && !valid ? 'Enter an amount above 0' : null}
         hint={valid && grams !== null && unit.key !== 'g' ? `= ${formatNumber(grams, 1, true)} g` : undefined}

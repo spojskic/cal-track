@@ -146,7 +146,6 @@ export function cleanNutrients(raw: unknown): NutrientMap {
   return out;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = any;
 
 function one<T>(value: T | T[] | null | undefined): T | null {

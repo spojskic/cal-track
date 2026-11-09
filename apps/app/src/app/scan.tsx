@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
-import { Stack, router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { Stack, router, useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -40,7 +40,11 @@ export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [webCameraOk, setWebCameraOk] = useState<boolean | null>(Platform.OS === 'web' ? null : true);
+  // Insecure web contexts (plain http) can never open the camera: decide that up-front instead of in an effect.
+  const [webCameraOk, setWebCameraOk] = useState<boolean | null>(() => {
+    if (Platform.OS !== 'web') return true;
+    return typeof window !== 'undefined' && window.isSecureContext === false ? false : null;
+  });
   const [result, setResult] = useState<ScanResult | null>(null);
   const [manual, setManual] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
@@ -51,11 +55,7 @@ export default function ScanScreen() {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     let cancelled = false;
-    const insecure = typeof window !== 'undefined' && window.isSecureContext === false;
-    if (insecure) {
-      setWebCameraOk(false);
-      return;
-    }
+    if (typeof window !== 'undefined' && window.isSecureContext === false) return; // already false
     CameraView.isAvailableAsync()
       .then((ok) => {
         if (!cancelled) setWebCameraOk(ok);
@@ -69,12 +69,12 @@ export default function ScanScreen() {
   }, []);
 
   // Coming back from a food/new screen (or any other) re-arms the scanner.
-  useEffect(() => {
-    if (focused) {
+  useFocusEffect(
+    useCallback(() => {
       lockRef.current = false;
       setResult(null);
-    }
-  }, [focused]);
+    }, []),
+  );
 
   async function runLookup(gtin14: string, display: string) {
     setResult({ status: 'looking', code: display });

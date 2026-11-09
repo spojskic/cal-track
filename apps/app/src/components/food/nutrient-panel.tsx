@@ -84,17 +84,18 @@ export function NutrientPanel({
   const knownCount = NUTRIENTS.filter((n) => !n.computed && isKnown(amounts[n.code])).length;
   const frac = computeCompleteness(amounts);
 
-  let hiddenCount = 0;
   const groups = NUTRIENT_GROUPS.map((g) => {
     const all = NUTRIENTS.filter((n) => n.group === g.code);
     const rows = all.filter((n) => {
       const shown = isKnown(derived[n.code]) || targets?.[n.code] !== undefined;
-      if (!shown && !showAll) hiddenCount += 1;
       return shown || showAll;
     });
     const known = all.filter((n) => isKnown(derived[n.code])).length;
-    return { ...g, rows, known, total: all.length };
+    // Rows hidden because they have no data (only when "show all" is off).
+    const hidden = showAll ? 0 : all.length - rows.length;
+    return { ...g, rows, known, hidden, total: all.length };
   });
+  const hiddenCount = groups.reduce((sum, g) => sum + g.hidden, 0);
 
   return (
     <View style={styles.panel}>
