@@ -167,6 +167,44 @@ const summary = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/**
+ * Shape of /usersummary-service/v2/dailysummaries as returned for a real account (Nov 2026), reduced to the
+ * fields we read. Values are made up; the NESTING is what matters (this regressed once: flat names matched nothing).
+ */
+const REAL_V2_DAILY_SUMMARY = {
+  uuid: 'x',
+  calendarDate: '2026-11-09',
+  source: 'GARMIN',
+  includesWellnessData: true,
+  includesActivityData: true,
+  movement: { steps: { goal: 7000, value: 1949, distanceInMeters: 1500 } },
+  calories: { burnedResting: 1850, burnedActive: 412, burnedTotal: 2262 },
+  heartRate: { minValue: 50, maxValue: 101, restingValue: 53 },
+  stress: { avgLevel: 25, maxLevel: 90, qualifier: 'balanced' },
+  bodyBattery: { minValue: 24, maxValue: 82, chargedValue: 58, drainedValue: 54, latestValue: 30 },
+  respiration: { avgValue: 14, maxValue: 20, minValue: 9, latestValue: 15 },
+};
+
+describe('mapDailySummaries (real v2 nested shape)', () => {
+  it('reads calories, steps, resting HR, stress, body battery and respiration from nested objects', () => {
+    const r = mapDailySummaries({ data: [REAL_V2_DAILY_SUMMARY] });
+    expect(r.energy).toEqual([
+      { date: '2026-11-09', activeKcal: 412, restingKcal: 1850, totalKcal: 2262, steps: 1949 },
+    ]);
+    const byType = Object.fromEntries(r.biometrics.map((b) => [b.type, b.value]));
+    expect(byType.resting_heart_rate).toBe(53);
+    expect(byType.stress).toBe(25);
+    expect(byType.body_battery).toBe(82);
+    expect(byType.respiration_rate).toBe(14);
+  });
+
+  it('reports no missing core fields for the real shape', () => {
+    const r = mapDailySummaries({ data: [REAL_V2_DAILY_SUMMARY] });
+    const missing = r.diagnostics.filter((d) => /activeKcal|restingKcal|totalKcal|steps|restingHeartRate|stress|bodyBattery/.test(d.field));
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('mapDailySummaries', () => {
   it('maps a realistic {data: [...]} response', () => {
     const r = mapDailySummaries({ data: [summary(), summary({ calendarDate: '2026-11-10', totalSteps: 1200 })] });
