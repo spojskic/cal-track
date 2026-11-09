@@ -23,7 +23,24 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_TOTAL_CALORIES_BURNED",
+        "android.permission.health.READ_BASAL_METABOLIC_RATE",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_BODY_FAT",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_HEART_RATE_VARIABILITY",
+        "android.permission.health.READ_OXYGEN_SATURATION",
+        "android.permission.health.READ_RESPIRATORY_RATE",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_BLOOD_PRESSURE",
+        "android.permission.health.READ_HEALTH_DATA_HISTORY",
+        "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
+      ]
     },
     "web": {
       "output": "single",
@@ -52,6 +69,25 @@
         "expo-image-picker",
         {
           "photosPermission": "Cal Track lets you pick meal photos to log food."
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Cal Track reads your activity, weight, sleep and heart data from Apple Health to adjust your calorie budget and chart your trends. It is stored only in your own Cal Track account.",
+          "NSHealthUpdateUsageDescription": "Cal Track does not write to Apple Health today. If you turn on write-back in the future, it saves the food and water you log.",
+          "background": false,
+          "_comment_background": "FREE Apple ID personal teams may not be able to sign the HealthKit background-delivery entitlement, so it is OFF. To turn it on later (paid developer account): set \"background\" to true, run `npx expo prebuild --clean`, and rebuild; the plugin then adds com.apple.developer.healthkit.background-delivery. The app does not need it today: the sync runs on start, on foreground and via expo-background-task."
+        }
+      ],
+      "react-native-health-connect",
+      "expo-background-task",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
         }
       ]
     ],
