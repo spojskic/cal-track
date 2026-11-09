@@ -14,7 +14,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,sql,yml}\" --ignore-path .gitignore"
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,sql,yml}\" --ignore-path .gitignore",
+    "seed:generate": "node --import tsx packages/core/scripts/generate-seed-sql.ts --out supabase/seed"
   },
   "devDependencies": {
     "prettier": "^3.3.0",

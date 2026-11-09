@@ -44,7 +44,7 @@ pnpm web           # start the app in the browser (first target)
 3. Sign-ups are disabled (invite-only). Create each user in the dashboard under
    Authentication > Users > Add user (email + password, auto-confirm).
 4. Generate and load the reference seeds (nutrients, intake targets, exercises):
-   `pnpm exec tsx packages/core/scripts/generate-seed-sql.ts --out supabase/seed`
+   `pnpm seed:generate`, then run the three files in `supabase/seed/` in the SQL editor (or with `psql`)
 5. Import foods: see `tools/importer/README.md`.
 
 ### GitHub Actions secrets
