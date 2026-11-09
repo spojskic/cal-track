@@ -62,6 +62,7 @@
         "expo-camera",
         {
           "cameraPermission": "Cal Track uses the camera to scan barcodes and photograph meals.",
+          "microphonePermission": false,
           "recordAudioAndroid": false
         }
       ],
