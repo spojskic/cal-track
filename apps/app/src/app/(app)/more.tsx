@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 
 // The AI settings route is built separately; cast so this compiles before and after it exists.
 const AI_SETTINGS = '/settings/ai' as unknown as Href;
+const COACH = '/coach' as unknown as Href;
 
 interface MenuItem {
   label: string;
@@ -48,6 +49,16 @@ export default function MoreScreen() {
         {MENU.map((item, i) => (
           <MenuRow key={item.label} item={item} first={i === 0} />
         ))}
+        {ai.enabled ? (
+          <>
+            <Divider />
+            <NavRow
+              label="Coach"
+              description="Chat about your nutrition, training and recovery"
+              onPress={() => router.push(COACH)}
+            />
+          </>
+        ) : null}
         <Divider />
         <NavRow
           label={ai.enabled ? 'AI Coach & keys' : 'AI (optional)'}
