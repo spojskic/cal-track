@@ -85,7 +85,9 @@ export function computeDayEnergy(input: Inputs) {
   // device workout may be added on top. Without device data (or in static mode) every counted entry is used.
   let exerciseForEnergy: readonly ExerciseEntry[] = counted;
   if (mode !== 'static' && hasDeviceActive) {
-    const workouts: DeviceWorkout[] = counted
+    // Device workouts are stored with counts_toward_energy = false (their kcal is already inside the
+    // device's daily active energy), so they must come from ALL entries, not only the counted ones.
+    const workouts: DeviceWorkout[] = exercise
       .filter((e) => e.source !== 'manual')
       .flatMap((e) => {
         const startMs = toMs(e.started_at);
