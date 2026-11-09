@@ -98,7 +98,7 @@ const DEFS = [
     offKey: 'added-sugars',
     limitNutrient: true,
   }),
-  d('SUGAR_ALCOHOLS_G', 'Sugar Alcohols', 'g', 'carbs', null, { offKey: 'polyols' }), // custom, no FDC id
+  d('SUGAR_ALCOHOLS_G', 'Sugar Alcohols', 'g', 'carbs', 1086, { offKey: 'polyols' }), // FDC 1086 (verified in real Foundation/SR files)
   d('NET_CARBS_G', 'Net Carbs', 'g', 'carbs', null, { computed: true }),
   d('SUCROSE_G', 'Sucrose', 'g', 'carbs', 1010, { offKey: 'sucrose' }),
   d('GLUCOSE_G', 'Glucose', 'g', 'carbs', 1011, { offKey: 'glucose' }),
@@ -211,7 +211,7 @@ const DEFS = [
     offKey: 'pantothenic-acid',
   }),
   d('B6_MG', 'B6 (Pyridoxine)', 'mg', 'vitamins', 1175, { shortName: 'B6', offKey: 'vitamin-b6' }),
-  d('B7_BIOTIN_UG', 'B7 (Biotin)', 'ug', 'vitamins', null, { shortName: 'Biotin', offKey: 'biotin' }), // not in FDC
+  d('B7_BIOTIN_UG', 'B7 (Biotin)', 'ug', 'vitamins', 1176, { shortName: 'Biotin', offKey: 'biotin' }), // FDC 1176 (sparse data)
   d('FOLATE_UG', 'Folate (DFE)', 'ug', 'vitamins', 1190, {
     shortName: 'Folate',
     offKey: 'vitamin-b9',
@@ -239,8 +239,8 @@ const DEFS = [
   d('SELENIUM_UG', 'Selenium', 'ug', 'minerals', 1103, { offKey: 'selenium' }),
   d('FLUORIDE_UG', 'Fluoride', 'ug', 'minerals', 1099, { offKey: 'fluoride' }),
   d('IODINE_UG', 'Iodine', 'ug', 'minerals', 1100, { offKey: 'iodine' }),
-  d('CHROMIUM_UG', 'Chromium', 'ug', 'minerals', null, { offKey: 'chromium' }), // not in FDC
-  d('MOLYBDENUM_UG', 'Molybdenum', 'ug', 'minerals', null, { offKey: 'molybdenum' }), // not in FDC
+  d('CHROMIUM_UG', 'Chromium', 'ug', 'minerals', 1096, { offKey: 'chromium' }), // FDC 1096 (sparse data)
+  d('MOLYBDENUM_UG', 'Molybdenum', 'ug', 'minerals', 1102, { offKey: 'molybdenum' }), // FDC 1102 (sparse data)
 ] as const;
 
 /** Union of all nutrient codes in the catalog. */

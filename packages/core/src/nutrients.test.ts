@@ -97,11 +97,11 @@ describe('nutrient catalog', () => {
     for (const code of COMPUTED_NUTRIENT_CODES) expect(NUTRIENT_BY_CODE[code].fdcId).toBeNull();
   });
 
-  it('has null FDC ids only for computed or custom nutrients', () => {
+  it('has null FDC ids only for computed nutrients', () => {
+    // Biotin 1176, chromium 1096, molybdenum 1102 and sugar alcohols 1086 exist in the real
+    // FDC files (verified against the Oct 2026 Foundation / SR Legacy archives).
     const nullIds = NUTRIENTS.filter((n) => n.fdcId === null && !n.computed).map((n) => n.code);
-    expect(nullIds.sort()).toEqual(
-      ['B7_BIOTIN_UG', 'CHROMIUM_UG', 'MOLYBDENUM_UG', 'SUGAR_ALCOHOLS_G'].sort(),
-    );
+    expect(nullIds).toEqual([]);
   });
 
   it('flags limit and highlight nutrients as specified', () => {

@@ -16,7 +16,7 @@ values
   ('STARCH_G', 'Starch', null, 'g', 'carbs', 1009, '{}'::int[], 'starch', 11, false, false, false),
   ('SUGARS_G', 'Sugars', null, 'g', 'carbs', 2000, array[1063]::int[], 'sugars', 12, false, false, false),
   ('ADDED_SUGARS_G', 'Added Sugars', null, 'g', 'carbs', 1235, '{}'::int[], 'added-sugars', 13, false, true, false),
-  ('SUGAR_ALCOHOLS_G', 'Sugar Alcohols', null, 'g', 'carbs', null, '{}'::int[], 'polyols', 14, false, false, false),
+  ('SUGAR_ALCOHOLS_G', 'Sugar Alcohols', null, 'g', 'carbs', 1086, '{}'::int[], 'polyols', 14, false, false, false),
   ('NET_CARBS_G', 'Net Carbs', null, 'g', 'carbs', null, '{}'::int[], null, 15, true, false, false),
   ('SUCROSE_G', 'Sucrose', null, 'g', 'carbs', 1010, '{}'::int[], 'sucrose', 16, false, false, false),
   ('GLUCOSE_G', 'Glucose', null, 'g', 'carbs', 1011, '{}'::int[], 'glucose', 17, false, false, false),
@@ -75,7 +75,7 @@ values
   ('B3_NIACIN_MG', 'B3 (Niacin)', 'B3', 'mg', 'vitamins', 1167, '{}'::int[], 'vitamin-pp', 70, false, false, false),
   ('B5_PANTOTHENIC_MG', 'B5 (Pantothenic Acid)', 'B5', 'mg', 'vitamins', 1170, '{}'::int[], 'pantothenic-acid', 71, false, false, false),
   ('B6_MG', 'B6 (Pyridoxine)', 'B6', 'mg', 'vitamins', 1175, '{}'::int[], 'vitamin-b6', 72, false, false, false),
-  ('B7_BIOTIN_UG', 'B7 (Biotin)', 'Biotin', 'ug', 'vitamins', null, '{}'::int[], 'biotin', 73, false, false, false),
+  ('B7_BIOTIN_UG', 'B7 (Biotin)', 'Biotin', 'ug', 'vitamins', 1176, '{}'::int[], 'biotin', 73, false, false, false),
   ('FOLATE_UG', 'Folate (DFE)', 'Folate', 'ug', 'vitamins', 1190, '{}'::int[], 'vitamin-b9', 74, false, false, true),
   ('FOLIC_ACID_UG', 'Folic Acid', null, 'ug', 'vitamins', 1186, '{}'::int[], null, 75, false, false, false),
   ('B12_UG', 'B12 (Cobalamin)', 'B12', 'ug', 'vitamins', 1178, '{}'::int[], 'vitamin-b12', 76, false, false, true),
@@ -93,8 +93,8 @@ values
   ('SELENIUM_UG', 'Selenium', null, 'ug', 'minerals', 1103, '{}'::int[], 'selenium', 88, false, false, false),
   ('FLUORIDE_UG', 'Fluoride', null, 'ug', 'minerals', 1099, '{}'::int[], 'fluoride', 89, false, false, false),
   ('IODINE_UG', 'Iodine', null, 'ug', 'minerals', 1100, '{}'::int[], 'iodine', 90, false, false, false),
-  ('CHROMIUM_UG', 'Chromium', null, 'ug', 'minerals', null, '{}'::int[], 'chromium', 91, false, false, false),
-  ('MOLYBDENUM_UG', 'Molybdenum', null, 'ug', 'minerals', null, '{}'::int[], 'molybdenum', 92, false, false, false)
+  ('CHROMIUM_UG', 'Chromium', null, 'ug', 'minerals', 1096, '{}'::int[], 'chromium', 91, false, false, false),
+  ('MOLYBDENUM_UG', 'Molybdenum', null, 'ug', 'minerals', 1102, '{}'::int[], 'molybdenum', 92, false, false, false)
 on conflict (code) do update set
   name = excluded.name,
   short_name = excluded.short_name,
