@@ -8,3 +8,4 @@ export * from './dri';
 export * from './exercises';
 export * from './recipe';
 export * from './score';
+export * from './resolve-targets';
