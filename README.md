@@ -5,7 +5,7 @@ Tracks calories, macros and ~80 micronutrients, imports activity from Apple Heal
 (Garmin syncs into both), and has optional AI features (photo log, describe-a-meal, recipe builder,
 health-only coach) that run on **your own OpenRouter key stored only on your device**.
 
-> Status: early development. See "Roadmap" at the bottom.
+> Status: feature-complete first version; needs its first real-world run (see "First-run checklist").
 
 ## Repository layout
 
@@ -69,15 +69,46 @@ Food photos and descriptions are sent to OpenRouter only; the AI identifies food
 nutrient values come from this app's food database (AI-only estimates are clearly flagged).
 Coach conversations are stored in Supabase and auto-deleted after 90 days (switchable in settings).
 
+## First-run checklist
+
+Everything below has been typechecked, unit-tested and bundled, but **not yet run against a real Supabase
+project or on a device**. Do these in order; each step proves one more layer.
+
+1. `pnpm test` and `pnpm typecheck` pass (no accounts needed).
+2. Create the Supabase project, `npx supabase link`, `npx supabase db push`, `pnpm seed:generate` and run the three
+   files in `supabase/seed/` (SQL editor). Create your user (Authentication > Users > Add user).
+3. Import foods: `tools/importer/README.md` (start with `download sr_legacy`, then `fdc --dataset sr_legacy`).
+4. `pnpm web`, sign in, finish onboarding, log a food. This is the first time the Supabase queries meet a real
+   PostgREST; expect to fix a query or two (embedded selects are the likeliest).
+5. Deploy the edge functions (`supabase/functions/README.md`) and try a barcode scan / "Search online".
+6. Connect OpenRouter under More > AI (paste a key; the OAuth button may be rejected on a local dev port).
+7. Phone builds: `npx expo prebuild`, then Xcode (free Apple ID) or `npx expo run:android`. Apple Health /
+   Health Connect cannot be tested in a simulator or Expo Go. HealthKit's background-delivery entitlement is off by
+   default because free Apple IDs may not be able to sign it.
+8. `pnpm --filter @cal/ui-smoke smoke` runs the whole web app against a mocked backend and screenshots every screen
+   (needs a normal terminal; see `tools/ui-smoke/README.md`).
+
 ## Roadmap
 
-- [x] Monorepo, Expo app shell, auth gate, responsive navigation
-- [x] CI, nightly backup, keep-alive
-- [ ] Nutrition maths (`core`), AI layer (`ai`), schema + RLS + search (`supabase`), importer: in progress
-- [ ] Onboarding, targets and profile screens
-- [ ] Food search, food detail, custom foods, barcode scan
-- [ ] Diary, summary rings and bars, nutrient targets
-- [ ] Recipes and saved meals
-- [ ] Apple Health / Health Connect sync and energy modes
-- [ ] AI: key connect, photo log, describe meal, recipe builder, coach
-- [ ] Trends, fasting, CSV export, Garmin Personal API
+Done (code complete, see checklist for what still needs real-world verification):
+
+- [x] Monorepo, CI, nightly backup, keep-alive, database size check
+- [x] Nutrition maths: 92-nutrient catalog, BMR/energy modes, macros, intake targets, recipes, scoring
+- [x] Supabase schema, RLS, accent-insensitive search, coach retention (230+ database tests on real Postgres)
+- [x] Food importer for USDA FoodData Central (JSON + CSV) and Canadian Nutrient File
+- [x] Onboarding, targets breakdown, nutrient target overrides, settings
+- [x] Food search, food detail, custom foods, barcode scan, online search (edge functions)
+- [x] Diary, energy/macro/nutrient summaries, dashboard
+- [x] Exercise, biometrics, notes, water
+- [x] Recipes with cooked-weight maths and versioning, saved meals
+- [x] Apple Health / Health Connect sync
+- [x] AI: OpenRouter connect, photo log, describe meal, AI recipe, health-only coach
+
+Not built yet:
+
+- [ ] Trends / reports page and CSV export
+- [ ] Fasting timer
+- [ ] UK CoFID import (needs the Excel layout)
+- [ ] Garmin Personal API (direct Garmin data such as Body Battery)
+- [ ] Mark-day-complete and swipe between days
+- [ ] Writing nutrition back to Apple Health / Health Connect
