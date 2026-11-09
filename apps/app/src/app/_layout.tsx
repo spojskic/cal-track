@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { SetupRequired } from '@/components/setup-required';
+import { useProfile } from '@/data/profile';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { queryClient, queryPersister } from '@/lib/query';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -16,6 +17,7 @@ function RootNavigator() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const { colors, isDark } = useTheme();
+  const profile = useProfile();
 
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync();
@@ -27,6 +29,12 @@ function RootNavigator() {
   const inAuthGroup = segments[0] === '(auth)';
   if (!session && !inAuthGroup) return <Redirect href="/sign-in" />;
   if (session && inAuthGroup) return <Redirect href="/" />;
+
+  // First run: send signed-in users who have not completed onboarding to the setup wizard.
+  if (session && profile.isLoading) return null;
+  if (session && profile.isSuccess && !profile.data?.onboarded && segments[0] !== 'onboarding') {
+    return <Redirect href="/onboarding" />;
+  }
 
   return (
     <>

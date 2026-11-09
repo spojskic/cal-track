@@ -1,7 +1,7 @@
-// OWNER: profile/targets agent (replace this stub with the real implementation; keep the exports).
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { ActivityLevel, BmrFormula, EnergyMode, Sex, UnitSystem } from '@cal/core';
 
+import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 import { keys } from './keys';
@@ -27,9 +27,35 @@ export interface Profile {
   onboarded: boolean;
 }
 
+/** Writable profile columns. */
+export type ProfilePatch = Partial<Omit<Profile, 'user_id'>>;
+
+/** The signed-in user's id, or undefined while signed out. */
+export function useUserId(): string | undefined {
+  return useAuth().session?.user.id;
+}
+
+/**
+ * Resolves the current user's id for a write. Reads the locally stored session first
+ * (no network round trip) and falls back to `auth.getUser()`.
+ */
+export async function requireUserId(): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const fromSession = sessionData.session?.user.id;
+  if (fromSession) return fromSession;
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) throw new Error('You are signed out. Please sign in again.');
+  return data.user.id;
+}
+
+/** Query key of the profile. Includes the user id so a cached profile never leaks across accounts. */
+export const profileKey = (userId: string | undefined) => [...keys.profile, userId ?? 'anon'] as const;
+
 export function useProfile() {
+  const userId = useUserId();
   return useQuery({
-    queryKey: keys.profile,
+    queryKey: profileKey(userId),
+    enabled: Boolean(userId),
     queryFn: async (): Promise<Profile | null> => {
       const { data, error } = await supabase.from('profiles').select('*').maybeSingle();
       if (error) throw error;
@@ -41,4 +67,67 @@ export function useProfile() {
 /** The user's preferred unit system (defaults to metric until the profile loads). */
 export function useUnitSystem(): UnitSystem {
   return useProfile().data?.unit_system ?? 'metric';
+}
+
+/** The device IANA time zone, falling back to UTC. */
+export function deviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+/** Refreshes everything derived from the profile (the profile itself and the resolved targets). */
+export function invalidateProfileData(qc: QueryClient): Promise<unknown> {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: keys.profile }),
+    qc.invalidateQueries({ queryKey: keys.targets }),
+  ]);
+}
+
+/** Upserts the profile row (insert when missing, merge otherwise). Does not touch caches. */
+export async function upsertProfileRow(patch: ProfilePatch): Promise<Profile> {
+  const userId = await requireUserId();
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, ...patch }, { onConflict: 'user_id' })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Profile;
+}
+
+/** Partial update of the profile row. */
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: ProfilePatch): Promise<Profile> => {
+      const userId = await requireUserId();
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(patch)
+        .eq('user_id', userId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as Profile;
+    },
+    onSuccess: async (row) => {
+      qc.setQueryData(profileKey(row.user_id), row);
+      await invalidateProfileData(qc);
+    },
+  });
+}
+
+/** Insert-or-merge variant of {@link useUpdateProfile} (safe when the row does not exist yet). */
+export function useUpsertProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: ProfilePatch) => upsertProfileRow(patch),
+    onSuccess: async (row) => {
+      qc.setQueryData(profileKey(row.user_id), row);
+      await invalidateProfileData(qc);
+    },
+  });
 }
