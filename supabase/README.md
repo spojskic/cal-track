@@ -60,17 +60,17 @@ After a large food import run `analyze public.foods;`.
 Apply the auth settings from `config.toml` to the hosted project (or set them in the
 dashboard): `npx supabase config push`.
 
-## Inviting users (sign-up is disabled)
+## Creating users (sign-up is disabled)
 
-`config.toml` sets `[auth] enable_signup = false`. The admin invites people:
+`config.toml` sets `[auth] enable_signup = false`, so the owner creates every account:
 
-- Dashboard: **Authentication > Users > Invite user**, or
-- admin API with the service-role key (never ship that key in the app):
-  `supabase.auth.admin.inviteUserByEmail('friend@example.com')`.
+- **Dashboard (works today)**: **Authentication > Users > Add user > Create new user**, enter an email and password and
+  tick *Auto Confirm User*. Give the person their password; they can sign in straight away.
+- **Invite by email (does not work yet)**: the invite link expects a page where the invitee sets a password, and the
+  app has none. Use the method above until one is added.
 
-The invitee follows the e-mail link and sets a password. Inserting into `auth.users`
-fires `handle_new_user`, which creates the profile and the four default meal groups
-(Breakfast, Lunch, Dinner, Snacks).
+Inserting into `auth.users` fires `handle_new_user`, which creates the profile and the four default meal groups
+(Breakfast, Lunch, Dinner, Snacks). Never put the service-role key in the app.
 
 ## Tests
 
