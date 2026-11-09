@@ -1,0 +1,17 @@
+{
+  "name": "@cal/ui-smoke",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "node --import tsx src/run.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "playwright-core": "^1.55.0",
+    "typescript": "^5.9.0",
+    "vitest": "^5.1.0"
+  }
+}
