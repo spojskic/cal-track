@@ -41,6 +41,15 @@ function Source({
   );
 }
 
+/** "abc1234, 10 Nov 2026 16:52": which commit this copy of the app was built from, and when. */
+function buildLabel(): string {
+  const build = (Constants.expoConfig?.extra as { build?: { commit?: string; builtAt?: string } } | undefined)?.build;
+  if (!build?.commit) return 'unknown';
+  const when = build.builtAt ? new Date(build.builtAt) : null;
+  const time = when && !Number.isNaN(when.getTime()) ? `, ${when.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : '';
+  return `${build.commit}${time}`;
+}
+
 export default function AboutScreen() {
   const version = Constants.expoConfig?.version ?? 'unknown';
   const name = Constants.expoConfig?.name ?? 'Cal Track';
@@ -51,6 +60,7 @@ export default function AboutScreen() {
       <Card>
         <AppText variant="heading">{name}</AppText>
         <KeyValueRow label="Version" value={version} />
+        <KeyValueRow label="Build" value={buildLabel()} />
         <AppText variant="small" muted>
           A nutrition tracker for food, exercise and body measurements.
         </AppText>
