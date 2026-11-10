@@ -68,7 +68,7 @@ npx supabase secrets set ONLINE_SEARCH_USER_PER_MINUTE=5 ONLINE_SEARCH_GLOBAL_PE
 ## Deploy
 
 ```bash
-npx supabase functions deploy barcode-lookup online-search
+npx supabase functions deploy barcode-lookup online-search --use-api   # --use-api: no Docker needed
 ```
 
 `verify_jwt = true` is set for both in `config.toml`. **Do not deploy with `--no-verify-jwt`**: the

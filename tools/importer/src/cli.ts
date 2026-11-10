@@ -252,6 +252,13 @@ export async function main(rawArgs: string[], io: Io = consoleIo): Promise<numbe
     }
     const message = err instanceof Error ? err.message : String(err);
     io.error(`Error: ${dbUrl ? redactSecrets(message, urlSecrets(dbUrl)) : message}`);
+    if (dbUrl && /ENOTFOUND|ENETUNREACH|EHOSTUNREACH|ETIMEDOUT/.test(message) && /@db\.[a-z0-9]+\.supabase\.co[:/]/i.test(dbUrl)) {
+      io.error(
+        '\nHint: that is the DIRECT database host, which is IPv6-only on the free plan, so most home networks cannot reach it.\n' +
+          'Use the SESSION POOLER string instead (Supabase dashboard -> Connect -> Session pooler): the host looks like\n' +
+          'aws-0-<region>.pooler.supabase.com, the user is postgres.<project-ref>, the port is 5432.',
+      );
+    }
     return 1;
   }
 }

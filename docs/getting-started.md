@@ -40,12 +40,13 @@ pnpm typecheck
 ```bash
 npx supabase login
 npx supabase link --project-ref <ref>      # <ref> is the xxxx in https://xxxx.supabase.co
-npx supabase db push                       # applies supabase/migrations/*
+npx supabase db push --remote --include-seed   # migrations AND the seed files (CLI 3 needs --remote, else it targets a local Docker DB)
 ```
 
-Then load the reference data (nutrient list, intake targets, exercise activities). The generated files are already in
-`supabase/seed/`. Easiest: open **SQL Editor** in the dashboard and run `001_nutrients.sql`, `002_dri_values.sql` and
-`003_exercise_activities.sql` **in that order**. Regenerate them with `pnpm seed:generate` if you change the catalog.
+`--include-seed` also loads the reference data (nutrient list, intake targets, exercise activities) from `supabase/seed/`; the
+files are idempotent, so re-running is safe. Regenerate them with `pnpm seed:generate` if you change the catalog. Use
+`--dry-run` first to preview. Older CLIs (v2) have no `--remote`/`--include-seed`; then run the three seed files in the
+SQL Editor yourself, in order (`001_nutrients.sql`, `002_dri_values.sql`, `003_exercise_activities.sql`).
 
 ## 5. Accounts
 

@@ -31,13 +31,14 @@ source does not report is **absent** from the jsonb (unknown is not zero).
 * A Postgres URL with write access (the `postgres` role; RLS is bypassed):
 
   ```sh
-  export SUPABASE_DB_URL='postgresql://postgres:PASSWORD@db.PROJECT-REF.supabase.co:5432/postgres'
+  # Session pooler string (dashboard -> Connect -> Session pooler): works over IPv4
+  export SUPABASE_DB_URL='postgresql://postgres.PROJECT-REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres'
   ```
 
-  Supabase dashboard -> *Project Settings -> Database -> Connection string*.
-  The direct host is IPv6-only on the free tier; if your network has no IPv6 use
-  the **session pooler** string (port 5432, user `postgres.PROJECT-REF`). Do not use
-  the transaction pooler (6543). The URL may also be passed as `--db-url`, or put in
+  Use the **session pooler** (port 5432, user `postgres.PROJECT-REF`). The *direct* host
+  `db.PROJECT-REF.supabase.co` is IPv6-only on the free plan and fails with `ENOTFOUND` on most
+  home networks. Do not use the transaction pooler (6543). Special characters in the password
+  must be URL-encoded (`@` becomes `%40`). The URL may also be passed as `--db-url`, or put in
   `tools/importer/.env` / the repo `.env` as `SUPABASE_DB_URL=...` (git-ignored; real
   environment variables win). **The URL and password are never printed.**
   TLS is used for every host except localhost (`--no-ssl` to disable).

@@ -44,6 +44,9 @@ The full walk-through is in **[docs/getting-started.md](docs/getting-started.md)
 | [AI and privacy](docs/ai-and-privacy.md) | Connecting a key, what is sent where, coach limits, costs |
 | [Architecture](docs/architecture.md) | Repo layout, data model, how targets and energy are computed, design decisions |
 | [Development](docs/development.md) | Commands, tests, regenerating generated files, the browser smoke test |
+| [Garmin integration](docs/garmin-integration.md) | One-tap Connect Garmin: how it works, secrets, what to do after Garmin approves the app (ships switched off) |
+| [Garmin access request](docs/garmin-application.md) | Ready-to-paste answers for Garmin's developer access form |
+| [Privacy policy](docs/privacy-policy.md) | Plain-language policy to publish (Garmin asks for a public URL) |
 
 Component guides: [database](supabase/README.md), [edge functions](supabase/functions/README.md),
 [food importer](tools/importer/README.md).

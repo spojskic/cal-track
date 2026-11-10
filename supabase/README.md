@@ -43,11 +43,11 @@ skips it. Put any new Supabase-only step in such a file, **after** the portable 
 ```bash
 npx supabase login
 npx supabase link --project-ref <your-project-ref>     # ref = the xxxx in https://xxxx.supabase.co
-npx supabase db push                                   # applies supabase/migrations/* to the remote DB
+npx supabase db push --remote --include-seed           # migrations + supabase/seed/*.sql to the linked project (CLI 3: --remote is required)
 ```
 
-`db push` does not run `seed/`. Load seeds with `psql` (connection string from
-Dashboard > Project Settings > Database), in this order: `nutrients` first, then
+With `--include-seed` the CLI also runs `seed/*.sql` in file order. Without it (or on CLI v2) `db push` does not run `seed/`:
+load the files with `psql` (connection string from Dashboard > Connect > Session pooler), `nutrients` first, then
 the rest:
 
 ```bash
