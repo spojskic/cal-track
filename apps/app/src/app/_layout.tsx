@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 
 import { GestureRoot } from '@/components/gesture-root';
 import { SetupRequired } from '@/components/setup-required';
+import { StackHeader } from '@/components/stack-header';
 import { useProfile } from '@/data/profile';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { queryClient, queryPersister } from '@/lib/query';
@@ -45,14 +46,9 @@ function RootNavigator() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
-          // Screens that opt in with `<Stack.Screen options={{ headerShown: true }} />` inherit the theme, so the
-          // header is dark in dark mode instead of the default white navigation header.
-          headerStyle: { backgroundColor: colors.surface },
-          headerTintColor: colors.text,
-          headerTitleStyle: { color: colors.text },
-          headerShadowVisible: false,
-          // iOS shows the previous screen's title next to the arrow; the previous screen here is the route GROUP, so it said "(app)".
-          headerBackButtonDisplayMode: 'minimal',
+          // Screens that opt in with `<Stack.Screen options={{ headerShown: true }} />` get the app's own header (themed, no
+          // native liquid-glass buttons), see components/stack-header.tsx.
+          header: (props) => <StackHeader {...props} />,
         }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(app)" />
