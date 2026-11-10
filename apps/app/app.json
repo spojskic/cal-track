@@ -7,6 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "caltrack",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#12141F",
     "ios": {
       "bundleIdentifier": "com.spojskic.caltrack",
       "supportsTablet": true,

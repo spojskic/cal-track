@@ -145,7 +145,7 @@ export default function PhotoLogScreen() {
                 <Button label={uri ? 'Retake photo' : 'Take a photo'} onPress={takePhoto} />
               </View>
               <View style={styles.flex}>
-                <Button label="Choose from library" variant="secondary" onPress={chooseFromLibrary} />
+                <Button label="From library" variant="secondary" onPress={chooseFromLibrary} />
               </View>
             </View>
             {pickError ? (

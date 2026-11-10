@@ -1692,7 +1692,8 @@ export const SCENARIOS: Scenario[] = [
       // "Add 1 serving to diary" opens the food screen of the recipe, where the entry is confirmed.
       await stepThen(ctx, 'open "Add 1 serving to diary"', () => clickButton(page, /^Add 1 serving to diary/), async () => {
         await ctx.expectUrl(new RegExp(`/food/${F.recipeChickenRice}`));
-        await ctx.expectText('Serving');
+        // Exact: the recipe screen below this one stays mounted (hidden) and also contains "Servings" / "Serving size".
+        await ctx.expectText('Serving', { exact: true });
         await stepThen(ctx, 'confirm on the food screen', () => clickButton(page, /^Add to diary/), async () => {
           await ctx.expectText(/Added to /);
           await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.recipeChickenRice && payloadOf(m).grams === 450);
@@ -2030,6 +2031,38 @@ export const SCENARIOS: Scenario[] = [
         });
       }
       await stepThen(ctx, 'open the add sheet from the navigation', () => clickButton(page, 'Add to diary'), () => ctx.expectUrl(/\/add/));
+    },
+  },
+  {
+    // The Add food screen has a "..." in its header to change WHAT is being added (same list as the "+" of the tab bar).
+    name: 'search: the "..." menu switches to another way of adding',
+    route: '/search',
+    path: '/search',
+    auth: 'signed-in',
+    expect: ['Add food'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'open the "..." menu', () => clickButton(page, 'More ways to add', { exact: true }), async () => {
+        await ctx.expectText('Add something else');
+        for (const label of ['Scan barcode', 'Create custom food', 'Add exercise', 'Add biometric', 'Add note', 'Add water']) {
+          await ctx.expectText(label);
+        }
+        await ctx.expectNoText('Photo log', { timeout: 1500 }); // AI entries stay hidden without an AI key
+        await ctx.expectNoText('Search food', { timeout: 1500 }); // this is the screen the user is on
+        await ctx.snapshot('add-menu', { tall: false });
+        await stepThen(ctx, 'choose Add exercise', () => clickButton(page, 'Add exercise', { exact: true }), () => ctx.expectUrl(/\/exercise\/new/));
+      });
+    },
+  },
+  {
+    name: 'search: picking an ingredient for a recipe has no "..." menu',
+    route: '/search',
+    path: '/search?mode=pick',
+    auth: 'signed-in',
+    expect: ['Add ingredient'],
+    async after(page, ctx) {
+      await ctx.check('no "More ways to add" button', async () => {
+        if ((await page.getByRole('button', { name: 'More ways to add', exact: true }).count()) > 0) throw new Error('the menu button is shown in pick mode');
+      });
     },
   },
 ];

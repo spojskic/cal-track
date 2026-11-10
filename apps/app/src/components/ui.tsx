@@ -147,9 +147,11 @@ const styles = StyleSheet.create({
   button: {
     minHeight: 46,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonLabel: { fontSize: 15, fontWeight: '700' },
+  // Centred, so a label that has to wrap (two buttons sharing a row) still sits in the middle of its pill.
+  buttonLabel: { fontSize: 15, fontWeight: '700', textAlign: 'center' },
 });

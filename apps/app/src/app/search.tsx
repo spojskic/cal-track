@@ -3,6 +3,8 @@ import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { AddTypeMenu } from '@/components/AddTypeMenu';
+import { IconButton } from '@/components/diary/IconButton';
 import { hapticSelection } from '@/components/food/feedback';
 import { ONLINE_LOOKUP_ENABLED } from '@/lib/features';
 import { FoodRow, type QuickAddState } from '@/components/food/food-row';
@@ -71,6 +73,8 @@ export default function SearchScreen() {
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addedIds, setAddedIds] = useState<ReadonlySet<string>>(new Set());
   const [toast, setToast] = useState<ToastState | null>(null);
+  // The "..." menu in the header: switch to another way of adding (barcode, exercise, note, AI helpers ...).
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [opening, setOpening] = useState<string | null>(null);
@@ -308,7 +312,15 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ headerShown: true, title: pickMode ? 'Add ingredient' : 'Add food' }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: pickMode ? 'Add ingredient' : 'Add food',
+          // Not when picking an ingredient for a recipe: there the other kinds of entry make no sense.
+          headerRight: pickMode ? undefined : () => <IconButton glyph={'\u22EF'} label="More ways to add" onPress={() => setAddMenuOpen(true)} size={40} />,
+        }}
+      />
+      {pickMode ? null : <AddTypeMenu visible={addMenuOpen} onClose={() => setAddMenuOpen(false)} mealGroupId={meal.mealGroupId} />}
       <View style={styles.inner}>
         <View style={[styles.sticky, { backgroundColor: colors.background }]}>
           <View style={styles.searchRow}>

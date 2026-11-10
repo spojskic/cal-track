@@ -1,8 +1,9 @@
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { Redirect, Stack, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, Redirect, Stack, ThemeProvider, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import * as SystemUI from 'expo-system-ui';
+import { useEffect, type ReactNode } from 'react';
 
 import { GestureRoot } from '@/components/gesture-root';
 import { SetupRequired } from '@/components/setup-required';
@@ -25,6 +26,12 @@ function RootNavigator() {
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync();
   }, [loading]);
+
+  // The native window / root view behind the screens. Without this it stays white and shows through at the rounded
+  // corners and between screens while a transition runs.
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
+  }, [colors.background]);
 
   if (!isSupabaseConfigured) return <SetupRequired />;
   if (loading) return null;
@@ -61,12 +68,33 @@ function RootNavigator() {
   );
 }
 
+/** React Navigation's own colours (screen containers, headers, tab areas) follow the app theme instead of its light default. */
+function NavigationTheme({ children }: { children: ReactNode }) {
+  const { colors, isDark } = useTheme();
+  const base = isDark ? DarkTheme : DefaultTheme;
+  const value = {
+    ...base,
+    colors: {
+      ...base.colors,
+      background: colors.background,
+      card: colors.surface,
+      border: colors.border,
+      text: colors.text,
+      primary: colors.primary,
+      notification: colors.danger,
+    },
+  };
+  return <ThemeProvider value={value}>{children}</ThemeProvider>;
+}
+
 export default function RootLayout() {
   return (
     <GestureRoot>
       <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: queryPersister }}>
         <AuthProvider>
-          <RootNavigator />
+          <NavigationTheme>
+            <RootNavigator />
+          </NavigationTheme>
         </AuthProvider>
       </PersistQueryClientProvider>
     </GestureRoot>
