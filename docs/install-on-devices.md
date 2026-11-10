@@ -70,8 +70,22 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer      # once
 
 Limits of a free Apple ID: the app **stops opening after 7 days** (run it from Xcode again to renew), at most 3 sideloaded
 apps per device, and no push notifications or Sign in with Apple (the app does not use them; it signs in with email and
-password). Alternatively, tools such as AltStore or SideStore re-sign apps automatically; getting an `.ipa` for them out of
-the Xcode project has not been tried here.
+password).
+
+### Alternative: an unsigned .ipa for SideStore or AltStore
+
+Those tools sign an `.ipa` with your free Apple ID on the phone and renew it for you. Build the unsigned file on the Mac:
+
+```bash
+brew install cocoapods               # once
+bash scripts/build-ios-ipa.sh        # 10-30 minutes the first time; needs apps/app/.env
+```
+
+It runs `expo prebuild`, `pod install` and `xcodebuild archive` with code signing switched off, and writes
+`build/CalTrack-unsigned.ipa`. Install SideStore or AltStore on the iPhone (follow their own guides), open the `.ipa` with it
+and sign in with your Apple ID there. Because the file is unsigned, the HealthKit entitlement is whatever SideStore/AltStore
+grants a free account; if Apple Health access does not work that way, use the Xcode route above, which signs with the
+capability. Everything else in the app does not depend on it.
 
 **Apple Health:** it works on a physical iPhone only (not the simulator). HealthKit's *background delivery* entitlement is
 switched off by default because a free account may be unable to sign it, so the app syncs when you open it and on a

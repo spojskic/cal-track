@@ -41,3 +41,6 @@ coverage/
 
 # garmin probe output (real personal data - never commit)
 tools/garmin-probe/out/
+
+# unsigned iOS build output (scripts/build-ios-ipa.sh)
+/build/
