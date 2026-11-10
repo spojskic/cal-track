@@ -50,6 +50,8 @@ function RootNavigator() {
           headerTintColor: colors.text,
           headerTitleStyle: { color: colors.text },
           headerShadowVisible: false,
+          // iOS shows the previous screen's title next to the arrow; the previous screen here is the route GROUP, so it said "(app)".
+          headerBackButtonDisplayMode: 'minimal',
         }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(app)" />

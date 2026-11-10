@@ -11,6 +11,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
 
@@ -64,12 +65,16 @@ export function Screen({
   children,
   title,
   scroll = true,
+  safeTop = false,
 }: {
   children: ReactNode;
   title?: string;
   scroll?: boolean;
+  /** Keep the content below the status bar / notch. Only for screens WITHOUT a native header (a header does this itself). */
+  safeTop?: boolean;
 }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const content = (
     <View style={styles.content}>
       {title ? <AppText variant="title" style={styles.pageTitle}>{title}</AppText> : null}
@@ -77,7 +82,7 @@ export function Screen({
     </View>
   );
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: safeTop ? insets.top : 0 }]}>
       {scroll ? (
         <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>
       ) : (

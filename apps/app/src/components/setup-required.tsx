@@ -3,7 +3,7 @@ import { Card, AppText, Screen } from './ui';
 /** Shown until Supabase env vars are configured. */
 export function SetupRequired() {
   return (
-    <Screen title="Almost there">
+    <Screen title="Almost there" safeTop>
       <Card>
         <AppText variant="heading">Connect your Supabase project</AppText>
         <AppText muted>

@@ -27,7 +27,7 @@ export default function SignInScreen() {
   }
 
   return (
-    <Screen title="Cal Track">
+    <Screen title="Cal Track" safeTop>
       <Card>
         <AppText variant="heading">Sign in</AppText>
         <AppText muted variant="small">

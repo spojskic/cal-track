@@ -65,7 +65,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <View style={flat(styles.root, { flexDirection: wide ? 'row' : 'column', backgroundColor: colors.background })}>
         {wide ? (
           <TabList asChild>
-            <View style={flat(styles.sidebar, { backgroundColor: colors.sidebar })}>
+            <View style={flat(styles.sidebar, { backgroundColor: colors.sidebar, paddingTop: spacing.xl + insets.top })}>
               <Text style={[styles.brand, { color: colors.onSidebar }]}>Cal Track</Text>
               <Pressable
                 accessibilityRole="button"
@@ -81,7 +81,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </View>
           </TabList>
         ) : null}
-        <View style={styles.slot}>
+        {/* The tab screens have no native header, so keep them below the status bar / notch (0 on the web). */}
+        <View style={[styles.slot, { paddingTop: insets.top }]}>
           <TabSlot style={styles.slotInner} />
         </View>
         {!wide ? (

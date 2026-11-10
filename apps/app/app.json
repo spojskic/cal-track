@@ -10,7 +10,6 @@
     "ios": {
       "bundleIdentifier": "com.caltrack.app",
       "supportsTablet": true,
-      "icon": "./assets/expo.icon",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -55,7 +54,7 @@
         {
           "backgroundColor": "#262A3B",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 140
         }
       ],
       [
