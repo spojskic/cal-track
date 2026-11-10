@@ -7,7 +7,7 @@ import { closeScreen, formatDateLabel } from '@/components/activity';
 import { ADD_ACTIONS, ADD_SECTIONS } from '@/components/add-actions';
 import { AppText, Button, Card } from '@/components/ui';
 import { useSelectedDate } from '@/state/selected-date';
-import { MAX_CONTENT_WIDTH, WIDE_BREAKPOINT, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, WIDE_BREAKPOINT, spacing, useTheme } from '@/theme';
 
 /** Dismisses the sheet and opens the destination in its place. */
 function openAction(route: string) {
@@ -16,7 +16,7 @@ function openAction(route: string) {
 
 export default function AddSheet() {
   const gate = useAiGate();
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_BREAKPOINT;
   const date = useSelectedDate((s) => s.date);
@@ -45,9 +45,9 @@ export default function AddSheet() {
                       onPress={() => openAction(action.route)}
                       style={({ pressed }) => [
                         styles.row,
-                        { backgroundColor: pressed ? colors.surfaceAlt : 'transparent' },
+                        { backgroundColor: pressed ? colors.surfaceAlt : 'transparent', borderRadius: radius.md },
                       ]}>
-                      <View style={[styles.icon, { backgroundColor: colors.surfaceAlt }]}>
+                      <View style={[styles.icon, { backgroundColor: colors.surfaceAlt, borderRadius: radius.pill }]}>
                         <SymbolView name={action.symbol} size={22} tintColor={colors.primary} />
                       </View>
                       <View style={{ flex: 1 }}>
@@ -82,7 +82,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     minHeight: 56,
     padding: spacing.md,
-    borderRadius: radius.md,
   },
-  icon: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 });

@@ -9,7 +9,7 @@ import { Segmented } from '@/components/forms';
 import { AppText, Button, Card } from '@/components/ui';
 import { averageOfDays, type RecentDay } from '@/data/diary';
 import type { WeightPoint } from '@/data/weight';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { weekdayInitial } from './dates';
 import { haptic } from './haptics';
@@ -33,7 +33,7 @@ const QUICK_ITEMS: QuickItem[] = [
 
 /** Food / Exercise / Biometric / Note shortcuts. */
 export function QuickAddRow() {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <View style={styles.quickRow} accessibilityRole="toolbar" accessibilityLabel="Quick add">
       {QUICK_ITEMS.map((item) => (
@@ -47,7 +47,7 @@ export function QuickAddRow() {
           }}
           style={({ pressed }) => [
             styles.quick,
-            { backgroundColor: pressed ? colors.surfaceAlt : colors.surface, borderColor: colors.border },
+            { backgroundColor: pressed ? colors.surfaceAlt : colors.surface, borderColor: colors.border, borderRadius: radius.lg },
           ]}>
           <SymbolView name={item.symbol} size={24} tintColor={colors.primary} />
           <AppText variant="small" style={{ fontWeight: '700' }}>
@@ -147,7 +147,7 @@ export function AverageCard({
 
 /** Consecutive logging days and the last week at a glance. */
 export function StreakCard({ days, streak, loading }: { days: readonly RecentDay[]; streak: number; loading?: boolean }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const week = days.slice(-7);
   const today = days[days.length - 1];
   const message = loading
@@ -179,7 +179,9 @@ export function StreakCard({ days, streak, loading }: { days: readonly RecentDay
             accessible
             accessibilityLabel={`${d.date}: ${d.logged ? 'logged' : 'nothing logged'}`}
             style={styles.weekCell}>
-            <View style={[styles.weekDot, { backgroundColor: d.logged ? colors.success : colors.track }]} />
+            <View
+              style={[styles.weekDot, { backgroundColor: d.logged ? colors.success : colors.track, borderRadius: shape.circle(WEEK_DOT_SIZE) }]}
+            />
             <AppText variant="small" muted>
               {weekdayInitial(d.date)}
             </AppText>
@@ -263,6 +265,9 @@ export function CoachCard() {
   );
 }
 
+/** The day markers of the streak card: round in the rounded look, small squares in the boxy one. */
+const WEEK_DOT_SIZE = 22;
+
 const styles = StyleSheet.create({
   quickRow: { flexDirection: 'row', gap: spacing.sm },
   quick: {
@@ -271,7 +276,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs + 2,
-    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: spacing.md,
   },
@@ -284,5 +288,5 @@ const styles = StyleSheet.create({
   macroPct: { width: 44, textAlign: 'right', fontWeight: '700' },
   weekRow: { flexDirection: 'row', justifyContent: 'space-between' },
   weekCell: { alignItems: 'center', gap: spacing.xs },
-  weekDot: { width: 22, height: 22, borderRadius: 11 },
+  weekDot: { width: WEEK_DOT_SIZE, height: WEEK_DOT_SIZE },
 });

@@ -38,7 +38,7 @@ function leave() {
 }
 
 function Wizard({ initial, canCancel }: { initial: OnboardingForm; canCancel: boolean }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const insets = useSafeAreaInsets();
   const [form, setForm] = useState<OnboardingForm>(initial);
   const [step, setStep] = useState(1);
@@ -93,7 +93,10 @@ function Wizard({ initial, canCancel }: { initial: OnboardingForm; canCancel: bo
             {Array.from({ length: TOTAL_STEPS }, (_, i) => (
               <View
                 key={i}
-                style={[styles.segment, { backgroundColor: i < step ? colors.primary : colors.track }]}
+                style={[
+                  styles.segment,
+                  { backgroundColor: i < step ? colors.primary : colors.track, borderRadius: shape.bar(SEGMENT_HEIGHT) },
+                ]}
               />
             ))}
           </View>
@@ -181,12 +184,14 @@ export default function OnboardingScreen() {
   return <Wizard initial={initial} canCancel={Boolean(profileQ.data?.onboarded)} />;
 }
 
+const SEGMENT_HEIGHT = 6;
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   progress: { gap: spacing.sm },
   segments: { flexDirection: 'row', gap: spacing.xs },
-  segment: { flex: 1, height: 6, borderRadius: 3 },
+  segment: { flex: 1, height: SEGMENT_HEIGHT },
   titles: { gap: spacing.xs },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md, paddingHorizontal: spacing.lg },
   footerInner: {

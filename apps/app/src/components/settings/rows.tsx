@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 /** Width reserved for a row icon, so labels line up whether or not a row has one. */
 const ICON_SLOT = 24;
@@ -37,7 +37,7 @@ export function NavRow({
   icon?: SymbolViewProps['name'];
   variant?: 'default' | 'list';
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const [hovered, setHovered] = useState(false);
   const list = variant === 'list';
   const accessibleName = [label, description, badge].filter(Boolean).join('. ');
@@ -53,6 +53,7 @@ export function NavRow({
       style={({ pressed }) => [
         styles.navRow,
         list && styles.listRow,
+        list ? { borderRadius: radius.sm } : null,
         list && !disabled && (hovered || pressed) ? { backgroundColor: colors.surfaceAlt } : null,
         { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 },
       ]}>
@@ -108,11 +109,11 @@ export function KeyValueRow({
 
 /** Small pill, used for nutrient target kinds and "Optional" markers. */
 export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'primary' | 'accent' }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const bg = tone === 'primary' ? colors.primary : tone === 'accent' ? colors.accent : colors.surfaceAlt;
   const fg = tone === 'neutral' ? colors.textMuted : colors.onPrimary;
   return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
+    <View style={[styles.badge, { backgroundColor: bg, borderRadius: radius.pill }]}>
       <Text style={[styles.badgeLabel, { color: fg }]}>{label}</Text>
     </View>
   );
@@ -126,7 +127,7 @@ export function Note({
   tone?: 'info' | 'warning' | 'danger' | 'success';
   children: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const bar =
     tone === 'warning'
       ? colors.warning
@@ -136,7 +137,7 @@ export function Note({
           ? colors.success
           : colors.accent;
   return (
-    <View style={[styles.note, { backgroundColor: colors.surfaceAlt, borderLeftColor: bar }]}>
+    <View style={[styles.note, { backgroundColor: colors.surfaceAlt, borderLeftColor: bar, borderRadius: radius.sm }]}>
       {typeof children === 'string' ? <AppText variant="small">{children}</AppText> : children}
     </View>
   );
@@ -154,7 +155,7 @@ export function Chip({
   onPress: () => void;
   accessibilityLabel?: string;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -166,6 +167,7 @@ export function Chip({
         {
           backgroundColor: selected ? colors.primary : colors.surfaceAlt,
           borderColor: selected ? colors.primary : colors.border,
+          borderRadius: radius.pill,
           opacity: pressed ? 0.8 : 1,
         },
       ]}>
@@ -202,17 +204,16 @@ const styles = StyleSheet.create({
   flex: { flex: 1, gap: 2 },
   bold: { fontWeight: '700' },
   navRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52, paddingVertical: spacing.sm },
-  listRow: { minHeight: 56, paddingHorizontal: LIST_ROW_PADDING, borderRadius: radius.sm },
+  listRow: { minHeight: 56, paddingHorizontal: LIST_ROW_PADDING },
   iconSlot: { width: ICON_SLOT, alignItems: 'center', justifyContent: 'center' },
   chevron: { fontSize: 22, fontWeight: '300' },
   divider: { height: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
   kvRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.xs },
-  badge: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+  badge: { paddingHorizontal: spacing.sm, paddingVertical: 2 },
   badgeLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
-  note: { borderLeftWidth: 4, borderRadius: radius.sm, padding: spacing.md, gap: spacing.xs },
+  note: { borderLeftWidth: 4, padding: spacing.md, gap: spacing.xs },
   chip: {
     minHeight: 38,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.md,
     alignItems: 'center',

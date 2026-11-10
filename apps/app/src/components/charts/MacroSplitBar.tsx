@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { formatNumber } from './format';
 
@@ -14,7 +14,7 @@ export interface MacroKcal {
 
 /** Stacked calorie-split bar (protein / carbs / fat) with a percentage legend. */
 export function MacroSplitBar({ split, caption }: { split: MacroKcal | undefined; caption?: string }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const total = split ? split.protein + split.carbs + split.fat : 0;
   const parts = [
     { key: 'protein', label: 'Protein', kcal: split?.protein ?? 0, color: colors.protein },
@@ -26,7 +26,7 @@ export function MacroSplitBar({ split, caption }: { split: MacroKcal | undefined
 
   return (
     <View accessible accessibilityLabel={`${caption ? `${caption}: ` : ''}${total > 0 ? summary : 'no data'}`} style={styles.wrap}>
-      <View style={[styles.track, { backgroundColor: colors.track }]}>
+      <View style={[styles.track, { backgroundColor: colors.track, borderRadius: shape.bar(TRACK_HEIGHT) }]}>
         {total > 0
           ? parts.map((p) => (
               <View key={p.key} style={{ flex: p.kcal / total, backgroundColor: p.color }} />
@@ -52,9 +52,11 @@ export function MacroSplitBar({ split, caption }: { split: MacroKcal | undefined
   );
 }
 
+const TRACK_HEIGHT = 10;
+
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
-  track: { flexDirection: 'row', height: 10, borderRadius: radius.pill, overflow: 'hidden' },
+  track: { flexDirection: 'row', height: TRACK_HEIGHT, overflow: 'hidden' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.md },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs + 2 },
   dot: { width: 8, height: 8, borderRadius: 4 },

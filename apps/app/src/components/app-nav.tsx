@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glyph } from '@/components/Glyph';
-import { WIDE_BREAKPOINT, radius, spacing, useTheme } from '@/theme';
+import { WIDE_BREAKPOINT, spacing, useTheme } from '@/theme';
 
 interface NavItem {
   name: string;
@@ -52,7 +52,7 @@ function openAddSheet() {
 export function AppShell({ children }: { children?: ReactNode }) {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_BREAKPOINT;
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   const insets = useSafeAreaInsets();
   const left = ITEMS.slice(0, 2);
   const right = ITEMS.slice(2);
@@ -71,7 +71,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
               <Pressable
                 accessibilityRole="button"
                 onPress={openAddSheet}
-                style={[styles.sidebarAdd, { backgroundColor: colors.primary }]}>
+                style={[styles.sidebarAdd, { backgroundColor: colors.primary, borderRadius: radius.pill }]}>
                 <Text style={[styles.sidebarAddLabel, { color: colors.onPrimary }]}>+  Add to diary</Text>
               </Pressable>
               {ITEMS.map((item) => (
@@ -103,7 +103,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
                 accessibilityLabel="Add to diary"
                 onPress={openAddSheet}
                 style={styles.fabWrap}>
-                <View style={[styles.fab, { backgroundColor: colors.primary }]}>
+                <View style={[styles.fab, { backgroundColor: colors.primary, borderRadius: shape.circle(FAB_SIZE) }]}>
                   <Glyph name="plus" size={30} color={colors.onPrimary} strokeWidth={2.4} />
                 </View>
               </Pressable>
@@ -151,6 +151,9 @@ function BottomButton({ item, isFocused, ...rest }: TabTriggerSlotProps & { item
   );
 }
 
+/** The round "+" button in the middle of the phone tab bar (a rounded square in the boxy look). */
+const FAB_SIZE = 58;
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   slot: { flex: 1 },
@@ -165,7 +168,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   brand: { fontSize: 22, fontWeight: '800', marginBottom: spacing.md },
-  sidebarAdd: { borderRadius: radius.pill, paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.md },
+  sidebarAdd: { paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.md },
   sidebarAddLabel: { fontWeight: '700', fontSize: 15 },
   sidebarButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.sm },
   sidebarLabel: { fontSize: 16, fontWeight: '600' },
@@ -174,9 +177,8 @@ const styles = StyleSheet.create({
   bottomLabel: { fontSize: 11, fontWeight: '600' },
   fabWrap: { flex: 1, alignItems: 'center', marginTop: -22 },
   fab: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({

@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 export interface MiniBar {
   key: string;
@@ -26,7 +26,7 @@ export function MiniBarChart({
   color?: string;
   accessibilityLabel?: string;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const barColor = color ?? colors.energy;
   const max = Math.max(1, target ?? 0, ...bars.map((b) => b.value));
   const targetBottom = target !== undefined ? (target / max) * height : undefined;

@@ -16,14 +16,14 @@ import { AiErrorPanel, AiNotAvailable, AiWorking, openAiSettings } from '@/compo
 import { MealReview } from '@/components/ai/MealReview';
 import { TextField } from '@/components/forms';
 import { AppText, Button, Card, Screen } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 export default function PhotoLogScreen() {
   useAiBootstrap();
   const gate = useAiGate();
   const handle = useAiClient();
   const modelName = useAiStore((s) => s.models.find((m) => m.id === s.selectedModelId)?.name);
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
 
   const [uri, setUri] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -135,7 +135,7 @@ export default function PhotoLogScreen() {
             {uri ? (
               <Image
                 source={{ uri }}
-                style={[styles.preview, { backgroundColor: colors.surfaceAlt }]}
+                style={[styles.preview, { backgroundColor: colors.surfaceAlt, borderRadius: radius.md }]}
                 contentFit="cover"
                 accessibilityLabel="Selected meal photo"
               />
@@ -187,6 +187,6 @@ export default function PhotoLogScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 150 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  preview: { width: '100%', aspectRatio: 4 / 3, borderRadius: radius.md },
+  preview: { width: '100%', aspectRatio: 4 / 3 },
   noteInput: { minHeight: 72, paddingTop: spacing.sm, textAlignVertical: 'top' },
 });

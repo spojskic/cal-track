@@ -24,7 +24,7 @@ import {
 } from '@/data/foods';
 import { useRecipes, type RecipeSummary } from '@/data/recipes';
 import { useSavedMeals, type SavedMeal } from '@/data/saved-meals';
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 type TabKey = 'favorites' | 'recent' | 'mine' | 'recipes' | 'meals';
 
@@ -47,7 +47,7 @@ interface EmptyInfo {
 }
 
 export default function FoodsScreen() {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const [tab, setTab] = useState<TabKey>('favorites');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -118,7 +118,7 @@ export default function FoodsScreen() {
           onPress={() => open('/search')}
           style={({ pressed }) => [
             styles.searchBox,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.pill },
             pressed && { opacity: 0.8 },
           ]}>
           <SymbolView
@@ -136,7 +136,7 @@ export default function FoodsScreen() {
           onPress={() => open('/scan')}
           style={({ pressed }) => [
             styles.scanButton,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.pill },
             pressed && { opacity: 0.7 },
           ]}>
           <SymbolView
@@ -174,6 +174,7 @@ export default function FoodsScreen() {
                 {
                   backgroundColor: selected ? colors.primary : colors.surfaceAlt,
                   borderColor: selected ? colors.primary : colors.border,
+                  borderRadius: radius.pill,
                 },
               ]}>
               <Text style={[styles.chipText, { color: selected ? colors.onPrimary : colors.text }]}>{t.label}</Text>
@@ -250,14 +251,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     minHeight: 48,
   },
   scanButton: {
     width: 48,
     height: 48,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
@@ -269,7 +268,6 @@ const styles = StyleSheet.create({
   chip: {
     minHeight: 38,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',

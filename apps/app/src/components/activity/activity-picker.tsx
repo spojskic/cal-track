@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { TextField } from '@/components/forms';
 import { AppText, Card } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { Chip } from './chips';
 import { trimNum } from './format';
@@ -19,7 +19,7 @@ export function ActivityPicker({
   value: MetActivity | null;
   onChange: (activity: MetActivity | null) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const [query, setQuery] = useState('');
   const results = useMemo(() => searchActivities(query, query.trim() ? RESULT_LIMIT : 25), [query]);
 
@@ -80,7 +80,7 @@ export function ActivityPicker({
               onPress={() => onChange(a)}
               style={({ pressed }) => [
                 styles.row,
-                { backgroundColor: pressed ? colors.surfaceAlt : 'transparent' },
+                { backgroundColor: pressed ? colors.surfaceAlt : 'transparent', borderRadius: radius.md },
               ]}>
               <View style={{ flex: 1 }}>
                 <AppText variant="body" style={{ fontWeight: '600' }}>{a.name}</AppText>
@@ -111,7 +111,6 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
   },
   empty: { padding: spacing.md },
   selected: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

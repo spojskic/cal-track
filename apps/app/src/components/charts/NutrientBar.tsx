@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { formatAmount, formatPercent } from './format';
 import { nutrientFraction, nutrientStatus } from './nutrient-status';
@@ -23,7 +23,7 @@ export interface NutrientBarProps {
 
 /** One table row: name | amount unit | bar | %. Pure presentational. */
 export function NutrientBar({ name, amount, unit, min, max, incomplete, indent }: NutrientBarProps) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const status = nutrientStatus(amount, min, max);
   const fraction = nutrientFraction(amount, min, max);
   const fill = fraction === undefined ? 0 : Math.min(1, fraction);
@@ -48,7 +48,7 @@ export function NutrientBar({ name, amount, unit, min, max, incomplete, indent }
       </AppText>
       <View style={styles.barCell}>
         {fraction !== undefined ? (
-          <View style={[styles.track, { backgroundColor: colors.track }]}>
+          <View style={[styles.track, { backgroundColor: colors.track, borderRadius: shape.bar(TRACK_HEIGHT) }]}>
             <View
               style={{
                 width: `${fill * 100}%`,
@@ -67,12 +67,14 @@ export function NutrientBar({ name, amount, unit, min, max, incomplete, indent }
   );
 }
 
+const TRACK_HEIGHT = 6;
+
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 30, paddingVertical: 2 },
   indent: { paddingLeft: spacing.md },
   name: { flex: 1 },
   amount: { width: 82, textAlign: 'right' },
   barCell: { width: 64, justifyContent: 'center' },
-  track: { height: 6, borderRadius: radius.pill, overflow: 'hidden' },
+  track: { height: TRACK_HEIGHT, overflow: 'hidden' },
   pct: { width: 46, textAlign: 'right', fontWeight: '600' },
 });

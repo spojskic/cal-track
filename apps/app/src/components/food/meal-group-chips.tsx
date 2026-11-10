@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { defaultMealGroupId, useMealGroups, type MealGroup } from '@/data/meal-groups';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 /** Wrapping chip row to pick a meal group. */
 export function MealGroupChips({
@@ -17,7 +17,7 @@ export function MealGroupChips({
   /** Smaller chips for screens that keep the chips above a long list. */
   compact?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <View style={styles.row} accessibilityRole="radiogroup">
       {groups.map((g) => {
@@ -35,6 +35,7 @@ export function MealGroupChips({
               {
                 backgroundColor: selected ? colors.primary : colors.surfaceAlt,
                 borderColor: selected ? colors.primary : colors.border,
+                borderRadius: radius.pill,
               },
             ]}>
             <Text style={[styles.label, compact && styles.labelCompact, { color: selected ? colors.onPrimary : colors.text }]}>
@@ -72,7 +73,6 @@ const styles = StyleSheet.create({
   chip: {
     minHeight: 36,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',

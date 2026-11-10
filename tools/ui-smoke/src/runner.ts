@@ -22,7 +22,7 @@ import type { Issue, IssueKind, ScenarioResult } from './report';
 import { statusOf } from './report';
 import { installRouting, type BlockedRequest, type RequestLog } from './routing';
 import { SEED_SESSION_TTL_SECONDS, buildSession } from './session';
-import { THEME_STORAGE_KEY, themePrefsFor } from './theme-seed';
+import { THEME_STORAGE_KEY, themeSeedFor, type Corners } from './theme-seed';
 import { VIEWPORTS, resolvePath, type Scenario, type ScenarioContext, type TextOptions, type ViewportName } from './types';
 
 export interface RunDeps {
@@ -33,6 +33,8 @@ export interface RunDeps {
   timeoutMs: number;
   /** `--theme=<paletteId>`: the app starts with this palette (the saved theme choice is seeded before it loads). */
   theme?: string;
+  /** `--corners=rounded|boxy`: the app starts with this corner style (seeded together with `theme`). */
+  corners?: Corners;
 }
 
 export interface ScenarioRun {
@@ -241,7 +243,7 @@ export async function runScenario(deps: RunDeps, scenario: Scenario, index: numb
       const session = buildSession(fixtures.user, { nowMs: FIXED_NOW_MS, ttlSeconds: SEED_SESSION_TTL_SECONDS });
       await context.addInitScript({ content: seedSessionScript({ origin: APP_ORIGIN, storageKey: STORAGE_KEY, session }) });
     }
-    const themePrefs = deps.theme ? themePrefsFor(deps.theme) : null;
+    const themePrefs = themeSeedFor({ theme: deps.theme, corners: deps.corners });
     if (themePrefs) await context.addInitScript({ content: seedThemeScript({ origin: APP_ORIGIN, storageKey: THEME_STORAGE_KEY, prefs: themePrefs }) });
     await installRouting(context, { files: deps.files, getBackend: () => backend, log });
 

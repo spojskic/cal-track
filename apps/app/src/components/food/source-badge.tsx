@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { FoodSource } from '@/data/foods';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { SOURCES, sourceInfo, sourceToneColor, type SourceLabelInfo } from './source-label';
 
@@ -30,7 +30,7 @@ export function sourceAttribution(source: FoodSource): string | null {
 
 /** Small pill that names where a food came from (USDA / CNF / OFF / Custom / AI ...). */
 export function SourceBadge({ source }: { source: FoodSource }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const info = SOURCES[source];
   const tint =
     source === 'custom' || source === 'recipe'
@@ -44,7 +44,7 @@ export function SourceBadge({ source }: { source: FoodSource }) {
     <View
       accessible
       accessibilityLabel={`Source: ${info.full}`}
-      style={[styles.badge, { backgroundColor: `${tint}22`, borderColor: `${tint}66` }]}>
+      style={[styles.badge, { backgroundColor: `${tint}22`, borderColor: `${tint}66`, borderRadius: radius.pill }]}>
       <Text style={[styles.text, { color: tint }]}>{info.label}</Text>
     </View>
   );
@@ -70,7 +70,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '700', textAlign: 'right', flexShrink: 0, maxWidth: 110 },
   badge: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: 1,
     alignSelf: 'flex-start',

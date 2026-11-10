@@ -21,7 +21,7 @@ export function MacroSummary({
   /** True when kcal was estimated from macros because the food has no energy value. */
   estimated?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const pKcal = protein === undefined ? undefined : protein * KCAL_PER_G.protein;
   const cKcal = carbs === undefined ? undefined : carbs * KCAL_PER_G.carbs;
   const fKcal = fat === undefined ? undefined : fat * KCAL_PER_G.fat;
@@ -51,7 +51,7 @@ export function MacroSummary({
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          style={[styles.split, { backgroundColor: colors.track }]}>
+          style={[styles.split, { backgroundColor: colors.track, borderRadius: shape.bar(SPLIT_HEIGHT) }]}>
           {macros.map((m) => (
             <View key={m.key} style={{ flex: Math.max(m.kcal ?? 0, 0.0001), backgroundColor: m.color }} />
           ))}
@@ -77,10 +77,12 @@ export function MacroSummary({
   );
 }
 
+const SPLIT_HEIGHT = 8;
+
 const styles = StyleSheet.create({
   kcalRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
   kcal: { fontSize: 44, fontWeight: '800', lineHeight: 50 },
-  split: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', gap: 2 },
+  split: { flexDirection: 'row', height: SPLIT_HEIGHT, overflow: 'hidden', gap: 2 },
   macros: { flexDirection: 'row', gap: spacing.md },
   macro: { flex: 1, gap: 2 },
   macroHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -8,10 +8,10 @@ import {
   DARK_PALETTES,
   LIGHT_PALETTES,
   isDefaultThemePrefs,
-  radius,
   spacing,
   useTheme,
   useThemeStore,
+  type Corners,
   type PaletteDef,
   type ThemeMode,
 } from '@/theme';
@@ -22,6 +22,11 @@ const MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'Match system' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
+];
+
+const CORNER_OPTIONS: { value: Corners; label: string }[] = [
+  { value: 'rounded', label: 'Rounded' },
+  { value: 'boxy', label: 'Boxy' },
 ];
 
 /**
@@ -40,7 +45,7 @@ export function PaletteCard({
   width: DimensionValue;
   onPress: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   const p = palette.colors;
   return (
     <Pressable
@@ -58,6 +63,8 @@ export function PaletteCard({
             backgroundColor: p.background,
             borderColor: selected ? colors.primary : colors.border,
             borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
+            // the miniature follows the chosen corners, so the preview shows what the app will look like
+            borderRadius: radius.md,
           },
         ]}>
         <View style={[styles.strip, { backgroundColor: p.surface }]}>
@@ -70,12 +77,12 @@ export function PaletteCard({
           <View style={[styles.line, { width: '88%', backgroundColor: p.textMuted }]} />
           <View style={[styles.line, { width: '60%', backgroundColor: p.textMuted }]} />
           <View style={styles.dots}>
-            <View style={[styles.dot, { backgroundColor: p.primary }]} />
-            <View style={[styles.dot, { backgroundColor: p.warning }]} />
+            <View style={[styles.dot, { backgroundColor: p.primary, borderRadius: shape.bar(PREVIEW_DOT_SIZE) }]} />
+            <View style={[styles.dot, { backgroundColor: p.warning, borderRadius: shape.bar(PREVIEW_DOT_SIZE) }]} />
           </View>
         </View>
         {selected ? (
-          <View style={[styles.check, { backgroundColor: colors.primary }]}>
+          <View style={[styles.check, { backgroundColor: colors.primary, borderRadius: shape.circle(CHECK_SIZE) }]}>
             <Glyph name="check" size={13} color={colors.onPrimary} strokeWidth={3} />
           </View>
         ) : null}
@@ -130,21 +137,28 @@ function PaletteGrid({
   );
 }
 
-/** Settings > Display: Mode (Match system / Light / Dark), the light and the dark palette, and a way back to the defaults. */
+/**
+ * Settings > Display: Mode (Match system / Light / Dark), Corners (Rounded / Boxy), the light and the dark palette, and a way
+ * back to the defaults.
+ */
 export function ThemePicker() {
   const { colors, isDark } = useTheme();
   const mode = useThemeStore((s) => s.mode);
   const light = useThemeStore((s) => s.light);
   const dark = useThemeStore((s) => s.dark);
+  const corners = useThemeStore((s) => s.corners);
   const setMode = useThemeStore((s) => s.setMode);
   const setLight = useThemeStore((s) => s.setLight);
   const setDark = useThemeStore((s) => s.setDark);
+  const setCorners = useThemeStore((s) => s.setCorners);
   const reset = useThemeStore((s) => s.reset);
-  const isDefault = isDefaultThemePrefs({ mode, light, dark });
+  const isDefault = isDefaultThemePrefs({ mode, light, dark, corners });
   return (
     <View style={styles.root}>
       <Segmented label="Mode" compact options={MODE_OPTIONS} value={mode} onChange={setMode} />
       <AppText variant="small" muted>Match system follows the setting of your device.</AppText>
+      <Segmented label="Corners" compact options={CORNER_OPTIONS} value={corners} onChange={setCorners} />
+      <AppText variant="small" muted>Boxy gives cards, buttons and fields sharp, small corners.</AppText>
       <PaletteGrid title="Light palette" palettes={LIGHT_PALETTES} selectedId={light} inUse={!isDark} onSelect={setLight} />
       <PaletteGrid title="Dark palette" palettes={DARK_PALETTES} selectedId={dark} inUse={isDark} onSelect={setDark} />
       {isDefault ? null : (
@@ -161,6 +175,9 @@ export function ThemePicker() {
   );
 }
 
+const PREVIEW_DOT_SIZE = 9;
+const CHECK_SIZE = 20;
+
 const styles = StyleSheet.create({
   root: { gap: spacing.md },
   section: { gap: spacing.sm },
@@ -170,7 +187,6 @@ const styles = StyleSheet.create({
   frame: {
     height: 88,
     flexDirection: 'row',
-    borderRadius: radius.md,
     overflow: 'hidden',
   },
   strip: { width: '24%', paddingHorizontal: 6, paddingBottom: 10, gap: 4, justifyContent: 'flex-end' },
@@ -179,14 +195,13 @@ const styles = StyleSheet.create({
   titleBar: { height: 7, width: '72%', borderRadius: 3 },
   line: { height: 4, borderRadius: 2, opacity: 0.75 },
   dots: { flexDirection: 'row', gap: 5, marginTop: 3 },
-  dot: { width: 9, height: 9, borderRadius: 5 },
+  dot: { width: PREVIEW_DOT_SIZE, height: PREVIEW_DOT_SIZE },
   check: {
     position: 'absolute',
     top: 6,
     left: 6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: CHECK_SIZE,
+    height: CHECK_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },

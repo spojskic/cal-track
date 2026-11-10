@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 export function Chip({
   label,
@@ -21,7 +21,7 @@ export function Chip({
   tile?: boolean;
   accessibilityLabel?: string;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const bg = selected ? colors.primary : colors.surfaceAlt;
   const fg = selected ? colors.onPrimary : colors.text;
   return (
@@ -36,6 +36,7 @@ export function Chip({
         {
           backgroundColor: bg,
           borderColor: selected ? colors.primary : colors.border,
+          borderRadius: tile ? radius.lg : radius.pill,
           opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
         },
       ]}>
@@ -105,7 +106,6 @@ const styles = StyleSheet.create({
   chip: {
     minHeight: 44,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
@@ -115,7 +115,6 @@ const styles = StyleSheet.create({
     minHeight: 76,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',

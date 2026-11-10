@@ -63,7 +63,7 @@ function ConfirmButton({
 // ---------------------------------------------------------------------------------------------------------------
 
 export function ConnectionStatusCard() {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const apiKey = useAiStore((s) => s.apiKey);
   const keyStatus = useAiStore((s) => s.keyStatus);
   const keyInfo = useAiStore((s) => s.keyInfo);
@@ -102,7 +102,7 @@ export function ConnectionStatusCard() {
           accessible
           accessibilityRole="text"
           accessibilityLabel={`Status: ${label}`}
-          style={[styles.statusPill, { backgroundColor: `${tint}22`, borderColor: `${tint}88` }]}>
+          style={[styles.statusPill, { backgroundColor: `${tint}22`, borderColor: `${tint}88`, borderRadius: radius.pill }]}>
           <Text style={[styles.statusText, { color: tint }]}>{label}</Text>
         </View>
       </View>
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   bold: { fontWeight: '700' },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  statusPill: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 4 },
+  statusPill: { borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: spacing.md, paddingVertical: 4 },
   statusText: { fontSize: 13, fontWeight: '800' },
   facts: { gap: spacing.sm },
   fact: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },

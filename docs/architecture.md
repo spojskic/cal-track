@@ -8,7 +8,7 @@ apps/app/            Expo SDK 58 app (Expo Router): one codebase for iOS, Androi
   src/data/            React Query hooks, one file per area (diary, foods, targets, recipes, health ...)
   src/ai/              OpenRouter key store and client wiring, AI gate, coach chat state
   src/health/          Apple Health / Health Connect providers, sync logic, background task
-  src/components/      UI by area; src/theme/ colours and spacing; src/lib/ Supabase client, auth
+  src/components/      UI by area; src/theme/ colours, corner radii and spacing; src/lib/ Supabase client, auth
 packages/core/       pure TypeScript, no I/O: nutrient catalog, energy and macro maths, intake tables, recipes, scoring,
                      nutrition-label vocabulary and the label -> new-food draft conversion
 packages/ai/         OpenRouter client, PKCE sign-in, meal/recipe pipelines, the nutrition-label reader, the coach with its
@@ -79,19 +79,40 @@ All in `packages/core`, tested with golden values.
 
 ## Themes
 
-The colours of every screen come from `useTheme()` in `apps/app/src/theme/`, which returns `{ colors, isDark, paletteId }`.
+The colours of every screen come from `useTheme()` in `apps/app/src/theme/`, which returns `{ colors, isDark, paletteId, corners, radius, shape }`.
 
 - **Palette data is pure TypeScript** (no React Native import, so the Node tests can load it): `colors.ts` (the `ThemeColors` tokens,
   `withAlpha`, the original Cal Track look), `contrast.ts` (WCAG maths), `define-colors.ts` (derives each `on*` text colour, and the
   scrim, from the palette's own darkest and lightest inks), `palettes-light.ts` / `palettes-dark.ts` (22 palettes, all plain `#RRGGBB`
   because components append a 2-digit alpha to tokens) and `palettes.ts` (the registry, the defaults, the saved-choice rules and
   `resolvePalette`). `tools/ui-smoke/src/theme.test.ts` checks every palette for completeness and for contrast floors.
-- **The choice is device-local**: `theme-store.ts` is a small zustand store (`{ mode: 'system' | 'light' | 'dark', light, dark }`)
-  saved under `cal-track.theme.v1` in AsyncStorage (localStorage on the web), like the AI preferences. An unknown or removed id falls
-  back to the default of its side. No profile column and no migration. On the web the stored value is read synchronously when the
+- **The choice is device-local**: `theme-store.ts` is a small zustand store
+  (`{ mode: 'system' | 'light' | 'dark', light, dark, corners: 'rounded' | 'boxy' }`) saved under `cal-track.theme.v1` in AsyncStorage (localStorage on the web), like the AI preferences. An unknown or removed id falls
+  back to the default of its side, a missing or unknown `corners` (a choice saved before the Boxy look existed) to `rounded`, so the key
+  was not bumped. No profile column and no migration. On the web the stored value is read synchronously when the
   module loads, so the first paint already has the right palette; on native the splash screen waits for the read (1.5 s at most).
 - **`useTheme()` resolves** the palette from the store and, for *Match system*, from `useColorScheme()`. `isDark` is the palette's own
   appearance. The `colors` object is the same instance for a given palette, so it is safe in dependency lists.
+- **Corners (`shape.ts`, pure)**: two radius scales, `ROUNDED_RADII = { sm: 8, md: 12, lg: 16, pill: 999 }` (exactly the old static
+  constant, so the default look is unchanged) and `BOXY_RADII = { sm: 3, md: 4, lg: 6, pill: 4 }`, plus helpers for round things that
+  are not on the scale: `shape.circle(size)` (a round button: `size / 2`, in Boxy a rounded square of at most 4), `shape.bar(height)`
+  (a progress track: `height / 2`, in Boxy at most 2), `shape.px(n)` (a fixed radius: `n`, in Boxy at most 6), `shape.dot(size)` (always
+  a circle: legend dots, radio buttons), `shape.inner(outer, inset)` (the segments inside a segmented control stay concentric) and
+  `shape.tailed(radius, tail, corner)` (the four corners of a chat bubble with its pointed corner).
+  `useTheme()` returns the active scale as `radius` and the helpers bound to it as `shape`; both are memoised by (palette, corners).
+- **Why radii are inline now.** A `StyleSheet.create({ card: { borderRadius: radius.lg } })` runs once at import time, so it cannot
+  follow a setting. The static `radius` export of `theme/index.ts` is gone and every radius is applied in render:
+  `const { radius, shape } = useTheme();` and `style={[styles.card, { borderRadius: radius.lg }]}`. To add a rounded element, do the
+  same: pick the token (`radius.lg` cards and sheets, `radius.md` fields and rows, `radius.pill` buttons, chips and segmented
+  controls, `radius.sm` small highlights and notes) or a helper, never a number. Keep ALL radii of one element in the same
+  place: on the web an inline `borderRadius` beats a per-corner radius that comes from a `StyleSheet.create` class (inline style
+  wins over a class), so the chat bubbles write all four corners inline with `shape.tailed(...)`. Keep flat style objects on the
+  `TabTrigger` children in `app-nav.tsx`. Components that are not React components (pure helpers) get the radii as a parameter. Tiny round dots may keep a
+  literal below 6 (`borderRadius: 5` for a 10 px dot); anything bigger goes through `shape`.
+- **The guard.** `tools/ui-smoke/src/shape-guard.test.ts` reads every file under `apps/app/src` and fails when something outside `theme/`
+  imports `radius` or a scale, writes `borderRadius:` with a literal of 6 or more (a short allowlist with reasons is the only way
+  around it, currently empty) or writes a `999` radius. Together with `pnpm typecheck` (the old export is gone) nobody can bring a static
+  round corner back by accident. The same file tests the scales and the helpers, including the old numbers of every converted component.
 - **Outside React** (`chrome.ts`): on the web, `react-native-web` has no `Appearance.setColorScheme`, so the page gets the palette
   directly: CSS `color-scheme`, the body background, `<meta name="theme-color">` and the `--ct-primary` variable that the input focus
   ring in `lib/web-styles.ts` reads. On native, a pinned Light or Dark mode calls `Appearance.setColorScheme` (system dialogs and

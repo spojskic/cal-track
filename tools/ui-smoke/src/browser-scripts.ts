@@ -88,6 +88,29 @@ export function readThemeScript(storageKey: string): string {
 })()`;
 }
 
+/**
+ * The corner radius (px, from the computed `border-top-left-radius`) of the card that holds a heading: finds the visible element
+ * whose own text is `heading` and walks up to the first ancestor with a rounded corner (that is the Card). `null` when there is no
+ * such heading or ancestor. Used by the appearance scenario to see the Rounded / Boxy switch take effect.
+ */
+export function cardRadiusScript(heading: string): string {
+  return `(function () {
+  var want = ${JSON.stringify(heading)};
+  var nodes = document.querySelectorAll('div, span, h1, h2, h3, h4');
+  var found = null;
+  for (var i = 0; i < nodes.length; i++) {
+    var n = nodes[i];
+    if (n.children.length === 0 && (n.textContent || '').trim() === want && n.getClientRects().length > 0) { found = n; break; }
+  }
+  if (!found) return null;
+  for (var el = found.parentElement; el && el !== document.body; el = el.parentElement) {
+    var px = parseFloat(getComputedStyle(el).borderTopLeftRadius);
+    if (px > 0) return px;
+  }
+  return null;
+})()`;
+}
+
 /** Text that signals a broken screen (fatal) or a suspicious one (warning). Sources of JS regular expressions. */
 export const FATAL_TEXT_PATTERNS: readonly string[] = [
   'Unmatched Route',

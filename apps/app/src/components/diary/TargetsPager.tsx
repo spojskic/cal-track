@@ -13,7 +13,7 @@ import {
 import { EnergySummary, type EnergySummaryProps } from '@/components/charts/EnergySummary';
 import { HighlightRings, type HighlightRingItem } from '@/components/charts/HighlightRings';
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme, type ThemeColors } from '@/theme';
+import { spacing, useTheme, type ThemeColors } from '@/theme';
 
 import { macroProgress, type PercentTone } from './macro-progress';
 import type { MacroRow } from './targets-view';
@@ -26,7 +26,7 @@ export interface PagerPage {
 
 /** Horizontal paging container with page dots (swipe on touch devices, tap the dots anywhere). */
 export function Pager({ pages }: { pages: PagerPage[] }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const scroller = useRef<ScrollViewInstance>(null);
   const [width, setWidth] = useState(0);
   const [index, setIndex] = useState(0);
@@ -75,7 +75,11 @@ export function Pager({ pages }: { pages: PagerPage[] }) {
               onPress={() => goTo(i)}
               style={[
                 styles.dot,
-                { backgroundColor: i === index ? colors.primary : colors.track, width: i === index ? 16 : 6 },
+                {
+                  backgroundColor: i === index ? colors.primary : colors.track,
+                  width: i === index ? 16 : PAGER_DOT_SIZE,
+                  borderRadius: shape.bar(PAGER_DOT_SIZE),
+                },
               ]}
             />
           ))}
@@ -94,7 +98,7 @@ const toneColor = (tone: PercentTone, colors: ThemeColors): string =>
  * rescaled so a notch marks the target and the overflow is drawn in the success / danger colour.
  */
 function MacroRowBar({ row }: { row: MacroRow }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const p = macroProgress({
     value: row.value,
     target: row.target,
@@ -123,7 +127,7 @@ function MacroRowBar({ row }: { row: MacroRow }) {
           {p.pctText}
         </AppText>
       </View>
-      <View style={[styles.track, { backgroundColor: colors.track }]}>
+      <View style={[styles.track, { backgroundColor: colors.track, borderRadius: shape.bar(MACRO_TRACK_HEIGHT) }]}>
         <View style={[styles.segment, { left: 0, width: `${p.mainFill * 100}%`, backgroundColor: row.color }]} />
         {p.markAt !== undefined ? (
           <>
@@ -204,6 +208,9 @@ export function TargetsPager({
   return <Pager pages={pages} />;
 }
 
+const MACRO_TRACK_HEIGHT = 10;
+const PAGER_DOT_SIZE = 6;
+
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   scroller: { flexGrow: 0 },
@@ -213,12 +220,12 @@ const styles = StyleSheet.create({
   macroText: { flex: 1 },
   macroLabel: { fontWeight: '700' },
   macroPct: { fontWeight: '700', minWidth: 40, textAlign: 'right' },
-  track: { height: 10, borderRadius: radius.pill, overflow: 'hidden' },
+  track: { height: MACRO_TRACK_HEIGHT, overflow: 'hidden' },
   segment: { position: 'absolute', top: 0, bottom: 0 },
   notch: { position: 'absolute', top: 0, bottom: 0, width: 2, marginLeft: -1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 28 },
   headerLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   highlights: { gap: spacing.sm },
   dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
-  dot: { height: 6, borderRadius: 3 },
+  dot: { height: PAGER_DOT_SIZE },
 });

@@ -6,7 +6,7 @@ import { useAiStore } from '@/ai/ai-store';
 import { formatContext, formatModelPrice } from '@/ai/format';
 import { filterModels, sortModelsForPicker } from '@/ai/model-selection';
 import { AppText, Button, Card } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { Notice, Pill } from './AiBits';
 
@@ -14,7 +14,7 @@ const PAGE = 25;
 
 /** Searchable list of image-capable OpenRouter models with context, price and capability badges. */
 export function ModelPicker() {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   const models = useAiStore((s) => s.models);
   const selectedId = useAiStore((s) => s.selectedModelId);
   const busy = useAiStore((s) => s.modelsBusy);
@@ -58,7 +58,7 @@ export function ModelPicker() {
       {notice ? <Notice tone="warning">{notice}</Notice> : null}
       {error ? <Notice tone="danger" live>{error}</Notice> : null}
 
-      <View style={[styles.searchBox, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.searchBox, { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.pill }]}>
         <TextInput
           value={query}
           onChangeText={(t) => {
@@ -102,10 +102,12 @@ export function ModelPicker() {
                   {
                     backgroundColor: isSelected ? `${colors.primary}1A` : colors.surface,
                     borderColor: isSelected ? colors.primary : colors.border,
+                    borderRadius: radius.md,
                     opacity: pressed ? 0.8 : 1,
                   },
                 ]}>
-                <View style={[styles.radio, { borderColor: isSelected ? colors.primary : colors.textMuted }]}>
+                {/* a radio button stays a circle in both looks */}
+                <View style={[styles.radio, { borderColor: isSelected ? colors.primary : colors.textMuted, borderRadius: shape.dot(RADIO_SIZE) }]}>
                   {isSelected ? <View style={[styles.radioDot, { backgroundColor: colors.primary }]} /> : null}
                 </View>
                 <View style={styles.flex}>
@@ -136,12 +138,13 @@ export function ModelPicker() {
   );
 }
 
+const RADIO_SIZE = 20;
+
 const styles = StyleSheet.create({
   flex: { flex: 1, gap: 2 },
   bold: { fontWeight: '700' },
   searchBox: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     minHeight: 44,
     justifyContent: 'center',
@@ -153,15 +156,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
     padding: spacing.md,
   },
   name: { fontSize: 15, fontWeight: '700' },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: 2 },
   radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: RADIO_SIZE,
+    height: RADIO_SIZE,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

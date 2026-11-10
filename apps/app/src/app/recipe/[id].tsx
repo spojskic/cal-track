@@ -31,7 +31,7 @@ import {
 } from '@/data/recipes';
 import { useTargets } from '@/data/targets';
 import { useAuth } from '@/lib/auth';
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 const WIDE_LAYOUT = 760;
 
@@ -87,7 +87,7 @@ function RecipeDetailView({
   versionNotice: boolean;
   mealGroupId: string | undefined;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_LAYOUT;
@@ -192,7 +192,7 @@ function RecipeDetailView({
             </AppText>
           ) : null}
           {confirmDelete ? (
-            <View style={[styles.confirm, { borderColor: colors.danger }]}>
+            <View style={[styles.confirm, { borderColor: colors.danger, borderRadius: radius.md }]}>
               <AppText style={{ fontWeight: '600' }}>Delete this recipe?</AppText>
               <AppText variant="small" muted>
                 It disappears from search and your lists. Entries you already logged keep their values.
@@ -211,7 +211,10 @@ function RecipeDetailView({
                   accessibilityLabel="Confirm delete recipe"
                   disabled={remove.isPending}
                   onPress={() => remove.mutate(recipe.foodId, { onSuccess: () => goBackOr('/foods') })}
-                  style={[styles.deleteConfirm, { backgroundColor: colors.danger, opacity: remove.isPending ? 0.6 : 1 }]}>
+                  style={[
+                    styles.deleteConfirm,
+                    { backgroundColor: colors.danger, borderRadius: radius.pill, opacity: remove.isPending ? 0.6 : 1 },
+                  ]}>
                   {remove.isPending ? (
                     <ActivityIndicator color={colors.onPrimary} />
                   ) : (
@@ -377,9 +380,9 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   ingredientAmount: { alignItems: 'flex-end' },
-  confirm: { borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: spacing.md },
+  confirm: { borderWidth: 1, padding: spacing.md, gap: spacing.md },
   confirmButtons: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-  deleteConfirm: { flex: 1, minHeight: 46, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  deleteConfirm: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
   deleteLink: { alignItems: 'center', justifyContent: 'center', minHeight: 44 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md, paddingHorizontal: spacing.lg },
   footerInner: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center', gap: spacing.sm },

@@ -85,7 +85,7 @@ and a one-line description, and a chevron):
 | **Coach** | Coach (only with a working AI key), AI Coach & keys / AI (optional), with a small *On* / *Off* at the right |
 | **Profile** | Profile & targets, Personal details, Nutrient targets |
 | **Connections** | Connected apps & devices |
-| **App** | Display & units (colour theme, light or dark mode, units), About |
+| **App** | Display & units (colour theme, light or dark mode, rounded or boxy corners, units), About |
 | **Account** | The e-mail you are signed in with and **Sign out** |
 
 On a phone the groups follow one another in that order. On a wide screen (a window of about 1000 px or more, beside the sidebar)
@@ -139,20 +139,27 @@ Colour themes you switch in the app, like the Garmin Companion app.
 
 - **Mode**: *Match system* follows the light or dark setting of your device (it switches by itself when the device does), *Light*
   and *Dark* pin the app to that side.
+- **Corners**: *Rounded* (the original look) or *Boxy*. Boxy gives the whole app sharp, small corners like the Garmin Companion app:
+  cards and sheets 6 px, buttons, fields, chips and segmented controls 4 px, small badges and highlights 3 px, bars 2 px, and the round
+  buttons (back, "+", the tab bar button) become rounded squares. Nothing is pill-shaped. Tiny status dots (the legend dots of the
+  charts) and radio buttons stay round, because a square one would read as a checkbox. It applies at once to every screen, and the
+  palette previews below follow it.
 - **Light palette** and **Dark palette**: one pick for each side, shown as small previews (the card with the check mark is the one in
   use). Mode decides which side is on screen; both picks are remembered. **Reset to default** shows up when your choice differs from the
-  defaults and brings back Match system with Kanagawa Lotus (light) and Kanagawa Wave (dark).
+  defaults (also when only the corners differ) and brings back Match system, Kanagawa Lotus (light), Kanagawa Wave (dark) and Rounded
+  corners.
 - **Light:** Kanagawa Lotus (default), Catppuccin Latte, Solarized Light, Gruvbox Light, GitHub Light, Rosé Pine Dawn, Tokyo Night Day,
   One Light, Paper, Cal Track Day.
   **Dark:** Kanagawa Wave (default), Kanagawa Dragon, Tokyo Night, Catppuccin Mocha, Dracula, Nord, Gruvbox Dark, Rosé Pine, One Dark,
   GitHub Dark, Solarized Dark, Cal Track Night. *Cal Track Day* and *Night* are the original navy and orange look.
-- **Saved on this device only**, not in your account, so your phone and your browser can use different themes. Nothing to set up in
-  Supabase.
+- **Saved on this device only**, not in your account, so your phone and your browser can use different themes (and corners). Nothing to
+  set up in Supabase. A theme saved before the Boxy switch existed simply opens with Rounded corners.
 - **Readable by construction:** every palette is checked in the tests for text, muted text, button labels and the red, green and amber
   status colours against the page, cards and sidebar (WCAG contrast). A few theme colours were nudged a little darker or lighter to pass;
   they are marked `nudged` in `apps/app/src/theme/palettes-light.ts` and `palettes-dark.ts`.
 - **Limits:** the splash screen and the app icon background are drawn by the phone before the app starts, so they stay the Kanagawa
-  Wave page colour whatever you pick. Needs a device: how the themes look on real iOS and Android screens has not been checked.
+  Wave page colour whatever you pick. Needs a device: how the themes and the Boxy corners look on real iOS and Android screens has not
+  been checked.
 
 ## AI (optional, your own key)
 

@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View, type TextInputProps } from 'react-native';
 
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { AppText } from './ui';
 
@@ -23,7 +23,7 @@ export function TextField({
   /** "Check this value" marker (orange border and a "?" hint), e.g. a number the AI was unsure about. An error wins. */
   warning?: string | null;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const labelId = `field-label-${useId().replace(/[^A-Za-z0-9_-]/g, '')}`;
   const explicitName = input.accessibilityLabel ?? input['aria-label'];
   return (
@@ -42,6 +42,7 @@ export function TextField({
             color: colors.text,
             borderColor: error ? colors.danger : warning ? colors.warning : colors.border,
             backgroundColor: colors.surfaceAlt,
+            borderRadius: radius.md,
           },
           warning && !error ? styles.inputWarning : null,
           input.style,
@@ -60,10 +61,10 @@ export function TextField({
 
 /** A "?" badge and a short sentence: the value above it needs a second look. Not an error (nothing is blocked). */
 export function WarningHint({ children }: { children: string }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <View style={styles.warningRow}>
-      <View accessible={false} style={[styles.warningBadge, { backgroundColor: colors.warning }]}>
+      <View accessible={false} style={[styles.warningBadge, { backgroundColor: colors.warning, borderRadius: radius.pill }]}>
         <Text style={[styles.warningBadgeText, { color: colors.onWarning }]}>?</Text>
       </View>
       <AppText variant="small" style={styles.warningText}>{children}</AppText>
@@ -121,11 +122,17 @@ export function Segmented<T extends string>({
   /** Lower, tighter segments (list screens that keep the control above a long list). Default: the regular size. */
   compact?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
+  const segmentRadius = shape.inner(radius.pill, compact ? SEGMENTED_COMPACT_PADDING : SEGMENTED_PADDING);
   return (
     <View style={styles.field}>
       {label ? <AppText variant="label" muted>{label}</AppText> : null}
-      <View style={[styles.segmented, compact && styles.segmentedCompact, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.segmented,
+          compact && styles.segmentedCompact,
+          { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.pill },
+        ]}>
         {options.map((opt) => {
           const selected = opt.value === value;
           return (
@@ -134,7 +141,12 @@ export function Segmented<T extends string>({
               accessibilityRole="button"
               accessibilityState={{ selected }}
               onPress={() => onChange(opt.value)}
-              style={[styles.segment, compact && styles.segmentCompact, selected && { backgroundColor: colors.primary }]}>
+              style={[
+                styles.segment,
+                compact && styles.segmentCompact,
+                { borderRadius: segmentRadius },
+                selected && { backgroundColor: colors.primary },
+              ]}>
               <Text style={[styles.segmentLabel, compact && styles.segmentLabelCompact, { color: selected ? colors.onPrimary : colors.text }]}>
                 {opt.label}
               </Text>
@@ -177,29 +189,30 @@ export function SwitchRow({
   );
 }
 
+const SEGMENTED_PADDING = 3;
+const SEGMENTED_COMPACT_PADDING = 2;
+
 const styles = StyleSheet.create({
   field: { gap: spacing.xs },
   input: {
     minHeight: 46,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     fontSize: 16,
   },
   inputWarning: { borderWidth: 2 },
   warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  warningBadge: { width: 18, height: 18, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  warningBadge: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   warningBadgeText: { fontSize: 12, fontWeight: '800', lineHeight: 15 },
   warningText: { flex: 1 },
   segmented: {
     flexDirection: 'row',
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 3,
-    gap: 3,
+    padding: SEGMENTED_PADDING,
+    gap: SEGMENTED_PADDING,
   },
-  segmentedCompact: { padding: 2, gap: 2 },
-  segment: { flex: 1, minHeight: 38, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.sm },
+  segmentedCompact: { padding: SEGMENTED_COMPACT_PADDING, gap: SEGMENTED_COMPACT_PADDING },
+  segment: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.sm },
   segmentCompact: { minHeight: 32, paddingHorizontal: spacing.xs },
   segmentLabel: { fontSize: 14, fontWeight: '600' },
   segmentLabelCompact: { fontSize: 13 },

@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Button } from '@/components/ui';
-import { radius, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
 
 import { Sheet } from './Sheet';
 
@@ -28,7 +28,7 @@ export function ConfirmSheet({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <Sheet visible={visible} onClose={onClose} title={title}>
       <AppText accessibilityLiveRegion="polite">{message}</AppText>
@@ -44,7 +44,7 @@ export function ConfirmSheet({
               onClose();
               onConfirm();
             }}
-            style={[styles.confirm, { backgroundColor: colors.danger }]}>
+            style={[styles.confirm, { backgroundColor: colors.danger, borderRadius: radius.pill }]}>
             <AppText style={{ color: colors.onPrimary, fontWeight: '700', fontSize: 15 }}>{confirmLabel}</AppText>
           </Pressable>
         ) : (
@@ -66,5 +66,5 @@ export function ConfirmSheet({
 const styles = StyleSheet.create({
   buttons: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   flex: { flex: 1 },
-  confirm: { flex: 1, minHeight: 46, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  confirm: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
 });

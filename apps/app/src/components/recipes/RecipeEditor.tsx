@@ -10,7 +10,7 @@ import { AppText, Button, Card } from '@/components/ui';
 import { useUnitSystem } from '@/data/profile';
 import { useFoodsByIds, type IngredientFood, type RecipeDetail } from '@/data/recipes';
 import type { RecipeDraft } from '@/state/recipe-draft';
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 import {
   FoodLineList,
@@ -64,7 +64,7 @@ export function RecipeEditor({
   submitError: string | null;
   onSubmit: (values: RecipeEditorValues) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_LAYOUT;
@@ -213,7 +213,7 @@ export function RecipeEditor({
           textAlignVertical="top"
           style={[
             styles.notes,
-            { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+            { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceAlt, borderRadius: radius.md },
           ]}
         />
       </View>
@@ -307,7 +307,6 @@ const styles = StyleSheet.create({
   notes: {
     minHeight: 96,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
     padding: spacing.md,
     fontSize: 16,
   },

@@ -32,7 +32,20 @@ import {
   type ThemePrefs,
 } from '../../../apps/app/src/theme/palettes';
 
-import { KNOWN_PALETTE_IDS, THEME_STORAGE_KEY as THEME_STORAGE_KEY_FOR_SMOKE, cssRgb, themeMismatches, themePrefsFor } from './theme-seed';
+import { CORNERS, DEFAULT_CORNERS } from '../../../apps/app/src/theme/shape';
+
+import {
+  BOXY_CARD_MAX_PX,
+  KNOWN_CORNERS,
+  KNOWN_PALETTE_IDS,
+  ROUNDED_CARD_MIN_PX,
+  THEME_STORAGE_KEY as THEME_STORAGE_KEY_FOR_SMOKE,
+  cardRadiusMismatch,
+  cssRgb,
+  themeMismatches,
+  themePrefsFor,
+  themeSeedFor,
+} from './theme-seed';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const HEX6 = /^#[0-9a-fA-F]{6}$/;
@@ -234,7 +247,7 @@ describe('contrast helpers', () => {
 });
 
 describe('resolvePalette: which palette is on screen', () => {
-  const prefs = (mode: ThemePrefs['mode'], light = 'github-light', dark = 'dracula'): ThemePrefs => ({ mode, light, dark });
+  const prefs = (mode: ThemePrefs['mode'], light = 'github-light', dark = 'dracula'): ThemePrefs => ({ mode, light, dark, corners: 'rounded' });
 
   it('Match system follows the device', () => {
     expect(resolvePalette(prefs('system'), 'light').id).toBe('github-light');
@@ -287,8 +300,8 @@ describe('saved theme choice', () => {
     expect(sanitizeThemePrefs('dark')).toEqual(DEFAULT_THEME_PREFS);
     expect(sanitizeThemePrefs([])).toEqual(DEFAULT_THEME_PREFS);
     expect(sanitizeThemePrefs({ mode: 'sepia', light: 7, dark: {} })).toEqual(DEFAULT_THEME_PREFS);
-    expect(sanitizeThemePrefs({ mode: 'dark', light: 'paper', dark: 'nord' })).toEqual({ mode: 'dark', light: 'paper', dark: 'nord' });
-    expect(sanitizeThemePrefs({ mode: 'light', light: 'removed' })).toEqual({ mode: 'light', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID });
+    expect(sanitizeThemePrefs({ mode: 'dark', light: 'paper', dark: 'nord' })).toEqual({ mode: 'dark', light: 'paper', dark: 'nord', corners: 'rounded' });
+    expect(sanitizeThemePrefs({ mode: 'light', light: 'removed' })).toEqual({ mode: 'light', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: 'rounded' });
     expect(sanitizeThemePrefs({ mode: 'system', light: 'nord', dark: 'paper' })).toEqual(DEFAULT_THEME_PREFS);
   });
 
@@ -298,15 +311,48 @@ describe('saved theme choice', () => {
     expect(parseThemePrefs('')).toEqual(DEFAULT_THEME_PREFS);
     expect(parseThemePrefs('{not json')).toEqual(DEFAULT_THEME_PREFS);
     expect(parseThemePrefs('42')).toEqual(DEFAULT_THEME_PREFS);
-    expect(parseThemePrefs('{"mode":"dark","light":"one-light","dark":"one-dark"}')).toEqual({ mode: 'dark', light: 'one-light', dark: 'one-dark' });
+    expect(parseThemePrefs('{"mode":"dark","light":"one-light","dark":"one-dark"}')).toEqual({ mode: 'dark', light: 'one-light', dark: 'one-dark', corners: 'rounded' });
   });
 
   it('round-trips through the stored string', () => {
-    const chosen: ThemePrefs = { mode: 'light', light: 'rose-pine-dawn', dark: 'tokyo-night' };
+    const chosen: ThemePrefs = { mode: 'light', light: 'rose-pine-dawn', dark: 'tokyo-night', corners: 'boxy' };
     expect(JSON.parse(serializeThemePrefs(chosen))).toEqual(chosen);
     expect(parseThemePrefs(serializeThemePrefs(chosen))).toEqual(chosen);
     // what the smoke harness seeds is the same shape
-    expect(Object.keys(JSON.parse(serializeThemePrefs(chosen))).sort()).toEqual(['dark', 'light', 'mode']);
+    expect(Object.keys(JSON.parse(serializeThemePrefs(chosen))).sort()).toEqual(['corners', 'dark', 'light', 'mode']);
+  });
+
+  it('corners: a choice saved before the Boxy look existed (no field) is Rounded, anything unknown is Rounded', () => {
+    expect(DEFAULT_THEME_PREFS.corners).toBe('rounded');
+    expect(DEFAULT_CORNERS).toBe('rounded');
+    // the exact payload an older version saved
+    const old = '{"mode":"dark","light":"paper","dark":"nord"}';
+    expect(parseThemePrefs(old)).toEqual({ mode: 'dark', light: 'paper', dark: 'nord', corners: 'rounded' });
+    for (const bad of ['square', 'BOXY', 'Boxy', '', 7, null, true, {}, ['boxy']]) {
+      expect(sanitizeThemePrefs({ ...DEFAULT_THEME_PREFS, corners: bad }).corners, JSON.stringify(bad)).toBe('rounded');
+    }
+    expect(sanitizeThemePrefs({ corners: 'boxy' })).toEqual({ ...DEFAULT_THEME_PREFS, corners: 'boxy' });
+    expect(parseThemePrefs('{"corners":"boxy"}')).toEqual({ ...DEFAULT_THEME_PREFS, corners: 'boxy' });
+    expect(parseThemePrefs('{"corners":"sharp"}')).toEqual(DEFAULT_THEME_PREFS);
+  });
+
+  it('corners: round trips and is always written, with the same storage key as before', () => {
+    for (const corners of CORNERS) {
+      const prefs: ThemePrefs = { ...DEFAULT_THEME_PREFS, corners };
+      expect(serializeThemePrefs(prefs)).toContain(`"corners":"${corners}"`);
+      expect(parseThemePrefs(serializeThemePrefs(prefs))).toEqual(prefs);
+    }
+    expect(serializeThemePrefs({ ...DEFAULT_THEME_PREFS, corners: 'boxy' })).toBe(
+      '{"mode":"system","light":"kanagawa-lotus","dark":"kanagawa-wave","corners":"boxy"}',
+    );
+    expect(THEME_STORAGE_KEY).toBe('cal-track.theme.v1'); // no version bump: the new field is optional on read
+  });
+
+  it('corners never change which palette is on screen', () => {
+    for (const corners of CORNERS) {
+      expect(resolvePalette({ ...DEFAULT_THEME_PREFS, corners }, 'light')).toBe(DEFAULT_LIGHT);
+      expect(resolvePalette({ ...DEFAULT_THEME_PREFS, corners }, 'dark')).toBe(DEFAULT_DARK);
+    }
   });
 
   it('knows when the choice is the default (the Reset to default button shows otherwise)', () => {
@@ -314,6 +360,8 @@ describe('saved theme choice', () => {
     expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, mode: 'dark' })).toBe(false);
     expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, light: 'paper' })).toBe(false);
     expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, dark: 'nord' })).toBe(false);
+    expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, corners: 'boxy' })).toBe(false); // Reset to default is offered for Boxy too
+    expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, corners: 'rounded' })).toBe(true);
   });
 });
 
@@ -344,8 +392,9 @@ describe('palette grid layout', () => {
 
 describe('smoke harness: theme seeding and page checks (src/theme-seed.ts)', () => {
   it('--theme pins the palette to its own side and leaves the other side at its default', () => {
-    expect(themePrefsFor('dracula')).toEqual({ mode: 'dark', light: DEFAULT_LIGHT_ID, dark: 'dracula' });
-    expect(themePrefsFor('paper')).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID });
+    expect(themePrefsFor('dracula')).toEqual({ mode: 'dark', light: DEFAULT_LIGHT_ID, dark: 'dracula', corners: 'rounded' });
+    expect(themePrefsFor('paper')).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: 'rounded' });
+    expect(themePrefsFor('paper', 'boxy')).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: 'boxy' });
     expect(themePrefsFor('nope')).toBeNull();
     for (const id of KNOWN_PALETTE_IDS) {
       const prefs = themePrefsFor(id)!;
@@ -355,6 +404,35 @@ describe('smoke harness: theme seeding and page checks (src/theme-seed.ts)', () 
     }
     expect(KNOWN_PALETTE_IDS).toEqual(PALETTES.map((p) => p.id));
     expect(THEME_STORAGE_KEY_FOR_SMOKE).toBe('cal-track.theme.v1');
+  });
+
+  it('--corners and --theme decide what is seeded: neither seeds nothing, either one alone seeds a valid choice', () => {
+    expect(themeSeedFor({})).toBeNull();
+    expect(themeSeedFor({ theme: 'dracula' })).toEqual({ mode: 'dark', light: DEFAULT_LIGHT_ID, dark: 'dracula', corners: 'rounded' });
+    // corners alone: Match system with the default palettes, only the corners differ
+    expect(themeSeedFor({ corners: 'boxy' })).toEqual({ mode: 'system', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: 'boxy' });
+    expect(themeSeedFor({ corners: 'rounded' })).toEqual(DEFAULT_THEME_PREFS);
+    expect(themeSeedFor({ theme: 'paper', corners: 'boxy' })).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: 'boxy' });
+    expect(themeSeedFor({ theme: 'nope', corners: 'boxy' })).toBeNull();
+    for (const corners of KNOWN_CORNERS) {
+      const seeded = themeSeedFor({ corners })!;
+      expect(sanitizeThemePrefs(seeded)).toEqual(seeded); // survives the app's own sanitising unchanged
+    }
+    expect(KNOWN_CORNERS).toEqual(CORNERS);
+  });
+
+  it('judges the corner radius of a card read from the page', () => {
+    expect(cardRadiusMismatch('rounded', 16)).toBeNull();
+    expect(cardRadiusMismatch('rounded', ROUNDED_CARD_MIN_PX)).toBeNull();
+    expect(cardRadiusMismatch('rounded', 6)).toContain('at least 12px');
+    expect(cardRadiusMismatch('boxy', 6)).toBeNull();
+    expect(cardRadiusMismatch('boxy', BOXY_CARD_MAX_PX)).toBeNull();
+    expect(cardRadiusMismatch('boxy', 16)).toContain('expected 1-8px');
+    expect(cardRadiusMismatch('boxy', 0)).toContain('expected 1-8px'); // square corners would mean the radius is gone, not boxy
+    for (const bad of [null, undefined, Number.NaN]) {
+      expect(cardRadiusMismatch('rounded', bad)).toContain('"Appearance" heading');
+      expect(cardRadiusMismatch('boxy', bad)).toContain('"Appearance" heading');
+    }
   });
 
   it('turns a #RRGGBB colour into what getComputedStyle reports', () => {

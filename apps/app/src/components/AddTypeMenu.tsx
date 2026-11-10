@@ -6,7 +6,7 @@ import { useAiGate } from '@/ai/use-ai-gate';
 import { ADD_ACTIONS, ADD_SECTIONS } from '@/components/add-actions';
 import { runAfterModal, Sheet } from '@/components/diary/Sheet';
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 /** Actions that understand `mealGroupId`, so the meal chosen on the Add food screen follows the user. */
 const TAKES_MEAL_GROUP = new Set(['barcode', 'custom-food']);
@@ -26,7 +26,7 @@ export function AddTypeMenu({
   mealGroupId?: string;
 }) {
   const gate = useAiGate();
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const actions = ADD_ACTIONS.filter((a) => a.key !== 'search' && (!a.ai || gate.enabled));
 
   const choose = (key: string, route: string) => {
@@ -54,8 +54,11 @@ export function AddTypeMenu({
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
                 onPress={() => choose(action.key, action.route)}
-                style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.surfaceAlt : 'transparent' }]}>
-                <View style={[styles.icon, { backgroundColor: colors.surfaceAlt }]}>
+                style={({ pressed }) => [
+                  styles.row,
+                  { backgroundColor: pressed ? colors.surfaceAlt : 'transparent', borderRadius: radius.md },
+                ]}>
+                <View style={[styles.icon, { backgroundColor: colors.surfaceAlt, borderRadius: radius.pill }]}>
                   <SymbolView name={action.symbol} size={20} tintColor={colors.primary} />
                 </View>
                 <View style={styles.text}>
@@ -77,8 +80,8 @@ export function AddTypeMenu({
 
 const styles = StyleSheet.create({
   section: { gap: spacing.xs, marginBottom: spacing.sm },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderRadius: radius.md },
-  icon: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs },
+  icon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1 },
   label: { fontWeight: '600' },
 });

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { formatNumber } from '@/components/charts/format';
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 /** Default daily water goal when no water target is configured. */
 export const DEFAULT_WATER_TARGET_ML = 2600;
@@ -19,7 +19,7 @@ export function WaterRow({
   target: number;
   onAdd: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   const value = ml ?? 0;
   const fraction = target > 0 ? value / target : 0;
   const reached = fraction >= 1;
@@ -38,7 +38,7 @@ export function WaterRow({
             {ml === undefined ? '-' : formatNumber(value)} / {formatNumber(target)} mL
           </AppText>
         </View>
-        <View style={[styles.track, { backgroundColor: colors.track }]}>
+        <View style={[styles.track, { backgroundColor: colors.track, borderRadius: shape.bar(TRACK_HEIGHT) }]}>
           <View
             style={{
               width: `${Math.min(1, fraction) * 100}%`,
@@ -54,13 +54,15 @@ export function WaterRow({
         onPress={onAdd}
         style={({ pressed }) => [
           styles.button,
-          { backgroundColor: pressed ? colors.track : colors.surfaceAlt, borderColor: colors.border },
+          { backgroundColor: pressed ? colors.track : colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.pill },
         ]}>
         <AppText style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>+ {QUICK_WATER_ML} mL</AppText>
       </Pressable>
     </View>
   );
 }
+
+const TRACK_HEIGHT = 8;
 
 const styles = StyleSheet.create({
   row: {
@@ -73,11 +75,10 @@ const styles = StyleSheet.create({
   },
   info: { flex: 1, gap: spacing.xs + 2 },
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  track: { height: 8, borderRadius: radius.pill, overflow: 'hidden' },
+  track: { height: TRACK_HEIGHT, overflow: 'hidden' },
   button: {
     minHeight: 36,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',

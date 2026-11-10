@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CoachChatError } from '@/ai/use-coach-chat';
 import { Notice } from '@/components/ai/AiBits';
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { OPENROUTER_CREDITS_URL, openUrl } from './links';
 
@@ -22,7 +22,7 @@ function BannerButton({
   primary?: boolean;
   disabled?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -34,6 +34,7 @@ function BannerButton({
         {
           backgroundColor: primary ? colors.primary : 'transparent',
           borderColor: primary ? colors.primary : colors.border,
+          borderRadius: radius.pill,
           opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
         },
       ]}>
@@ -125,7 +126,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   button: {
     minHeight: 40,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',

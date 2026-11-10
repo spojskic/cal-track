@@ -1,5 +1,5 @@
 /** Command line parsing for `pnpm --filter @cal/ui-smoke smoke [-- flags]`. */
-import { KNOWN_PALETTE_IDS } from './theme-seed';
+import { KNOWN_CORNERS, KNOWN_PALETTE_IDS, type Corners } from './theme-seed';
 
 export interface CliOptions {
   skipBuild: boolean;
@@ -21,6 +21,8 @@ export interface CliOptions {
   keepCache: boolean;
   /** Palette id the app starts with (seeded as the saved theme choice); default: nothing seeded, the app's own default. */
   theme?: string;
+  /** Corner style the app starts with (seeded as the saved theme choice); default: nothing seeded, the app's own default (rounded). */
+  corners?: Corners;
 }
 
 export const DEFAULT_OUT = '/tmp/cal-ui-smoke';
@@ -54,6 +56,7 @@ export const USAGE = `Usage: pnpm --filter @cal/ui-smoke smoke [-- options]
   --viewports=a,b       phone, desktop, phone-dark, desktop-dark (default phone,desktop)
   --theme=<paletteId>   start the app with this palette (saved theme choice, pinned to its light/dark side); known ids:
                         ${wrapIds(KNOWN_PALETTE_IDS)}
+  --corners=<style>     start the app with rounded or boxy corners (saved theme choice; combines with --theme)
   --console-errors=warn treat console.error as WARN instead of FAIL
   --timeout=<seconds>   limit per scenario run (default 120)
   --workers=<n>         scenario runs in parallel (default 2)
@@ -144,6 +147,14 @@ export function parseArgs(argv: readonly string[]): { options: CliOptions; error
         if (v === undefined) break;
         if (KNOWN_PALETTE_IDS.includes(v)) options.theme = v;
         else errors.push(`--theme: unknown palette "${v}" (known: ${KNOWN_PALETTE_IDS.join(', ')})`);
+        break;
+      }
+      case 'corners': {
+        const v = take(name, inline);
+        if (v === undefined) break;
+        const known = KNOWN_CORNERS.find((c) => c === v);
+        if (known) options.corners = known;
+        else errors.push(`--corners: unknown corner style "${v}" (known: ${KNOWN_CORNERS.join(', ')})`);
         break;
       }
       case 'console-errors': {

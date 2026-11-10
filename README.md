@@ -19,7 +19,8 @@ recipe draft, a health-only coach) run on **your own OpenRouter key, which never
   developer approval, not an official Garmin integration). The calorie budget can use your static estimate or your watch's numbers.
 - **Optional AI**: photo log, describe a meal, AI recipe, and a coach that only talks health and training.
 - **Themes**: 22 colour themes you switch in Settings (Kanagawa by default, plus Catppuccin, Tokyo Night, Dracula, Nord, Gruvbox, GitHub,
-  Solarized and more), light or dark or following your device. Saved on the device.
+  Solarized and more), light or dark or following your device, with Rounded or Boxy corners (sharp, small radii like the Garmin
+  Companion app). Saved on the device.
 - **Private by design**: invite-only accounts, per-user row-level security, no ads, AI key stored only on the device.
 
 Details: [docs/features.md](docs/features.md).

@@ -10,7 +10,7 @@ import { ServingPicker } from '@/components/food/serving-picker';
 import { AppText, Button } from '@/components/ui';
 import type { IngredientFood } from '@/data/recipes';
 import { clearFoodPick, startFoodPick, type PickHandler, type PickedFood } from '@/state/food-picker';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 /** One editable line: which food, and the amount typed in one of the food's units. */
 export interface FoodLine {
@@ -204,7 +204,7 @@ function FoodLineRow({
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const options = lineOptions(food, imperial);
   const selected = selectedOption(line, options);
   const grams = lineGrams(line, options);
@@ -233,7 +233,11 @@ function FoodLineRow({
   }
 
   return (
-    <View style={[styles.row, { backgroundColor: colors.surface, borderColor: amountError || missing ? colors.danger : colors.border }]}>
+    <View
+      style={[
+        styles.row,
+        { backgroundColor: colors.surface, borderColor: amountError || missing ? colors.danger : colors.border, borderRadius: radius.md },
+      ]}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -292,7 +296,7 @@ function FoodLineRow({
 
 const styles = StyleSheet.create({
   list: { gap: spacing.sm },
-  row: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, overflow: 'hidden' },
+  row: { borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, minHeight: 60 },
   headText: { flex: 1, gap: 2 },
   name: { fontWeight: '600', fontSize: 15 },

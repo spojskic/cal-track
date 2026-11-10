@@ -13,7 +13,7 @@ import { isPastDate } from '@/data/diary-copy';
 import type { MealGroup } from '@/data/meal-groups';
 import { supabase } from '@/lib/supabase';
 import { todayISO } from '@/state/selected-date';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { entryCopyActions } from './copy-menus';
 import { haptic } from './haptics';
@@ -110,7 +110,7 @@ function EntryEditor({
   copyActions: CopyActions;
   onClose: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const portionsQ = useFoodPortions(entry.foodId);
   const units = useMemo(() => toUnits(portionsQ.data ?? []), [portionsQ.data]);
 
@@ -252,7 +252,7 @@ function EntryEditor({
         />
       ) : null}
 
-      <View style={[styles.preview, { backgroundColor: colors.surfaceAlt }]}>
+      <View style={[styles.preview, { backgroundColor: colors.surfaceAlt, borderRadius: radius.md }]}>
         {stat('Energy', preview?.ENERGY_KCAL, ' kcal')}
         {stat('Protein', preview?.PROTEIN_G, ' g', 1)}
         {stat('Carbs', preview?.CARBS_G, ' g', 1)}
@@ -286,7 +286,7 @@ function EntryEditor({
       </View>
 
       {confirmDelete ? (
-        <View style={[styles.confirm, { borderColor: colors.danger }]}>
+        <View style={[styles.confirm, { borderColor: colors.danger, borderRadius: radius.md }]}>
           <AppText style={{ fontWeight: '600' }}>Delete this entry?</AppText>
           <View style={styles.confirmButtons}>
             <View style={styles.flex}>
@@ -296,7 +296,7 @@ function EntryEditor({
               accessibilityRole="button"
               accessibilityLabel="Confirm delete"
               onPress={doDelete}
-              style={[styles.deleteConfirm, { backgroundColor: colors.danger }]}>
+              style={[styles.deleteConfirm, { backgroundColor: colors.danger, borderRadius: radius.pill }]}>
               <AppText style={{ color: colors.onPrimary, fontWeight: '700', fontSize: 15 }}>Delete</AppText>
             </Pressable>
           </View>
@@ -318,7 +318,7 @@ function EntryEditor({
 
 /** Pill button. `selected` marks a choice; omit it for a plain action. */
 function Chip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -326,7 +326,11 @@ function Chip({ label, selected, onPress }: { label: string; selected?: boolean;
       onPress={onPress}
       style={[
         styles.chip,
-        { backgroundColor: selected === true ? colors.primary : colors.surfaceAlt, borderColor: selected === true ? colors.primary : colors.border },
+        {
+          backgroundColor: selected === true ? colors.primary : colors.surfaceAlt,
+          borderColor: selected === true ? colors.primary : colors.border,
+          borderRadius: radius.pill,
+        },
       ]}>
       <AppText style={{ fontSize: 14, fontWeight: '600', color: selected === true ? colors.onPrimary : colors.text }}>{label}</AppText>
     </Pressable>
@@ -340,16 +344,15 @@ const styles = StyleSheet.create({
   chip: {
     minHeight: 38,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  preview: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.md, borderRadius: radius.md },
+  preview: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.md },
   stat: { alignItems: 'center', gap: 2, flex: 1 },
   deleteLink: { alignItems: 'center', justifyContent: 'center', minHeight: 44 },
-  confirm: { borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: spacing.md },
+  confirm: { borderWidth: 1, padding: spacing.md, gap: spacing.md },
   confirmButtons: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
   flex: { flex: 1 },
-  deleteConfirm: { flex: 1, minHeight: 46, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  deleteConfirm: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
 });

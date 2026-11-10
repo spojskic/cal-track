@@ -23,7 +23,7 @@ import {
   type SavedMeal,
 } from '@/data/saved-meals';
 import { useSelectedDate } from '@/state/selected-date';
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 import {
   FoodLineList,
@@ -50,7 +50,7 @@ function leaveAfterAdd() {
  * meal into the diary (meal group + day) and deletes it.
  */
 export function SavedMealEditor({ initial, mealGroupParam }: { initial?: SavedMeal; mealGroupParam?: string }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_LAYOUT;
@@ -227,7 +227,7 @@ export function SavedMealEditor({ initial, mealGroupParam }: { initial?: SavedMe
 
   const deleteCard = initial ? (
     confirmDelete ? (
-      <View style={[styles.confirm, { borderColor: colors.danger }]}>
+      <View style={[styles.confirm, { borderColor: colors.danger, borderRadius: radius.md }]}>
         <AppText style={{ fontWeight: '600' }}>Delete this saved meal?</AppText>
         <AppText variant="small" muted>Entries you already logged from it are not affected.</AppText>
         {remove.error ? (
@@ -242,7 +242,10 @@ export function SavedMealEditor({ initial, mealGroupParam }: { initial?: SavedMe
             accessibilityLabel="Confirm delete saved meal"
             disabled={remove.isPending}
             onPress={() => remove.mutate(initial.id, { onSuccess: () => goBackOr('/foods') })}
-            style={[styles.deleteConfirm, { backgroundColor: colors.danger, opacity: remove.isPending ? 0.6 : 1 }]}>
+            style={[
+              styles.deleteConfirm,
+              { backgroundColor: colors.danger, borderRadius: radius.pill, opacity: remove.isPending ? 0.6 : 1 },
+            ]}>
             {remove.isPending ? (
               <ActivityIndicator color={colors.onPrimary} />
             ) : (
@@ -352,9 +355,9 @@ const styles = StyleSheet.create({
   colMain: { flex: 3, gap: spacing.lg },
   colSide: { flex: 2, gap: spacing.lg },
   flex: { flex: 1 },
-  confirm: { borderWidth: 1, borderRadius: radius.md, padding: spacing.md, gap: spacing.md },
+  confirm: { borderWidth: 1, padding: spacing.md, gap: spacing.md },
   confirmButtons: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-  deleteConfirm: { flex: 1, minHeight: 46, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  deleteConfirm: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
   deleteLink: { alignItems: 'center', justifyContent: 'center', minHeight: 44 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md, paddingHorizontal: spacing.lg },
   footerInner: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center', gap: spacing.sm },

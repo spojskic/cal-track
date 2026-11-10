@@ -13,7 +13,7 @@ import {
 import { Glyph } from '@/components/Glyph';
 import type { FoodInput } from '@/data/foods';
 import { validateBarcode } from '@/data/foods';
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 import { NumberField, Segmented, SwitchRow, TextField, WarningHint } from '../forms';
 import { AppText, Button, Card } from '../ui';
@@ -128,7 +128,7 @@ export function FoodForm({
   onCancel?: () => void;
   header?: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const scrollRef = useRef<ScrollViewInstance>(null);
 
   const [name, setName] = useState(initial?.name ?? '');
@@ -440,7 +440,7 @@ export function FoodForm({
                   accessibilityRole="button"
                   accessibilityLabel={`Remove serving ${i + 1}`}
                   onPress={() => setServings((s) => s.filter((_, j) => j !== i))}
-                  style={[styles.remove, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
+                  style={[styles.remove, { borderColor: colors.border, backgroundColor: colors.surfaceAlt, borderRadius: radius.pill }]}>
                   <Glyph name="close" size={18} color={colors.text} />
                 </Pressable>
               ) : null}
@@ -562,9 +562,9 @@ function Collapsible({
   nested?: boolean;
   children: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
-    <View style={[styles.collapsible, { borderColor: colors.border }, nested && styles.nested]}>
+    <View style={[styles.collapsible, { borderColor: colors.border, borderRadius: nested ? radius.sm : radius.md }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${title}. ${open ? 'Collapse' : 'Expand'}`}
@@ -600,13 +600,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginTop: 22,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  collapsible: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, overflow: 'hidden' },
-  nested: { borderRadius: radius.sm },
+  collapsible: { borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   collapsibleHeader: {
     flexDirection: 'row',
     alignItems: 'center',

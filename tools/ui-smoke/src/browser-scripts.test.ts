@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FATAL_TEXT_PATTERNS,
+  cardRadiusScript,
   SUSPECT_TEXT_PATTERNS,
   dateShiftScript,
   buttonLayoutScript,
@@ -37,13 +38,13 @@ function storage() {
 
 describe('every script is syntactically valid JavaScript', () => {
   it('compiles', () => {
-    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'https://a.test', storageKey: 'k', session: {} }), seedThemeScript({ origin: 'https://a.test', storageKey: 'k', prefs: {} }), readThemeScript('k'), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(100), truncatedTextScript('[role="tab"]')]) {
+    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'https://a.test', storageKey: 'k', session: {} }), seedThemeScript({ origin: 'https://a.test', storageKey: 'k', prefs: {} }), readThemeScript('k'), cardRadiusScript('Appearance'), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(100), truncatedTextScript('[role="tab"]')]) {
       expect(() => new vm.Script(code)).not.toThrow();
     }
   });
 
   it('has no TypeScript artefacts (esbuild __name helper, type annotations)', () => {
-    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'o', storageKey: 'k', session: {} }), seedThemeScript({ origin: 'o', storageKey: 'k', prefs: {} }), readThemeScript('k'), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(1), truncatedTextScript('x')]) {
+    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'o', storageKey: 'k', session: {} }), seedThemeScript({ origin: 'o', storageKey: 'k', prefs: {} }), readThemeScript('k'), cardRadiusScript('x'), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(1), truncatedTextScript('x')]) {
       expect(code).not.toMatch(/__name|: string|: number|as unknown/);
     }
   });
@@ -270,5 +271,73 @@ describe('truncatedTextScript', () => {
   it('tolerates a one pixel rounding difference and an empty match', () => {
     expect(run<string[]>(truncatedTextScript('x'), make([node(81, 80, 'A')]))).toEqual([]);
     expect(run<string[]>(truncatedTextScript('x'), make([]))).toEqual([]);
+  });
+});
+
+describe('cardRadiusScript', () => {
+  interface FakeNode {
+    text: string;
+    radius: string;
+    visible: boolean;
+    parent: FakeNode | null;
+    children: FakeNode[];
+  }
+
+  /** A node of the fake DOM: only what the script reads (text, children, parent, client rects, computed radius). */
+  function node(text: string, radius: string, parent: FakeNode | null = null, visible = true): FakeNode {
+    const n: FakeNode = { text, radius, visible, parent, children: [] };
+    parent?.children.push(n);
+    return n;
+  }
+
+  /** A page whose `querySelectorAll` returns `all`; `parentElement` hands back the same element objects the script holds. */
+  function page(all: FakeNode[], body: FakeNode): vm.Context {
+    const elements = new Map<FakeNode, Record<string, unknown>>();
+    const element = (n: FakeNode): Record<string, unknown> => {
+      let el = elements.get(n);
+      if (!el) {
+        el = { __node: n, children: n.children, textContent: n.text, getClientRects: () => (n.visible ? [{}] : []) };
+        Object.defineProperty(el, 'parentElement', { get: () => (n.parent ? element(n.parent) : null) });
+        elements.set(n, el);
+      }
+      return el;
+    };
+    return sandbox({
+      document: { body: element(body), querySelectorAll: () => all.map(element) },
+      getComputedStyle: (el: { __node: FakeNode }) => ({ borderTopLeftRadius: el.__node.radius }),
+    });
+  }
+
+  it('finds the first ancestor with a rounded corner above the heading (the Card) and returns its radius in px', () => {
+    const body = node('', '0px');
+    const screen = node('', '0px', body);
+    const card = node('', '16px', screen);
+    const heading = node('Appearance', '0px', card);
+    const mode = node('Mode', '0px', card);
+    expect(run<number>(cardRadiusScript('Appearance'), page([screen, card, heading, mode], body))).toBe(16);
+  });
+
+  it('reads the new radius after the switch, sees through wrappers without a radius and trims the text', () => {
+    const body = node('', '0px');
+    const card = node('', '6px', body);
+    const wrapper = node('', '0px', card);
+    const heading = node('  Appearance ', '0px', wrapper);
+    expect(run<number>(cardRadiusScript('Appearance'), page([card, wrapper, heading], body))).toBe(6);
+  });
+
+  it('skips hidden headings and elements that have children, and answers null when nothing matches', () => {
+    const body = node('', '0px');
+    const card = node('', '16px', body);
+    const hidden = node('Appearance', '0px', card, false);
+    const other = node('Display & units', '0px', card);
+    expect(run(cardRadiusScript('Appearance'), page([card, hidden, other], body))).toBeNull();
+
+    const withChild = node('Appearance', '0px', card);
+    node('x', '0px', withChild);
+    expect(run(cardRadiusScript('Appearance'), page([card, withChild], body))).toBeNull();
+
+    const flatCard = node('', '0px', body);
+    const heading = node('Appearance', '0px', flatCard);
+    expect(run(cardRadiusScript('Appearance'), page([flatCard, heading], body))).toBeNull(); // no rounded ancestor
   });
 });

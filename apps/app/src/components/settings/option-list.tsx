@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 export interface ListOption<T extends string> {
   value: T;
@@ -24,7 +24,7 @@ export function OptionList<T extends string>({
   value: T | null | undefined;
   onChange: (value: T) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   return (
     <View style={styles.list} accessibilityRole="radiogroup" accessibilityLabel={label}>
       {label ? <AppText variant="label" muted>{label}</AppText> : null}
@@ -44,10 +44,12 @@ export function OptionList<T extends string>({
               {
                 backgroundColor: selected ? colors.surfaceAlt : colors.surface,
                 borderColor: selected ? colors.primary : colors.border,
+                borderRadius: radius.md,
                 opacity: opt.disabled ? 0.55 : pressed ? 0.85 : 1,
               },
             ]}>
-            <View style={[styles.radio, { borderColor: selected ? colors.primary : colors.textMuted }]}>
+            {/* a radio button stays a circle in both looks */}
+            <View style={[styles.radio, { borderColor: selected ? colors.primary : colors.textMuted, borderRadius: shape.dot(RADIO_SIZE) }]}>
               {selected ? <View style={[styles.radioDot, { backgroundColor: colors.primary }]} /> : null}
             </View>
             <View style={styles.text}>
@@ -64,6 +66,8 @@ export function OptionList<T extends string>({
   );
 }
 
+const RADIO_SIZE = 22;
+
 const styles = StyleSheet.create({
   list: { gap: spacing.sm },
   option: {
@@ -71,13 +75,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     alignItems: 'flex-start',
     borderWidth: 1.5,
-    borderRadius: radius.md,
     padding: spacing.md,
   },
   radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: RADIO_SIZE,
+    height: RADIO_SIZE,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

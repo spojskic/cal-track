@@ -16,7 +16,7 @@ import {
   type CoachThreadItem,
 } from '@/data/coach';
 import { useProfile } from '@/data/profile';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { previewOf, relativeTime } from './format';
 
@@ -26,13 +26,16 @@ const AI_SETTINGS = '/settings/ai' as unknown as Href;
 export const RETENTION_DAYS = 90;
 
 function DangerButton({ label, onPress, loading }: { label: string; onPress: () => void; loading?: boolean }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       disabled={loading}
       onPress={onPress}
-      style={({ pressed }) => [styles.danger, { backgroundColor: colors.danger, opacity: loading ? 0.5 : pressed ? 0.85 : 1 }]}>
+      style={({ pressed }) => [
+        styles.danger,
+        { backgroundColor: colors.danger, borderRadius: radius.pill, opacity: loading ? 0.5 : pressed ? 0.85 : 1 },
+      ]}>
       {loading ? (
         <ActivityIndicator color={colors.onDanger} />
       ) : (
@@ -300,7 +303,6 @@ const styles = StyleSheet.create({
   deleteAll: { minHeight: 36, justifyContent: 'center', alignSelf: 'flex-start', marginTop: spacing.xs },
   danger: {
     minHeight: 46,
-    borderRadius: radius.pill,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',

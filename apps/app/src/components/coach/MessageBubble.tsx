@@ -3,14 +3,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CoachChatMessage } from '@/ai/use-coach-chat';
 import { AppText } from '@/components/ui';
 import { detectRefusal } from '@/data/coach';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { Markdown } from './Markdown';
 import { RefusalCard } from './RefusalCard';
 
 /** What the coach said, as a refusal card when it is one of the fixed safety texts, else as a markdown bubble. */
 export function AssistantContent({ text, partial = false }: { text: string; partial?: boolean }) {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   const refusal = detectRefusal(text);
   if (refusal) return <RefusalCard text={text} category={refusal} />;
   return (
@@ -22,6 +22,8 @@ export function AssistantContent({ text, partial = false }: { text: string; part
         style={[
           styles.bubble,
           styles.assistantBubble,
+          // the pointed corner is written inline with the other three (see tailedRadii)
+          shape.tailed(radius.lg, spacing.xs, 'bottomLeft'),
           { backgroundColor: colors.surface, borderColor: colors.border },
         ]}>
         <Markdown text={text} partial={partial} />
@@ -45,7 +47,7 @@ export function MessageBubble({
   stopped?: boolean;
   onRetry?: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
 
   if (message.role === 'assistant') {
     return (
@@ -62,7 +64,13 @@ export function MessageBubble({
 
   return (
     <View style={styles.rowRight}>
-      <View style={[styles.bubble, styles.userBubble, { backgroundColor: colors.primary }]}>
+      <View
+        style={[
+          styles.bubble,
+          styles.userBubble,
+          shape.tailed(radius.lg, spacing.xs, 'bottomRight'),
+          { backgroundColor: colors.primary },
+        ]}>
         {/* What the user typed is shown literally (no markdown), so nothing they wrote gets reformatted. */}
         <Text selectable style={[styles.userText, { color: colors.onPrimary }]}>
           {message.content}
@@ -93,9 +101,9 @@ const styles = StyleSheet.create({
   rowRight: { alignItems: 'flex-end', gap: spacing.xs, alignSelf: 'stretch' },
   assistantWrap: { maxWidth: '92%', gap: 2, alignItems: 'flex-start' },
   caption: { marginLeft: spacing.sm },
-  bubble: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: radius.lg },
-  userBubble: { maxWidth: '85%', borderBottomRightRadius: spacing.xs },
+  bubble: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  userBubble: { maxWidth: '85%' },
   userText: { fontSize: 16, lineHeight: 23 },
-  assistantBubble: { borderWidth: StyleSheet.hairlineWidth, borderBottomLeftRadius: spacing.xs },
+  assistantBubble: { borderWidth: StyleSheet.hairlineWidth },
   failed: { minHeight: 28, justifyContent: 'center' },
 });

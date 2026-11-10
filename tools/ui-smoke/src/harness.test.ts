@@ -395,6 +395,7 @@ describe('cli', () => {
     expect(options).toMatchObject({ skipBuild: false, out: DEFAULT_OUT, dist: DEFAULT_DIST, headed: false, list: false, consoleErrors: 'fail', workers: 2, timeoutMs: 120_000 });
     expect(DEFAULT_OUT).toBe('/tmp/cal-ui-smoke');
     expect(options.theme).toBeUndefined(); // nothing seeded: the app starts with its own default theme
+    expect(options.corners).toBeUndefined();
   });
 
   it('--theme takes a known palette id (both forms) and rejects anything else', () => {
@@ -407,6 +408,16 @@ describe('cli', () => {
     expect(bad.errors[0]).toContain('kanagawa-wave'); // lists the known ids
     expect(parseArgs(['--theme']).errors).toEqual(['--theme needs a value']);
     expect(USAGE).toContain('--theme=<paletteId>');
+  });
+
+  it('--corners takes rounded or boxy (both forms), combines with --theme, and rejects anything else', () => {
+    expect(parseArgs(['--corners=boxy']).options.corners).toBe('boxy');
+    expect(parseArgs(['--', '--corners', 'rounded', '--theme=paper']).options).toMatchObject({ corners: 'rounded', theme: 'paper' });
+    const bad = parseArgs(['--corners=square']);
+    expect(bad.options.corners).toBeUndefined();
+    expect(bad.errors).toEqual(['--corners: unknown corner style "square" (known: rounded, boxy)']);
+    expect(parseArgs(['--corners']).errors).toEqual(['--corners needs a value']);
+    expect(USAGE).toContain('--corners=<style>');
   });
 
   it('parses flags in both --k=v and --k v form and ignores the pnpm "--" separator', () => {

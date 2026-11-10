@@ -7,7 +7,7 @@ import { formatAmount, formatKcal } from '@/components/food/format';
 import { SourceBadge } from '@/components/food/source-badge';
 import { AppText, Button } from '@/components/ui';
 import type { FoodSummary } from '@/data/foods';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { AiEstimateBadge, ConfidenceChip, Notice, Pill } from './AiBits';
 import { FoodPicker } from './FoodPicker';
@@ -43,7 +43,7 @@ export function ReviewItemCard({
   onChange: (patch: Partial<ReviewItem>) => void;
   onRemove: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const [picking, setPicking] = useState(false);
   const locked = item.added === true;
   const grams = itemGrams(item);
@@ -74,7 +74,11 @@ export function ReviewItemCard({
     <View
       style={[
         styles.card,
-        { backgroundColor: colors.surface, borderColor: problem || error ? colors.danger : colors.border },
+        {
+          backgroundColor: colors.surface,
+          borderColor: problem || error ? colors.danger : colors.border,
+          borderRadius: radius.lg,
+        },
         locked && { opacity: 0.7 },
       ]}>
       <View style={styles.titleRow}>
@@ -155,7 +159,7 @@ export function ReviewItemCard({
           accessibilityLabel={`Decrease amount of ${item.name}`}
           disabled={locked}
           onPress={() => nudge(-1)}
-          style={[styles.step, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+          style={[styles.step, { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.md }]}>
           <Glyph name="minus" size={22} color={colors.text} />
         </Pressable>
         <View style={styles.flex}>
@@ -176,6 +180,7 @@ export function ReviewItemCard({
                 color: colors.text,
                 borderColor: grams > 0 ? colors.border : colors.danger,
                 backgroundColor: colors.surfaceAlt,
+                borderRadius: radius.md,
               },
             ]}
           />
@@ -185,7 +190,7 @@ export function ReviewItemCard({
           accessibilityLabel={`Increase amount of ${item.name}`}
           disabled={locked}
           onPress={() => nudge(1)}
-          style={[styles.step, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+          style={[styles.step, { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.md }]}>
           <Glyph name="plus" size={22} color={colors.text} />
         </Pressable>
       </View>
@@ -208,7 +213,7 @@ export function ReviewItemCard({
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm },
+  card: { borderWidth: StyleSheet.hairlineWidth, padding: spacing.md, gap: spacing.sm },
   flex: { flex: 1, gap: 2 },
   bold: { fontWeight: '700' },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
@@ -222,7 +227,6 @@ const styles = StyleSheet.create({
   step: {
     width: 44,
     height: 46,
-    borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
@@ -230,7 +234,6 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 46,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     fontSize: 18,
     fontWeight: '600',

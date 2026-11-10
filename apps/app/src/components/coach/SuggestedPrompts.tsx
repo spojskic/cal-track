@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 export const SUGGESTED_PROMPTS: readonly string[] = [
   'How is my protein intake this week?',
@@ -27,7 +27,7 @@ export function SuggestedPrompts({
   prompts?: readonly string[];
   title?: string;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <View style={styles.root}>
       <View style={styles.intro}>
@@ -52,6 +52,7 @@ export function SuggestedPrompts({
               {
                 backgroundColor: pressed ? colors.surfaceAlt : colors.surface,
                 borderColor: colors.border,
+                borderRadius: radius.lg,
                 opacity: disabled ? 0.5 : 1,
               },
             ]}>
@@ -71,7 +72,6 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },

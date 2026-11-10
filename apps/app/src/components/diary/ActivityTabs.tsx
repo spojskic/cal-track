@@ -44,7 +44,7 @@ export function DiaryTabs({
   onChange: (tab: DiaryTab) => void;
   counts?: Partial<Record<DiaryTab, number>>;
 }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const windowWidth = useWindowDimensions().width;
   const [measured, onLayout] = useMeasuredWidth();
   // Until the strip is measured, assume it is about as wide as the window (minus the page padding).
@@ -80,7 +80,11 @@ export function DiaryTabs({
               </AppText>
               {count ? (
                 // A small badge, so "BODY 2" is not read as a name: the 2 is how many entries this day has in the tab.
-                <View style={[styles.badge, { backgroundColor: selected ? colors.primary : colors.surfaceAlt }]}>
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: selected ? colors.primary : colors.surfaceAlt, borderRadius: shape.circle(COUNT_BADGE_SIZE) },
+                  ]}>
                   <AppText style={[styles.badgeText, { color: selected ? colors.onPrimary : colors.textMuted }]}>{count}</AppText>
                 </View>
               ) : null}
@@ -206,10 +210,12 @@ export function NotesList({ entries }: { entries: readonly NoteEntry[] }) {
   return <ActivityRows kind="note" items={entries} textOf={noteRowText} />;
 }
 
+const COUNT_BADGE_SIZE = 18;
+
 const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
   tabContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  badge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
+  badge: { minWidth: COUNT_BADGE_SIZE, height: COUNT_BADGE_SIZE, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
   badgeText: { fontSize: 11, fontWeight: '800', lineHeight: 14 },
   tab: {
     flex: 1,

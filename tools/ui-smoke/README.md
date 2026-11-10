@@ -25,6 +25,7 @@ pnpm --filter @cal/ui-smoke smoke -- --only=diary            # scenarios whose n
 pnpm --filter @cal/ui-smoke smoke -- --out=/tmp/my-run --viewports=phone,phone-dark   # dark mode is opt-in
 pnpm --filter @cal/ui-smoke smoke -- --chrome="/Applications/Chromium.app/Contents/MacOS/Chromium"
 pnpm --filter @cal/ui-smoke smoke -- --theme=dracula          # start the app with another palette (see below)
+pnpm --filter @cal/ui-smoke smoke -- --corners=boxy           # start the app with the Boxy corners (see below)
 pnpm --filter @cal/ui-smoke smoke -- --list                  # print scenarios + route coverage (no Chrome needed)
 pnpm --filter @cal/ui-smoke smoke -- --headed --workers=1    # watch it
 ```
@@ -39,6 +40,13 @@ the session) before the app loads, so every scenario runs in that palette, for e
 scheme do not matter; the other side stays at its default. Without the flag nothing is seeded and the app starts with its default
 (Match system, Kanagawa Lotus / Kanagawa Wave). Ids are listed by `--help`; an unknown id is an error. The scenario `settings:
 appearance (theme picker)` starts by pressing *Reset to default*, so it also passes under `--theme`.
+
+`--corners=rounded|boxy` seeds the corner style the same way, so the whole smoke can run under Boxy
+(`smoke -- --corners=boxy`, and `--theme=dracula --corners=boxy` for both). Alone it keeps Match system with the default palettes;
+with `--theme` it adds the corners to that palette's choice. The theme picker scenario presses *Boxy*, checks the saved choice
+(`"corners":"boxy"`) and that the computed `border-top-left-radius` of the card around the *Appearance* heading dropped to 8 px or
+less, presses *Rounded*, checks it is back to the original value (12 px or more), and ends with *Reset to default*, which also brings
+back Rounded corners; so it passes under `--corners=boxy` too.
 
 Chrome is looked up in this order: `--chrome`, `$CHROME_PATH`, `/Applications/Google Chrome.app/...`, Playwright's
 own cache (`npx playwright-core install chromium`). The tool never downloads anything.
@@ -81,7 +89,8 @@ unhandled backend endpoints, edge functions that were called, blocked external r
 | `src/fixtures.ts` | seed data (user, ~30 foods, 8 days of diary, 30 days of weight, ...) |
 | `src/scenarios.ts` | **the list of scenarios** |
 | `src/browser-scripts.ts` | JavaScript source strings run in the page (date shift, session seeding, inspection) |
-| `src/theme-seed.ts`, `src/scenarios-theme.ts` | `--theme` seeding and the checks of the theme picker scenario (palettes come from `apps/app/src/theme`) |
+| `src/theme-seed.ts`, `src/scenarios-theme.ts` | `--theme` / `--corners` seeding and the checks of the theme picker scenario (palettes and corner scales come from `apps/app/src/theme`) |
+| `src/shape-guard.test.ts` | the corner scales, and the guard that keeps every rounded corner dynamic (no static `radius`, no big literal `borderRadius`) |
 
 Design notes:
 

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Glyph } from '@/components/Glyph';
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 /** Labelled checkbox row (no native dependency). */
 export function CheckboxRow({
@@ -18,7 +18,7 @@ export function CheckboxRow({
   onChange: (checked: boolean) => void;
   disabled?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -31,7 +31,11 @@ export function CheckboxRow({
       <View
         style={[
           styles.box,
-          { borderColor: checked ? colors.primary : colors.textMuted, backgroundColor: checked ? colors.primary : 'transparent' },
+          {
+            borderColor: checked ? colors.primary : colors.textMuted,
+            backgroundColor: checked ? colors.primary : 'transparent',
+            borderRadius: radius.sm / 2,
+          },
         ]}>
         {checked ? <Glyph name="check" size={16} color={colors.onPrimary} strokeWidth={3} /> : null}
       </View>
@@ -48,7 +52,6 @@ const styles = StyleSheet.create({
   box: {
     width: 24,
     height: 24,
-    borderRadius: radius.sm / 2,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

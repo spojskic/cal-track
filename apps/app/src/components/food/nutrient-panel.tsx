@@ -13,7 +13,7 @@ import {
   type Targets,
 } from '@cal/core';
 
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { AppText, Card } from '../ui';
 import { UNIT_LABEL, formatAmount } from './format';
@@ -76,7 +76,7 @@ export function NutrientPanel({
   initialShowAll = false,
   hideCompleteness = false,
 }: NutrientPanelProps) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const [showAll, setShowAll] = useState(initialShowAll);
   const [collapsed, setCollapsed] = useState<Partial<Record<NutrientGroup, boolean>>>({});
 
@@ -142,7 +142,7 @@ export function NutrientPanel({
         <Pressable
           accessibilityRole="button"
           onPress={() => setShowAll((v) => !v)}
-          style={[styles.toggle, { borderColor: colors.border }]}>
+          style={[styles.toggle, { borderColor: colors.border, borderRadius: radius.pill }]}>
           <AppText variant="small" style={{ fontWeight: '700', color: colors.accent }}>
             {showAll ? 'Hide nutrients without data' : `Show ${hiddenCount} nutrients without data`}
           </AppText>
@@ -234,7 +234,6 @@ const styles = StyleSheet.create({
   pct: { width: 48, textAlign: 'right' },
   toggle: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.pill,
     paddingVertical: spacing.md,
     alignItems: 'center',
   },

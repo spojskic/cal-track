@@ -29,7 +29,7 @@ import {
 import { fetchDefaultServing } from '@/data/recipes';
 import { deliverPickedFood, hasFoodPickHandler } from '@/state/food-picker';
 import { useSelectedDate } from '@/state/selected-date';
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 type TabKey = 'all' | 'recent' | 'favorites' | 'mine';
 
@@ -51,7 +51,7 @@ function matches(food: FoodSummary, folded: string): boolean {
 }
 
 export default function SearchScreen() {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const params = useLocalSearchParams<{ mealGroupId?: string; q?: string; mode?: string }>();
   // /search?mode=pick: choose a food for another screen (recipe ingredient, saved meal) instead of logging it.
   const pickMode = firstParam(params.mode) === 'pick';
@@ -328,7 +328,7 @@ export default function SearchScreen() {
             <View
               style={[
                 styles.searchBox,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.pill },
               ]}>
               <SymbolView
                 name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
@@ -370,7 +370,7 @@ export default function SearchScreen() {
               onPress={openScanner}
               style={({ pressed }) => [
                 styles.scanButton,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.pill },
                 pressed && { opacity: 0.7 },
               ]}>
               <SymbolView
@@ -441,7 +441,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     minHeight: 46,
   },
@@ -451,7 +450,6 @@ const styles = StyleSheet.create({
   scanButton: {
     width: 46,
     height: 46,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',

@@ -13,7 +13,7 @@ import { MealReview } from '@/components/ai/MealReview';
 import { MealGroupChips, useMealGroupChoice } from '@/components/food/meal-group-chips';
 import { TextField } from '@/components/forms';
 import { AppText, Button, Card, Screen } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 const EXAMPLES = [
   '200 g chicken breast, 1 cup of rice, 1 tbsp olive oil',
@@ -25,7 +25,7 @@ export default function DescribeMealScreen() {
   useAiBootstrap();
   const gate = useAiGate();
   const handle = useAiClient();
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const meal = useMealGroupChoice(undefined);
   const [text, setText] = useState('');
   const [runId, setRunId] = useState(0);
@@ -99,7 +99,7 @@ export default function DescribeMealScreen() {
                   onPress={() => setText(example)}
                   style={({ pressed }) => [
                     styles.example,
-                    { backgroundColor: colors.surfaceAlt, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                    { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.md, opacity: pressed ? 0.7 : 1 },
                   ]}>
                   <Text style={{ color: colors.text, fontSize: 14 }}>{example}</Text>
                 </Pressable>
@@ -133,7 +133,6 @@ const styles = StyleSheet.create({
   examples: { gap: spacing.sm },
   example: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 40,

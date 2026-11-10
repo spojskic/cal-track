@@ -5,7 +5,7 @@ import { formatNumber } from '@/components/charts/format';
 import { AppText, Button } from '@/components/ui';
 import { useCopyDiaryEntries, useDiaryEntries } from '@/data/diary';
 import { addDays } from '@/state/selected-date';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { formatDayLabel, relativeDayLabel } from './dates';
 import { haptic } from './haptics';
@@ -62,7 +62,7 @@ function CopyBody({
   announceCopy: CopyActions['announceCopy'];
   onClose: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const [sourceDate, setSourceDate] = useState(addDays(targetDate, -1));
   const source = useDiaryEntries(sourceDate);
   const copy = useCopyDiaryEntries();
@@ -93,7 +93,7 @@ function CopyBody({
 
   return (
     <>
-      <View style={[styles.stepper, { backgroundColor: colors.surfaceAlt }]}>
+      <View style={[styles.stepper, { backgroundColor: colors.surfaceAlt, borderRadius: radius.md }]}>
         <IconButton glyph="‹" label="Earlier source day" onPress={() => setSourceDate((d) => addDays(d, -1))} />
         <View style={styles.stepperDate}>
           <AppText style={{ fontWeight: '700' }}>{formatDayLabel(sourceDate)}</AppText>
@@ -154,7 +154,7 @@ function CopyBody({
 }
 
 const styles = StyleSheet.create({
-  stepper: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, padding: spacing.xs },
+  stepper: { flexDirection: 'row', alignItems: 'center', padding: spacing.xs },
   stepperDate: { flex: 1, alignItems: 'center' },
   preview: { gap: spacing.xs, minHeight: 60, justifyContent: 'center' },
 });

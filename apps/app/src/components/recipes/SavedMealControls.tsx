@@ -12,7 +12,7 @@ import type { DiaryEntry } from '@/data/diary';
 import { errorMessage } from '@/data/foods';
 import { useCreateSavedMeal, useLogSavedMeal, useSavedMeals } from '@/data/saved-meals';
 import { useSelectedDate } from '@/state/selected-date';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { open } from './nav';
 
@@ -128,7 +128,7 @@ function SaveBody({ defaultName, entries, onClose }: { defaultName: string; entr
 }
 
 function AddBody({ date, mealGroupId, onClose }: { date: string; mealGroupId: string; onClose: () => void }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const meals = useSavedMeals();
   const log = useLogSavedMeal();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -191,7 +191,12 @@ function AddBody({ date, mealGroupId, onClose }: { date: string; mealGroupId: st
           }}
           style={({ pressed }) => [
             styles.mealRow,
-            { backgroundColor: colors.surfaceAlt, borderColor: colors.border, opacity: pressed || (log.isPending && busyId !== m.id) ? 0.7 : 1 },
+            {
+              backgroundColor: colors.surfaceAlt,
+              borderColor: colors.border,
+              borderRadius: radius.md,
+              opacity: pressed || (log.isPending && busyId !== m.id) ? 0.7 : 1,
+            },
           ]}>
           <View style={styles.flex}>
             <AppText style={{ fontWeight: '600' }} numberOfLines={2}>
@@ -222,7 +227,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     minHeight: 56,
     padding: spacing.md,
-    borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
   },
 });

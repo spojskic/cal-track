@@ -24,15 +24,15 @@ const SYMBOLS: Record<WorkoutKind, KindSymbol> = {
   other: { name: { ios: 'figure.mixed.cardio', android: 'sports' }, glyph: 'E' },
 };
 
-/** The icon of a kind of workout, in a round tinted badge. Decorative: the row's own label says what it is. */
+/** The icon of a kind of workout, in a round (boxy look: rounded-square) tinted badge. Decorative: the row's own label says what it is. */
 export function WorkoutIcon({ kind, size = 40 }: { kind: WorkoutKind; size?: number }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const symbol = SYMBOLS[kind];
   return (
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[styles.badge, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.surfaceAlt }]}>
+      style={[styles.badge, { width: size, height: size, borderRadius: shape.circle(size), backgroundColor: colors.surfaceAlt }]}>
       <SymbolView
         name={symbol.name}
         size={size * 0.5}

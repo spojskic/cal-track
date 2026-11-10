@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 type TextVariant = 'title' | 'heading' | 'body' | 'small' | 'label';
 
@@ -47,12 +47,12 @@ export function Card({
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <View
       style={[
         styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg },
         style,
       ]}>
       {children}
@@ -108,7 +108,7 @@ export function Button({
   loading?: boolean;
   disabled?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const bg =
     variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.surfaceAlt : 'transparent';
   const fg = variant === 'primary' ? colors.onPrimary : colors.text;
@@ -119,7 +119,8 @@ export function Button({
       disabled={disabled || loading}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
+        // Half of minHeight: a pill for one line, and a rounded rectangle (not an oval) when a long label wraps onto two.
+        { backgroundColor: bg, borderRadius: shape.circle(BUTTON_MIN_HEIGHT), opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
       ]}>
       {loading ? (
         <ActivityIndicator color={fg} />
@@ -129,6 +130,8 @@ export function Button({
     </Pressable>
   );
 }
+
+const BUTTON_MIN_HEIGHT = 46;
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
@@ -143,14 +146,11 @@ const styles = StyleSheet.create({
   pageTitle: { marginTop: spacing.sm },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
   },
   button: {
-    minHeight: 46,
-    // Half of minHeight: a pill for one line, and a rounded rectangle (not an oval) when a long label wraps onto two.
-    borderRadius: 23,
+    minHeight: BUTTON_MIN_HEIGHT,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     alignItems: 'center',

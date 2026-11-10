@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { parseNumber } from '@cal/core';
 
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { NumberField } from '../forms';
 import { AppText } from '../ui';
@@ -19,11 +19,11 @@ export function AmountWarningNote({
   warning: AmountWarning;
   onUseGrams?: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <View
       accessibilityRole="alert"
-      style={[styles.warning, { backgroundColor: colors.surfaceAlt, borderLeftColor: colors.warning }]}>
+      style={[styles.warning, { backgroundColor: colors.surfaceAlt, borderLeftColor: colors.warning, borderRadius: radius.sm }]}>
       <AppText variant="small">{warning.message}</AppText>
       {warning.gramsAlternative !== null && onUseGrams ? (
         <Pressable
@@ -32,7 +32,7 @@ export function AmountWarningNote({
           onPress={onUseGrams}
           style={({ pressed }) => [
             styles.warningButton,
-            { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+            { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.pill, opacity: pressed ? 0.7 : 1 },
           ]}>
           <AppText variant="small" style={{ fontWeight: '700', color: colors.accent }}>
             {`Use ${trimNumber(warning.gramsAlternative, 2)} g`}
@@ -71,7 +71,7 @@ export function ServingPicker({
   onUseGrams?: (gramOption: ServingOption) => void;
   error?: string | null;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const gramOption = options.find(isGramOption);
   const warning = amountWarning({
     grams,
@@ -106,6 +106,7 @@ export function ServingPicker({
                   {
                     backgroundColor: selected ? colors.primary : colors.surfaceAlt,
                     borderColor: selected ? colors.primary : colors.border,
+                    borderRadius: radius.pill,
                   },
                 ]}>
                 <Text
@@ -139,18 +140,16 @@ const styles = StyleSheet.create({
     minHeight: 36,
     maxWidth: '100%',
     paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipText: { fontSize: 14, fontWeight: '600' },
-  warning: { borderLeftWidth: 4, borderRadius: radius.sm, padding: spacing.md, gap: spacing.sm },
+  warning: { borderLeftWidth: 4, padding: spacing.md, gap: spacing.sm },
   warningButton: {
     alignSelf: 'flex-start',
     minHeight: 36,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',

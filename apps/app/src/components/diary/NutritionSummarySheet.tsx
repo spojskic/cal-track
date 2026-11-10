@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { formatAmount } from '@/components/charts/format';
 import { AppText } from '@/components/ui';
 import type { DiaryEntry } from '@/data/diary';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { buildGroupSummary } from './group-summary';
 import { Sheet } from './Sheet';
@@ -35,13 +35,13 @@ export function NutritionSummarySheet({
 }
 
 function SummaryBody({ entries, netCarbs }: { entries: readonly DiaryEntry[]; netCarbs: boolean }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const summary = useMemo(() => buildGroupSummary(entries, netCarbs), [entries, netCarbs]);
   const incompleteAny = summary.incompleteNutrients.length > 0;
 
   return (
     <>
-      <View style={[styles.headline, { backgroundColor: colors.surfaceAlt }]}>
+      <View style={[styles.headline, { backgroundColor: colors.surfaceAlt, borderRadius: radius.md }]}>
         {summary.headline.map((s) => {
           const text = formatAmount(s.amount, s.unit);
           return (
@@ -91,7 +91,7 @@ function SummaryBody({ entries, netCarbs }: { entries: readonly DiaryEntry[]; ne
 }
 
 const styles = StyleSheet.create({
-  headline: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.md, borderRadius: radius.md },
+  headline: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.md },
   stat: { alignItems: 'center', gap: 2, flex: 1 },
   section: { gap: spacing.xs },
   row: {

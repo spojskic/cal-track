@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { EnergyBreakdownSheet } from '@/components/diary/EnergyBreakdownSheet';
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 import { formatNumber } from './format';
 import { MacroSplitBar, type MacroKcal } from './MacroSplitBar';
@@ -58,7 +58,7 @@ export function EnergySummary({
   compact = false,
   animated = true,
 }: EnergySummaryProps) {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   const [view, setView] = useState<SplitView>('consumed');
   const [showBreakdown, setShowBreakdown] = useState(false);
   const size = compact ? 76 : 100;
@@ -202,7 +202,7 @@ export function EnergySummary({
             <AppText variant="label" muted>
               Macro split
             </AppText>
-            <View style={[styles.toggle, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+            <View style={[styles.toggle, { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.pill }]}>
               {(['target', 'consumed'] as const).map((opt) => {
                 const selected = opt === view;
                 return (
@@ -212,7 +212,11 @@ export function EnergySummary({
                     accessibilityState={{ selected }}
                     accessibilityLabel={`Show ${opt} macro split`}
                     onPress={() => setView(opt)}
-                    style={[styles.toggleOption, selected && { backgroundColor: colors.primary }]}>
+                    style={[
+                      styles.toggleOption,
+                      { borderRadius: shape.inner(radius.pill, TOGGLE_PADDING) },
+                      selected && { backgroundColor: colors.primary },
+                    ]}>
                     <AppText
                       style={{ fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: selected ? colors.onPrimary : colors.text }}>
                       {opt.toUpperCase()}
@@ -229,6 +233,9 @@ export function EnergySummary({
   );
 }
 
+/** Inner space of the TARGET / CONSUMED toggle: its options sit this far inside the outer border. */
+const TOGGLE_PADDING = 2;
+
 const styles = StyleSheet.create({
   wrap: { gap: spacing.md },
   rings: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-start', gap: spacing.sm },
@@ -238,6 +245,6 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   splitSection: { gap: spacing.sm },
   splitHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  toggle: { flexDirection: 'row', borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, padding: 2, gap: 2 },
-  toggleOption: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 1, borderRadius: radius.pill },
+  toggle: { flexDirection: 'row', borderWidth: StyleSheet.hairlineWidth, padding: TOGGLE_PADDING, gap: TOGGLE_PADDING },
+  toggleOption: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 1 },
 });

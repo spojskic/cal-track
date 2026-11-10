@@ -36,7 +36,7 @@ import { useUnitSystem } from '@/data/profile';
 import { useTargets } from '@/data/targets';
 import { useAuth } from '@/lib/auth';
 import { useSelectedDate } from '@/state/selected-date';
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 const MAX_GRAMS = 50_000;
 const WIDE_LAYOUT = 760;
@@ -116,7 +116,7 @@ function FoodDetailView({
   portionParam: string | undefined;
   fromScan: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_LAYOUT;
@@ -199,7 +199,7 @@ function FoodDetailView({
           accessibilityState={{ selected: isFavorite, busy: toggleFavorite.isPending }}
           disabled={toggleFavorite.isPending}
           onPress={() => toggleFavorite.mutate({ foodId: food.id, favorite: !isFavorite })}
-          style={[styles.fav, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+          style={[styles.fav, { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.pill }]}>
           <Text style={{ fontSize: 22, color: isFavorite ? colors.primary : colors.textMuted }}>
             {isFavorite ? '\u2605' : '\u2606'}
           </Text>
@@ -350,7 +350,6 @@ const styles = StyleSheet.create({
   fav: {
     width: 44,
     height: 44,
-    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',

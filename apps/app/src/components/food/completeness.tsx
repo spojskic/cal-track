@@ -40,6 +40,7 @@ export function useCompletenessColor(level: CompletenessLevel): string {
 
 /** Coloured dot: green = detailed, amber = label-level, red = limited. */
 export function CompletenessDot({ value, size = 10 }: { value: number | null | undefined; size?: number }) {
+  const { shape } = useTheme();
   const level = completenessLevel(value);
   const color = useCompletenessColor(level);
   const pct = value === null || value === undefined ? null : Math.round(value * 100);
@@ -47,7 +48,7 @@ export function CompletenessDot({ value, size = 10 }: { value: number | null | u
     <View
       accessible
       accessibilityLabel={pct === null ? LABEL[level] : `${LABEL[level]}, ${pct} percent of nutrients`}
-      style={[styles.dot, { width: size, height: size, borderRadius: size / 2, backgroundColor: color }]}
+      style={[styles.dot, { width: size, height: size, borderRadius: shape.dot(size), backgroundColor: color }]}
     />
   );
 }

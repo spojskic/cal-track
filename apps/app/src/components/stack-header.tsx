@@ -52,14 +52,17 @@ export function StackHeader({ navigation, options, route, back }: NativeStackHea
 }
 
 function BackButton({ onPress }: { onPress: () => void }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Go back"
       hitSlop={6}
       onPress={onPress}
-      style={({ pressed }) => [styles.back, { backgroundColor: pressed ? colors.border : colors.surfaceAlt }]}>
+      style={({ pressed }) => [
+        styles.back,
+        { backgroundColor: pressed ? colors.border : colors.surfaceAlt, borderRadius: shape.circle(BUTTON) },
+      ]}>
       <Glyph name="chevron-left" size={24} color={colors.text} />
     </Pressable>
   );
@@ -74,5 +77,5 @@ const styles = StyleSheet.create({
   sideRight: { justifyContent: 'flex-end' },
   title: { flex: 1, fontSize: 18, fontWeight: '700' },
   titleCentered: { textAlign: 'center' },
-  back: { width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, alignItems: 'center', justifyContent: 'center' },
+  back: { width: BUTTON, height: BUTTON, alignItems: 'center', justifyContent: 'center' },
 });

@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui';
-import { WIDE_BREAKPOINT, radius, spacing, useTheme, withAlpha } from '@/theme';
+import { WIDE_BREAKPOINT, spacing, useTheme, withAlpha } from '@/theme';
 
 import { IconButton } from './IconButton';
 
@@ -41,7 +41,7 @@ export function Sheet({
   subtitle?: string;
   children: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const wide = width >= WIDE_BREAKPOINT;
@@ -67,6 +67,7 @@ export function Sheet({
           style={[
             styles.sheet,
             wide ? styles.sheetWide : styles.sheetPhone,
+            wide ? { borderRadius: radius.lg } : { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
             {
               backgroundColor: colors.surface,
               borderColor: colors.border,
@@ -117,7 +118,7 @@ export function ActionMenu({
   actions: MenuAction[];
   onClose: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   return (
     <Sheet visible={visible} onClose={onClose} title={title}>
       <View style={styles.menu}>
@@ -129,7 +130,10 @@ export function ActionMenu({
               onClose();
               runAfterModal(action.onPress);
             }}
-            style={({ pressed }) => [styles.menuItem, { backgroundColor: pressed ? colors.surfaceAlt : 'transparent' }]}>
+            style={({ pressed }) => [
+              styles.menuItem,
+              { backgroundColor: pressed ? colors.surfaceAlt : 'transparent', borderRadius: radius.md },
+            ]}>
             <AppText style={{ fontWeight: '600', color: action.destructive ? colors.danger : colors.text }}>
               {action.label}
             </AppText>
@@ -145,15 +149,11 @@ const styles = StyleSheet.create({
   overlayCenter: { justifyContent: 'center', alignItems: 'center' },
   overlayBottom: { justifyContent: 'flex-end' },
   sheet: { borderWidth: StyleSheet.hairlineWidth },
-  sheetPhone: {
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    paddingTop: spacing.sm,
-  },
-  sheetWide: { width: 520, maxWidth: '92%', borderRadius: radius.lg, paddingTop: spacing.sm },
+  sheetPhone: { paddingTop: spacing.sm },
+  sheetWide: { width: 520, maxWidth: '92%', paddingTop: spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   headerText: { flex: 1, gap: 2 },
   body: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs, gap: spacing.md },
   menu: { gap: 2 },
-  menuItem: { minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: radius.md },
+  menuItem: { minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.md },
 });

@@ -15,6 +15,7 @@ import {
   type ThemeMode,
   type ThemePrefs,
 } from './palettes';
+import type { Corners } from './shape';
 
 export interface ThemeState extends ThemePrefs {
   /** The saved choice was read (always true on the web, where it is read synchronously). */
@@ -24,7 +25,9 @@ export interface ThemeState extends ThemePrefs {
   setLight: (id: string) => void;
   /** Picks the palette used on the dark side. Ignored for an id that is not a dark palette. */
   setDark: (id: string) => void;
-  /** Back to Match system with the default palettes. */
+  /** Picks the corner style (Rounded or Boxy). Applies to the whole app at once. */
+  setCorners: (corners: Corners) => void;
+  /** Back to Match system with the default palettes and rounded corners. */
   reset: () => void;
   /** Native: reads the saved choice. Does nothing once the choice was read or changed. */
   hydrate: () => Promise<void>;
@@ -57,8 +60,8 @@ export const useThemeStore = create<ThemeState>()((set, get) => {
     void save(next);
   };
   const prefs = (): ThemePrefs => {
-    const { mode, light, dark } = get();
-    return { mode, light, dark };
+    const { mode, light, dark, corners } = get();
+    return { mode, light, dark, corners };
   };
   return {
     ...initial,
@@ -70,6 +73,7 @@ export const useThemeStore = create<ThemeState>()((set, get) => {
     setDark: (id) => {
       if (getPalette(id)?.appearance === 'dark') commit({ ...prefs(), dark: id });
     },
+    setCorners: (corners) => commit({ ...prefs(), corners }),
     reset: () => commit(DEFAULT_THEME_PREFS),
     hydrate: async () => {
       if (get().hydrated) return;

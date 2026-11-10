@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme, type ThemeColors } from '@/theme';
+import { spacing, useTheme, type ThemeColors } from '@/theme';
 
 import { zoneBar, zoneSummary } from './format';
 import type { WorkoutHrZone } from '@cal/garmin';
@@ -29,12 +29,12 @@ function zoneColor(zone: number, colors: ThemeColors): string {
 
 /** Time in each heart-rate zone: one horizontal stacked bar and a legend with the minutes per zone. Nothing for no data. */
 export function ZoneBar({ zones }: { zones: readonly WorkoutHrZone[] | undefined }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const segments = zoneBar(zones);
   if (segments.length === 0) return null;
   return (
     <View style={styles.wrap}>
-      <View accessible accessibilityRole="image" accessibilityLabel={`Time in heart-rate zones: ${zoneSummary(zones)}`} style={styles.bar}>
+      <View accessible accessibilityRole="image" accessibilityLabel={`Time in heart-rate zones: ${zoneSummary(zones)}`} style={[styles.bar, { borderRadius: shape.bar(BAR_HEIGHT) }]}>
         {segments
           .filter((s) => s.fraction > 0)
           .map((s) => (
@@ -60,9 +60,11 @@ export function ZoneBar({ zones }: { zones: readonly WorkoutHrZone[] | undefined
   );
 }
 
+const BAR_HEIGHT = 16;
+
 const styles = StyleSheet.create({
   wrap: { gap: spacing.md },
-  bar: { flexDirection: 'row', height: 16, borderRadius: radius.sm, overflow: 'hidden', gap: 1 },
+  bar: { flexDirection: 'row', height: BAR_HEIGHT, overflow: 'hidden', gap: 1 },
   legend: { gap: spacing.xs },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 26 },
   dot: { width: 10, height: 10, borderRadius: 5 },

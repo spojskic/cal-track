@@ -4,14 +4,18 @@ import { useColorScheme } from 'react-native';
 import { applyWebChrome } from './chrome';
 import type { PaletteDef, ThemeColors } from './colors';
 import { resolvePalette } from './palettes';
+import { radiiFor, shapeFor, type Corners, type Radii, type Shape } from './shape';
 import { useThemeStore } from './theme-store';
 
 export * from './colors';
 export * from './palettes';
+// Only the types and the list of corner styles: the scales themselves are reached through `useTheme()`, so that no module can
+// freeze a radius at import time (tools/ui-smoke/src/shape-guard.test.ts checks it).
+export { CORNERS } from './shape';
+export type { Corners, Radii, Shape } from './shape';
 export { useThemeStore } from './theme-store';
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
-export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
 /** Width (px) from which the web/tablet layout switches from bottom tabs to a left sidebar. */
 export const WIDE_BREAKPOINT = 900;
@@ -34,15 +38,37 @@ export interface Theme {
   colors: ThemeColors;
   isDark: boolean;
   paletteId: string;
+  /** The corner style on screen. */
+  corners: Corners;
+  /**
+   * The corner sizes of the active style (`radius.lg` for a card, `radius.md` for a field, `radius.pill` for a button or chip).
+   * Always apply it inline in render (`style={[styles.card, { borderRadius: radius.lg }]}`), never inside a module-level
+   * `StyleSheet.create`, which runs once and cannot follow the setting.
+   */
+  radius: Radii;
+  /** Radius helpers for round things that are not on the scale (`shape.circle(38)`, `shape.bar(8)`, `shape.px(14)`, `shape.dot(10)`). */
+  shape: Shape;
 }
 
 /**
- * The colours to draw with. `colors` is the same object for as long as the palette stays the same, so it is safe in
- * dependency lists, and `isDark` is the palette's own appearance (not the device's).
+ * The colours and corners to draw with. `colors` is the same object for as long as the palette stays the same, so it is safe in
+ * dependency lists, and `isDark` is the palette's own appearance (not the device's). `radius` and `shape` only change when the
+ * user switches between Rounded and Boxy.
  */
 export function useTheme(): Theme {
   const palette = useResolvedPalette();
-  return useMemo(() => ({ colors: palette.colors, isDark: palette.appearance === 'dark', paletteId: palette.id }), [palette]);
+  const corners = useThemeStore((s) => s.corners);
+  return useMemo(
+    () => ({
+      colors: palette.colors,
+      isDark: palette.appearance === 'dark',
+      paletteId: palette.id,
+      corners,
+      radius: radiiFor(corners),
+      shape: shapeFor(corners),
+    }),
+    [palette, corners],
+  );
 }
 
 /** Mount once near the root: keeps the web page chrome (background, color-scheme, focus colour) in step with the palette. */

@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 /** Three pulsing dots while the coach is preparing an answer. Static when the user prefers reduced motion. */
 export function TypingIndicator({ label = 'Coach is thinking' }: { label?: string }) {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   const [reduceMotion, setReduceMotion] = useState(false);
   const [values] = useState(() => [new Animated.Value(0.35), new Animated.Value(0.35), new Animated.Value(0.35)]);
 
@@ -45,7 +45,12 @@ export function TypingIndicator({ label = 'Coach is thinking' }: { label?: strin
       accessibilityLabel={label}
       accessibilityLiveRegion="polite"
       style={styles.row}>
-      <View style={[styles.bubble, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.bubble,
+          shape.tailed(radius.lg, spacing.xs, 'bottomLeft'),
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}>
         {values.map((v, i) => (
           <Animated.View
             key={i}
@@ -68,9 +73,7 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md + 2,
-    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderBottomLeftRadius: spacing.xs,
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
 });

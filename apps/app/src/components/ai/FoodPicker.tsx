@@ -7,7 +7,7 @@ import { FoodRow } from '@/components/food/food-row';
 import { useDebouncedValue } from '@/components/food/use-debounced-value';
 import { AppText } from '@/components/ui';
 import { errorMessage, useFoodSearch, type FoodSummary } from '@/data/foods';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 /**
  * Inline food picker: suggested alternatives first, then the same server-side search the Search screen
@@ -26,7 +26,7 @@ export function FoodPicker({
   onPick: (food: FoodSummary) => void;
   onClose: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const [query, setQuery] = useState(initialQuery);
   const debounced = useDebouncedValue(query, 250);
   const trimmed = debounced.trim();
@@ -40,14 +40,14 @@ export function FoodPicker({
   }
 
   return (
-    <View style={[styles.panel, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+    <View style={[styles.panel, { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.md }]}>
       <View style={styles.header}>
         <AppText variant="body" style={styles.title}>{title}</AppText>
         <Pressable accessibilityRole="button" accessibilityLabel="Close food search" onPress={onClose} hitSlop={8}>
           <Glyph name="close" size={18} color={colors.textMuted} />
         </Pressable>
       </View>
-      <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.pill }]}>
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -82,14 +82,13 @@ export function FoodPicker({
 }
 
 const styles = StyleSheet.create({
-  panel: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
+  panel: { borderWidth: StyleSheet.hairlineWidth, padding: spacing.md, gap: spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   title: { fontWeight: '700', flex: 1 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     minHeight: 44,
     gap: spacing.sm,

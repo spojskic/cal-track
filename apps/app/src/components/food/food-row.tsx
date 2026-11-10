@@ -44,7 +44,7 @@ export function FoodRow({
   quickAddState?: QuickAddState;
   favorite?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, shape } = useTheme();
   const summary = macroLine(food);
   const source = foodSourceLabel(food.source, food.kind);
   return (
@@ -88,6 +88,7 @@ export function FoodRow({
             styles.add,
             {
               backgroundColor: quickAddState === 'done' ? colors.success : colors.primary,
+              borderRadius: shape.circle(QUICK_ADD_SIZE),
               opacity: pressed ? 0.8 : 1,
             },
           ]}>
@@ -101,6 +102,9 @@ export function FoodRow({
     </View>
   );
 }
+
+/** The round "+" button at the end of a row (a rounded square in the boxy look). */
+const QUICK_ADD_SIZE = 38;
 
 const styles = StyleSheet.create({
   row: {
@@ -118,9 +122,8 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   detail: { flexShrink: 1 },
   add: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: QUICK_ADD_SIZE,
+    height: QUICK_ADD_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MAX_MESSAGE_CHARS, type CoachPhase } from '@/ai/use-coach-chat';
 import { AppText } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 export const COACH_DISCLAIMER = 'Not medical advice. For health concerns talk to a professional.';
 
@@ -58,7 +58,7 @@ export function ChatInput({
   placeholder?: string;
   prefill?: string;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
   const [value, setValue] = useState(prefill);
@@ -133,6 +133,7 @@ export function ChatInput({
                 color: colors.text,
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
+                borderRadius: radius.lg,
               },
             ]}
           />
@@ -141,7 +142,16 @@ export function ChatInput({
               accessibilityRole="button"
               accessibilityLabel="Stop generating"
               onPress={onStop}
-              style={({ pressed }) => [styles.action, { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth, opacity: pressed ? 0.7 : 1 }]}>
+              style={({ pressed }) => [
+                styles.action,
+                {
+                  backgroundColor: colors.surfaceAlt,
+                  borderColor: colors.border,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderRadius: radius.pill,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}>
               <View style={[styles.stopGlyph, { backgroundColor: colors.text }]} />
               <Text style={[styles.actionLabel, { color: colors.text }]}>Stop</Text>
             </Pressable>
@@ -154,7 +164,7 @@ export function ChatInput({
               onPress={submit}
               style={({ pressed }) => [
                 styles.action,
-                { backgroundColor: colors.primary, opacity: !canSend ? 0.45 : pressed ? 0.85 : 1 },
+                { backgroundColor: colors.primary, borderRadius: radius.pill, opacity: !canSend ? 0.45 : pressed ? 0.85 : 1 },
               ]}>
               <Text style={[styles.actionLabel, { color: colors.onPrimary }]}>{phase === 'finishing' ? 'Saving' : 'Send'}</Text>
             </Pressable>
@@ -181,7 +191,6 @@ const styles = StyleSheet.create({
     minHeight: MIN_HEIGHT,
     maxHeight: MAX_HEIGHT,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
@@ -191,7 +200,6 @@ const styles = StyleSheet.create({
   action: {
     minHeight: MIN_HEIGHT,
     minWidth: 72,
-    borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',

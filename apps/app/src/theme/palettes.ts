@@ -3,6 +3,7 @@
 import type { PaletteAppearance, PaletteDef } from './colors';
 import { DARK_PALETTES } from './palettes-dark';
 import { LIGHT_PALETTES } from './palettes-light';
+import { CORNERS, DEFAULT_CORNERS, type Corners } from './shape';
 
 export { DARK_PALETTES, LIGHT_PALETTES };
 
@@ -38,16 +39,19 @@ export interface ThemePrefs {
   light: string;
   /** Id of a dark palette. */
   dark: string;
+  /** Corner style: `rounded` is the original look, `boxy` has small, sharp corners everywhere. */
+  corners: Corners;
 }
 
-export const DEFAULT_THEME_PREFS: ThemePrefs = { mode: 'system', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID };
+export const DEFAULT_THEME_PREFS: ThemePrefs = { mode: 'system', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: DEFAULT_CORNERS };
 
 /** AsyncStorage / localStorage key. The version is part of the key: change the shape, bump it. */
 export const THEME_STORAGE_KEY = 'cal-track.theme.v1';
 
 /**
  * Makes any value (parsed JSON, `null`, a stale object) a valid choice: an unknown mode becomes `system`, an unknown id, or
- * the id of a palette of the other appearance, becomes the default of that side.
+ * the id of a palette of the other appearance, becomes the default of that side, and a missing or unknown `corners` (a choice
+ * saved before the Boxy look existed) becomes `rounded`.
  */
 export function sanitizeThemePrefs(raw: unknown): ThemePrefs {
   const o = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
@@ -58,6 +62,7 @@ export function sanitizeThemePrefs(raw: unknown): ThemePrefs {
     mode,
     light: light?.appearance === 'light' ? light.id : DEFAULT_LIGHT_ID,
     dark: dark?.appearance === 'dark' ? dark.id : DEFAULT_DARK_ID,
+    corners: CORNERS.find((c) => c === o.corners) ?? DEFAULT_CORNERS,
   };
 }
 
@@ -76,14 +81,22 @@ export function serializeThemePrefs(prefs: ThemePrefs): string {
 }
 
 export function isDefaultThemePrefs(prefs: ThemePrefs): boolean {
-  return prefs.mode === DEFAULT_THEME_PREFS.mode && prefs.light === DEFAULT_LIGHT_ID && prefs.dark === DEFAULT_DARK_ID;
+  return (
+    prefs.mode === DEFAULT_THEME_PREFS.mode &&
+    prefs.light === DEFAULT_LIGHT_ID &&
+    prefs.dark === DEFAULT_DARK_ID &&
+    prefs.corners === DEFAULT_THEME_PREFS.corners
+  );
 }
+
+/** What decides the palette: the saved choice without the corner style (accepted, but it plays no part). */
+export type PaletteChoice = Pick<ThemePrefs, 'mode' | 'light' | 'dark'> & { corners?: Corners };
 
 /**
  * The palette on screen. `system` follows the device (`systemScheme`; an unknown scheme counts as light), `light` and `dark`
  * pin the side. The side then supplies the palette the user picked for it.
  */
-export function resolvePalette(prefs: ThemePrefs, systemScheme: string | null | undefined): PaletteDef {
+export function resolvePalette(prefs: PaletteChoice, systemScheme: string | null | undefined): PaletteDef {
   const clean = sanitizeThemePrefs(prefs);
   const side: PaletteAppearance = clean.mode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : clean.mode;
   return byId(side === 'dark' ? clean.dark : clean.light);

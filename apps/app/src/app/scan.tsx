@@ -32,7 +32,7 @@ import {
 } from '@/data/foods';
 import { fetchDefaultServing } from '@/data/recipes';
 import { deliverPickedFood, hasFoodPickHandler } from '@/state/food-picker';
-import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
 type ScanResult =
   | BarcodeLookupResult
@@ -54,8 +54,11 @@ const NOTICE_REPEAT_MS = 1500;
 
 const SCAN_HINT = 'Place barcode in the frame to scan';
 
+/** Corner radius of the viewfinder frame in the rounded look (the boxy look caps it at its largest radius). */
+const FRAME_RADIUS = 24;
+
 export default function ScanScreen() {
-  const { colors } = useTheme();
+  const { colors, radius, shape } = useTheme();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const params = useLocalSearchParams<{ mealGroupId?: string; mode?: string; from?: string }>();
@@ -254,7 +257,7 @@ export default function ScanScreen() {
           automaticallyAdjustKeyboardInsets>
           <View style={styles.content}>
             {!showCamera ? (
-              <View style={[styles.placeholderBox, { backgroundColor: colors.sidebar, borderColor: colors.border }]}>
+              <View style={[styles.placeholderBox, { backgroundColor: colors.sidebar, borderColor: colors.border, borderRadius: radius.lg }]}>
                 <CameraPlaceholder
                   granted={cameraGranted}
                   canAskAgain={permission?.canAskAgain ?? true}
@@ -335,13 +338,18 @@ export default function ScanScreen() {
         <View pointerEvents="none" style={styles.overlay}>
           <Text
             accessibilityLiveRegion="polite"
-            style={[styles.hint, notice && !locked && styles.hintNotice]}>
+            style={[styles.hint, notice && !locked && styles.hintNotice, notice && !locked && { borderRadius: radius.pill }]}>
             {hint}
           </Text>
           <View
             style={[
               styles.frame,
-              { width: frameSize, height: frameSize, borderColor: locked ? colors.success : '#FFFFFF' },
+              {
+                width: frameSize,
+                height: frameSize,
+                borderColor: locked ? colors.success : '#FFFFFF',
+                borderRadius: shape.px(FRAME_RADIUS),
+              },
             ]}
           />
         </View>
@@ -454,7 +462,7 @@ function CameraPlaceholder({
   onRequest: () => void;
   onRetry: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
   const onDark = colors.onSidebar;
 
   let title: string;
@@ -487,7 +495,7 @@ function CameraPlaceholder({
         <Pressable
           accessibilityRole="button"
           onPress={action.onPress}
-          style={[styles.placeholderButton, { backgroundColor: colors.primary }]}>
+          style={[styles.placeholderButton, { backgroundColor: colors.primary, borderRadius: radius.pill }]}>
           <Text style={[styles.placeholderButtonText, { color: colors.onPrimary }]}>{action.label}</Text>
         </Pressable>
       ) : null}
@@ -616,7 +624,7 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
-  frame: { borderWidth: 3, borderRadius: radius.lg + 8 },
+  frame: { borderWidth: 3 },
   hint: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -630,7 +638,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
-    borderRadius: radius.pill,
     overflow: 'hidden',
     textShadowRadius: 0,
   },
@@ -655,7 +662,6 @@ const styles = StyleSheet.create({
   placeholderBox: {
     width: '100%',
     minHeight: 220,
-    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
@@ -665,7 +671,6 @@ const styles = StyleSheet.create({
   placeholderButton: {
     minHeight: 44,
     paddingHorizontal: spacing.xl,
-    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
