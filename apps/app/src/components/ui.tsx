@@ -84,7 +84,7 @@ export function Screen({
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: safeTop ? insets.top : 0 }]}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">{content}</ScrollView>
       ) : (
         content
       )}
