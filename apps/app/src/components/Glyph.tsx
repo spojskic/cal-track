@@ -39,7 +39,7 @@ export function Glyph({
 }) {
   const stroke = { stroke: color, strokeWidth, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' } as const;
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" pointerEvents="none" accessible={false}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" pointerEvents="none">
       {name === 'plus' ? <Path d="M12 5v14M5 12h14" {...stroke} /> : null}
       {name === 'minus' ? <Path d="M5 12h14" {...stroke} /> : null}
       {name === 'chevron-left' ? <Path d="M14.5 5.5 8 12l6.5 6.5" {...stroke} /> : null}
