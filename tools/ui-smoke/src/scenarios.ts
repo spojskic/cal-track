@@ -489,6 +489,8 @@ export const SCENARIOS: Scenario[] = [
         await ctx.snapshot('balance', { tall: false });
         // the choice is remembered: a reload still shows Deficit / Surplus
         await stepThen(ctx, 'reload the dashboard', async () => {
+          // The query cache is written to storage about a second after a change; reloading sooner restores the old copy.
+          await page.waitForTimeout(1600);
           await page.reload();
           await ctx.settle();
         }, () => expectThirdCircle(ctx, page, BALANCE_VIEW));

@@ -1,8 +1,7 @@
 // react-query hooks for the Garmin link. The phone reads Garmin itself (src/health/garmin*.ts, packages/garmin); there is no
 // server side. On the web nothing runs: no query is enabled and no Garmin code is called.
 import { useMutation, useQuery } from '@tanstack/react-query';
-import * as Clipboard from 'expo-clipboard';
-import { Platform } from 'react-native';
+import { Platform, Share } from 'react-native';
 
 import {
   GARMIN_NO_REPORT,
@@ -20,6 +19,20 @@ import { hasGarminTokens } from '@/health/garmin-tokens';
 
 import { useIntegration } from './health';
 import { useUserId } from './profile';
+
+/**
+ * Copies text to the clipboard. `expo-clipboard` is a native module: an app that was installed BEFORE it was added does not
+ * contain it, and importing it at the top of a screen's code crashes the whole app. So it is loaded on demand, and when it is
+ * missing the system share sheet is offered instead.
+ */
+async function copyText(text: string): Promise<void> {
+  try {
+    const Clipboard = await import('expo-clipboard');
+    await Clipboard.setStringAsync(text);
+  } catch {
+    await Share.share({ message: text });
+  }
+}
 
 const NATIVE = Platform.OS === 'ios' || Platform.OS === 'android';
 
@@ -97,7 +110,7 @@ export function useCopyGarminReport() {
   return useMutation({
     mutationFn: async (): Promise<boolean> => {
       const local = await loadLocalState();
-      await Clipboard.setStringAsync(local.report ?? GARMIN_NO_REPORT);
+      await copyText(local.report ?? GARMIN_NO_REPORT);
       return local.report !== null;
     },
   });

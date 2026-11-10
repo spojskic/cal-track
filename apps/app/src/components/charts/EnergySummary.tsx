@@ -136,7 +136,7 @@ export function EnergySummary({
                 accessibilityRole="button"
                 accessibilityLabel={`${ringLabel(ring)}, show how it adds up`}
                 onPress={() => setShowBreakdown(true)}
-                style={styles.ringCell}>
+                style={[styles.ringCell, { minWidth: size }]}>
                 {ringView(ring)}
                 <AppText variant="small" muted style={[styles.caption, styles.link]}>
                   {ring.caption}
@@ -146,7 +146,7 @@ export function EnergySummary({
           }
           if (ring.key === 'left' && onToggleSummaryMode) {
             return (
-              <View key={ring.key} style={styles.ringCell}>
+              <View key={ring.key} style={[styles.ringCell, { minWidth: size }]}>
                 <View accessible accessibilityLabel={ringLabel(ring)}>
                   {ringView(ring)}
                 </View>
@@ -163,7 +163,7 @@ export function EnergySummary({
             );
           }
           return (
-            <View key={ring.key} accessible accessibilityLabel={ringLabel(ring)} style={styles.ringCell}>
+            <View key={ring.key} accessible accessibilityLabel={ringLabel(ring)} style={[styles.ringCell, { minWidth: size }]}>
               {ringView(ring)}
               <AppText variant="small" muted style={styles.caption}>
                 {ring.caption}
