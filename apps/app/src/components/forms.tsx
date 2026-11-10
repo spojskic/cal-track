@@ -1,9 +1,15 @@
+import { useId } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { radius, spacing, useTheme } from '@/theme';
 
 import { AppText } from './ui';
 
+/**
+ * Labelled text input. The visible label is also the input's accessible name (`accessibilityLabel` / `aria-label`),
+ * and is linked to it with `nativeID` + `accessibilityLabelledBy`, so screen readers (and browser tests that look
+ * a field up by its label) find the field. An explicit `accessibilityLabel` / `aria-label` from the caller wins.
+ */
 export function TextField({
   label,
   hint,
@@ -11,12 +17,17 @@ export function TextField({
   ...input
 }: TextInputProps & { label: string; hint?: string; error?: string | null }) {
   const { colors } = useTheme();
+  const labelId = `field-label-${useId().replace(/[^A-Za-z0-9_-]/g, '')}`;
+  const explicitName = input.accessibilityLabel ?? input['aria-label'];
   return (
     <View style={styles.field}>
-      <AppText variant="label" muted>{label}</AppText>
+      <AppText variant="label" muted nativeID={labelId}>{label}</AppText>
       <TextInput
         placeholderTextColor={colors.textMuted}
         {...input}
+        accessibilityLabel={explicitName ?? label}
+        aria-label={explicitName ?? label}
+        {...(explicitName === undefined ? { accessibilityLabelledBy: labelId } : {})}
         style={[
           styles.input,
           {

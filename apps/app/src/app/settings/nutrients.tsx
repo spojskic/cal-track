@@ -6,6 +6,7 @@ import {
   selectTargets,
   type NutrientCode,
   type NutrientEntry,
+  type ScopedUlScope,
   type Target,
   type Targets,
 } from '@cal/core';
@@ -52,6 +53,22 @@ function describeTarget(target: Target | undefined, unit: string): string {
   return `At most ${fmt(target.max as number)} ${unit}`;
 }
 
+const SCOPED_UL_APPLIES_TO: Record<ScopedUlScope, string> = {
+  supplement_only: 'supplements only',
+  synthetic_only: 'synthetic forms only (supplements and fortified foods)',
+  preformed_only: 'preformed forms only',
+};
+
+/**
+ * Information line for an upper limit that covers only one form of intake, e.g.
+ * "Upper limit 350 mg applies to supplements only". It is not a bound on the tracked (food) intake.
+ */
+function describeScopedUl(target: Target | undefined, unit: string): string | null {
+  const ul = target?.scopedUl;
+  if (!ul) return null;
+  return `Upper limit ${fmt(ul.value)} ${unit} applies to ${SCOPED_UL_APPLIES_TO[ul.scope]}`;
+}
+
 function boundText(n: number | undefined): string {
   return n === undefined ? '' : String(Number(n.toFixed(3)));
 }
@@ -84,6 +101,7 @@ function OverrideEditor({
   const max = parseBound(maxText);
   const effMin = min.value ?? base?.min;
   const effMax = max.value ?? base?.max;
+  const scopedInfo = describeScopedUl(current ?? base, nutrient.unit);
   const rangeError =
     effMin !== undefined && effMax !== undefined && effMin > effMax ? 'The minimum cannot be above the maximum.' : null;
   const valid = !min.bad && !max.bad && !rangeError;
@@ -123,6 +141,11 @@ function OverrideEditor({
       <AppText variant="small" muted>
         {`Default: ${describeTarget(base, nutrient.unit)}. Clearing a field restores its default.`}
       </AppText>
+      {scopedInfo ? (
+        <AppText variant="small" muted>
+          {`${scopedInfo}. Your log cannot separate these forms from the rest of your intake, so it is not used as a maximum.`}
+        </AppText>
+      ) : null}
       {rangeError ? <Note tone="danger">{rangeError}</Note> : null}
       {error ? <Note tone="danger">{errorMessage(error)}</Note> : null}
       <View style={styles.editorButtons}>
@@ -179,6 +202,7 @@ function NutrientRow({
     nutrient.code === 'ENERGY_KCAL'
       ? `${formatInt(energyTarget)} kcal`
       : (unusedCarbMode ?? describeTarget(target, nutrient.unit));
+  const scopedNote = describeScopedUl(target, nutrient.unit);
   const note = managed
     ? 'Set in Profile & targets'
     : computedOnly
@@ -190,6 +214,7 @@ function NutrientRow({
       <View style={styles.flex}>
         <AppText variant="body" style={styles.bold}>{nutrient.name}</AppText>
         <AppText variant="small" muted>{summary}</AppText>
+        {scopedNote ? <AppText variant="small" muted>{scopedNote}</AppText> : null}
         {note ? <AppText variant="small" muted>{note}</AppText> : null}
       </View>
       {target ? <Badge label={KIND_LABEL[target.kind]} tone={target.kind === 'CUSTOM' ? 'primary' : 'neutral'} /> : null}
@@ -204,7 +229,7 @@ function NutrientRow({
       {editable ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${nutrient.name}, ${summary}. ${editing ? 'Close editor' : 'Edit target'}`}
+          accessibilityLabel={`${nutrient.name}, ${summary}. ${scopedNote ? `${scopedNote}. ` : ''}${editing ? 'Close editor' : 'Edit target'}`}
           accessibilityState={{ expanded: editing }}
           onPress={onToggle}
           style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}>

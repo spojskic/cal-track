@@ -233,6 +233,21 @@ describe('resolveTargets - nutrient targets', () => {
     expect(resolveTargets({ ...male, pregnant: true }).nutrients.FOLATE_UG?.min).toBe(400);
   });
 
+  it('exposes limits that cover only supplements / synthetic / preformed forms as scopedUl, never as max', () => {
+    const r = resolveTargets(male);
+    expect(r.nutrients.MAGNESIUM_MG?.max).toBeUndefined();
+    expect(r.nutrients.MAGNESIUM_MG?.scopedUl).toEqual({ value: 350, scope: 'supplement_only' });
+    expect(r.nutrients.MAGNESIUM_MG?.min).toBe(420);
+    expect(r.nutrients.VITAMIN_C_MG?.max).toBe(2000);
+    // a custom minimum above the scoped UL is valid and keeps the information
+    const custom = resolveTargets({ ...male, overrides: { MAGNESIUM_MG: { min: 500 } } });
+    expect(custom.nutrients.MAGNESIUM_MG).toEqual({
+      min: 500,
+      kind: 'CUSTOM',
+      scopedUl: { value: 350, scope: 'supplement_only' },
+    });
+  });
+
   it('applies user overrides last', () => {
     const r = resolveTargets({
       ...male,

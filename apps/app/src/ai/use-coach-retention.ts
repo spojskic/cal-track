@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { keys } from '@/data/keys';
-import { requireUserId, useProfile } from '@/data/profile';
+import { useProfile } from '@/data/profile';
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 
 /**

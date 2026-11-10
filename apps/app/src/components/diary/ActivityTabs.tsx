@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { formatWeight, type UnitSystem } from '@cal/core';
 
 import { formatNumber } from '@/components/charts/format';
@@ -7,17 +7,24 @@ import type { BiometricEntry, ExerciseEntry, NoteEntry } from '@/data/activity';
 import { radius, spacing, useTheme } from '@/theme';
 
 import { sourceLabel } from './DevicesGroup';
+import { useMeasuredWidth } from './layout';
 
 export type DiaryTab = 'food' | 'exercise' | 'biometric' | 'note';
 
-const TABS: { key: DiaryTab; label: string }[] = [
+const TABS: { key: DiaryTab; label: string; compactLabel?: string }[] = [
   { key: 'food', label: 'Food' },
   { key: 'exercise', label: 'Exercise' },
-  { key: 'biometric', label: 'Biometric' },
+  { key: 'biometric', label: 'Biometric', compactLabel: 'Body' },
   { key: 'note', label: 'Note' },
 ];
 
-/** FOOD / EXERCISE / BIOMETRIC / NOTE tab strip of the diary card. */
+/** Below this tab strip width (px) the longest label ("BIOMETRIC 1") no longer fits its quarter of the strip. */
+const COMPACT_STRIP_WIDTH = 420;
+
+/**
+ * FOOD / EXERCISE / BIOMETRIC / NOTE tab strip of the diary card. On a narrow strip (phones) Biometric is shown as
+ * BODY so no label is truncated; the accessible name keeps the full word and the count.
+ */
 export function DiaryTabs({
   value,
   onChange,
@@ -28,17 +35,26 @@ export function DiaryTabs({
   counts?: Partial<Record<DiaryTab, number>>;
 }) {
   const { colors } = useTheme();
+  const windowWidth = useWindowDimensions().width;
+  const [measured, onLayout] = useMeasuredWidth();
+  // Until the strip is measured, assume it is about as wide as the window (minus the page padding).
+  const compact = (measured > 0 ? measured : windowWidth - 32) < COMPACT_STRIP_WIDTH;
   return (
-    <View style={[styles.tabs, { borderBottomColor: colors.border }]} accessibilityRole="tablist">
+    <View
+      onLayout={onLayout}
+      style={[styles.tabs, { borderBottomColor: colors.border }]}
+      accessibilityRole="tablist">
       {TABS.map((tab) => {
         const selected = tab.key === value;
         const count = counts?.[tab.key];
+        const shown = compact && tab.compactLabel ? tab.compactLabel : tab.label;
+        const name = compact && tab.compactLabel ? `${tab.compactLabel} (${tab.label.toLowerCase()})` : tab.label;
         return (
           <Pressable
             key={tab.key}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            accessibilityLabel={`${tab.label}${count ? `, ${count}` : ''}`}
+            accessibilityLabel={`${name}${count ? `, ${count}` : ''}`}
             onPress={() => onChange(tab.key)}
             style={[styles.tab, selected && { borderBottomColor: colors.primary }]}>
             <AppText
@@ -46,10 +62,10 @@ export function DiaryTabs({
               style={{
                 fontSize: 12,
                 fontWeight: '800',
-                letterSpacing: 0.6,
+                letterSpacing: compact ? 0.3 : 0.6,
                 color: selected ? colors.primary : colors.textMuted,
               }}>
-              {tab.label.toUpperCase()}
+              {shown.toUpperCase()}
               {count ? ` ${count}` : ''}
             </AppText>
           </Pressable>

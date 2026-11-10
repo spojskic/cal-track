@@ -146,3 +146,27 @@ export function scrollMainScript(px: number): string {
   return window.scrollY;
 })()`;
 }
+
+/**
+ * Texts of the elements matching `selector` whose content is cut off horizontally (an ellipsis from
+ * `numberOfLines`, or a clipped label): the element or any descendant is wider inside than it is shown.
+ */
+export function truncatedTextScript(selector: string): string {
+  return `(function () {
+  var out = [];
+  var roots = document.querySelectorAll(${JSON.stringify(selector)});
+  for (var i = 0; i < roots.length; i++) {
+    var root = roots[i];
+    var nodes = [root];
+    var inner = root.querySelectorAll('*');
+    for (var k = 0; k < inner.length; k++) nodes.push(inner[k]);
+    for (var j = 0; j < nodes.length; j++) {
+      if (nodes[j].scrollWidth > nodes[j].clientWidth + 1) {
+        out.push((root.textContent || '').replace(/\\s+/g, ' ').trim());
+        break;
+      }
+    }
+  }
+  return out;
+})()`;
+}

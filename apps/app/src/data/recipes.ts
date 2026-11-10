@@ -18,7 +18,9 @@ import {
   round,
   type RecipeNutrition,
 } from '@/components/recipes/nutrition';
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
+import { isUuid } from '@/lib/uuid';
 
 import {
   cleanNutrients,
@@ -29,7 +31,6 @@ import {
   type FoodSource,
 } from './foods';
 import { keys } from './keys';
-import { requireUserId } from './profile';
 import { savedMealKeys } from './saved-meals';
 
 type Row = any;
@@ -322,7 +323,8 @@ export function useRecipe(foodId: string | undefined): UseQueryResult<RecipeDeta
   return useQuery({
     queryKey: recipeKeys.detail(foodId ?? ''),
     enabled: Boolean(foodId),
-    queryFn: () => fetchRecipeDetail(foodId as string),
+    // An id that is not a UUID can never exist; answer "not found" without sending it to Postgres.
+    queryFn: () => (isUuid(foodId) ? fetchRecipeDetail(foodId) : Promise.resolve(null)),
   });
 }
 
@@ -571,7 +573,8 @@ export interface UpdateRecipeResult {
   superseded: boolean;
 }
 
-async function updateRecipeRows(userId: string, input: UpdateRecipeInput): Promise<UpdateRecipeResult> {
+/** Plain-async core of {@link useUpdateRecipe} (exported for the data layer tests). */
+export async function updateRecipeRows(userId: string, input: UpdateRecipeInput): Promise<UpdateRecipeResult> {
   const foodId = input.foodId;
   const p = await prepareRecipe(input, foodId);
   const snapshot = await loadSnapshot(foodId, userId);

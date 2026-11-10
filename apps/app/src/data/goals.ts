@@ -7,11 +7,12 @@ import {
   type TargetOverride,
 } from '@cal/core';
 
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 import { todayISO } from '@/state/selected-date';
 
 import { keys } from './keys';
-import { requireUserId, useUserId } from './profile';
+import { useUserId } from './profile';
 
 // ----------------------------------------------------------------- weight goal
 

@@ -5,7 +5,7 @@ import { deriveNutrients, parseNumber, scaleNutrients } from '@cal/core';
 
 import { hapticSelection } from '@/components/food/feedback';
 import { formatKcal, trimNumber } from '@/components/food/format';
-import { buildServingOptions, type ServingOption } from '@/components/food/serving';
+import { buildServingOptions, isGramOption, type ServingOption } from '@/components/food/serving';
 import { ServingPicker } from '@/components/food/serving-picker';
 import { AppText, Button } from '@/components/ui';
 import type { IngredientFood } from '@/data/recipes';
@@ -47,12 +47,8 @@ export function lineFromPick(food: PickedFood): FoodLine {
 export function lineOptions(food: IngredientFood | undefined, imperial: boolean): ServingOption[] {
   if (!food) return [GRAM_OPTION];
   const options = buildServingOptions(food.portions, food.densityGPerMl, imperial);
-  const hasGrams = options.some((o) => o.key === 'g' || (o.label.toLowerCase() === 'g' && Math.abs(o.gramsPerUnit - 1) < 1e-6));
+  const hasGrams = options.some(isGramOption);
   return hasGrams ? options : [GRAM_OPTION, ...options];
-}
-
-function isGramOption(o: ServingOption): boolean {
-  return o.key === 'g' || (o.label.toLowerCase() === 'g' && Math.abs(o.gramsPerUnit - 1) < 1e-6);
 }
 
 /** The option a line points at; falls back to grams (a "100 g" portion replaces the synthetic grams option). */
@@ -268,7 +264,9 @@ function FoodLineRow({
             options={options}
             selectedKey={selected.key}
             onSelect={changeUnit}
-            grams={validGrams}
+            grams={grams}
+            kcal={kcal}
+            onUseGrams={(gramOption) => onChange({ unitKey: gramOption.key })}
             error={amountError}
           />
           <View style={styles.actions}>

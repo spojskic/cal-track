@@ -16,7 +16,9 @@ import {
   type NutrientMap,
 } from '@cal/core';
 
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
+import { isUuid } from '@/lib/uuid';
 
 import { useAddDiaryEntry } from './diary-write';
 import { keys } from './keys';
@@ -248,13 +250,6 @@ export function errorMessage(e: unknown): string {
   return typeof e === 'string' && e ? e : 'Something went wrong';
 }
 
-async function requireUserId(): Promise<string> {
-  const { data } = await supabase.auth.getUser();
-  const id = data.user?.id;
-  if (!id) throw new Error('Not signed in');
-  return id;
-}
-
 // ---------------------------------------------------------------------------
 // Barcodes
 // ---------------------------------------------------------------------------
@@ -468,7 +463,9 @@ export function useFood(id: string | undefined): UseQueryResult<FoodDetail | nul
     queryKey: keys.food(id ?? ''),
     enabled: Boolean(id),
     queryFn: async (): Promise<FoodDetail | null> => {
-      const foodId = id as string;
+      // An id that is not a UUID can never exist; answer "not found" without sending it to Postgres.
+      if (!isUuid(id)) return null;
+      const foodId = id;
       const [foodRes, portionRes] = await Promise.all([
         supabase.from('foods').select(FOOD_COLUMNS).eq('id', foodId).maybeSingle(),
         supabase
@@ -697,6 +694,47 @@ function isRestrictViolation(error: unknown): boolean {
 }
 
 /**
+ * Plain-async core of {@link useUpdateFood} (exported for the data layer tests). Name/brand/barcode/servings are
+ * edited in place; when the nutrients, carb basis or density of an already-logged food change, the DB trigger rejects
+ * the update, so the food is superseded (`supersede_food`) and the NEW row is updated.
+ */
+export async function updateFoodRows(id: string, input: FoodInput): Promise<{ id: string; superseded: boolean }> {
+  const userId = await requireUserId();
+  const patch = foodPayload(input);
+  let targetId = id;
+  let superseded = false;
+
+  const first = await supabase.from('foods').update(patch).eq('id', id).select('id').single();
+  if (first.error) {
+    if (!isRestrictViolation(first.error)) throw first.error;
+    const rpc = await supabase.rpc('supersede_food', { p_food_id: id });
+    if (rpc.error) throw rpc.error;
+    targetId = String(rpc.data);
+    superseded = true;
+    const second = await supabase.from('foods').update(patch).eq('id', targetId).select('id').single();
+    if (second.error) throw second.error;
+  }
+
+  const del = await supabase.from('food_portions').delete().eq('food_id', targetId);
+  if (del.error) throw del.error;
+  const rows = portionRows(targetId, input.servings);
+  if (rows.length > 0) {
+    const ins = await supabase.from('food_portions').insert(rows);
+    if (ins.error) throw ins.error;
+  }
+
+  if (superseded) {
+    const fav = await supabase.from('favorites').select('food_id').eq('food_id', id).maybeSingle();
+    if (fav.data) {
+      await supabase
+        .from('favorites')
+        .upsert({ user_id: userId, food_id: targetId }, { onConflict: 'user_id,food_id', ignoreDuplicates: true });
+    }
+  }
+  return { id: targetId, superseded };
+}
+
+/**
  * Updates an own custom food. Name/brand/barcode/servings are edited in place. If the nutrients,
  * carb basis or density of an already-logged food change, the DB trigger rejects the update, so
  * the food is superseded (`supersede_food`) and the NEW row is updated: old diary entries keep
@@ -705,47 +743,7 @@ function isRestrictViolation(error: unknown): boolean {
 export function useUpdateFood() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      id,
-      input,
-    }: {
-      id: string;
-      input: FoodInput;
-    }): Promise<{ id: string; superseded: boolean }> => {
-      const userId = await requireUserId();
-      const patch = foodPayload(input);
-      let targetId = id;
-      let superseded = false;
-
-      const first = await supabase.from('foods').update(patch).eq('id', id).select('id').single();
-      if (first.error) {
-        if (!isRestrictViolation(first.error)) throw first.error;
-        const rpc = await supabase.rpc('supersede_food', { p_food_id: id });
-        if (rpc.error) throw rpc.error;
-        targetId = String(rpc.data);
-        superseded = true;
-        const second = await supabase.from('foods').update(patch).eq('id', targetId).select('id').single();
-        if (second.error) throw second.error;
-      }
-
-      const del = await supabase.from('food_portions').delete().eq('food_id', targetId);
-      if (del.error) throw del.error;
-      const rows = portionRows(targetId, input.servings);
-      if (rows.length > 0) {
-        const ins = await supabase.from('food_portions').insert(rows);
-        if (ins.error) throw ins.error;
-      }
-
-      if (superseded) {
-        const fav = await supabase.from('favorites').select('food_id').eq('food_id', id).maybeSingle();
-        if (fav.data) {
-          await supabase
-            .from('favorites')
-            .upsert({ user_id: userId, food_id: targetId }, { onConflict: 'user_id,food_id', ignoreDuplicates: true });
-        }
-      }
-      return { id: targetId, superseded };
-    },
+    mutationFn: ({ id, input }: { id: string; input: FoodInput }) => updateFoodRows(id, input),
     onSuccess: async (res, vars) => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: keys.food(vars.id) }),

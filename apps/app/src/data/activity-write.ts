@@ -2,16 +2,10 @@
 // All inserts carry user_id (RLS is owner-only) and refresh the affected diary day afterwards.
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 
 import { dayKey, invalidateDay, keys } from './keys';
-
-async function requireUserId(): Promise<string> {
-  const { data } = await supabase.auth.getUser();
-  const userId = data.user?.id;
-  if (!userId) throw new Error('Not signed in');
-  return userId;
-}
 
 const toIso = (d: Date | string | null | undefined): string | null =>
   d == null ? null : typeof d === 'string' ? d : d.toISOString();

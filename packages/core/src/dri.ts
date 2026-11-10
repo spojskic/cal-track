@@ -24,6 +24,14 @@ import type { LifeStage, Sex } from './types';
 /** Which kind of intake a UL applies to. */
 export type UlScope = 'all' | 'supplement_only' | 'synthetic_only' | 'preformed_only';
 
+/** A UL scope that covers only part of the intake (everything except `'all'`). */
+export type ScopedUlScope = Exclude<UlScope, 'all'>;
+
+/** True for ULs that apply to supplements / synthetic / preformed forms only, not to total intake. */
+export function isScopedUlScope(scope: UlScope | undefined): scope is ScopedUlScope {
+  return scope !== undefined && scope !== 'all';
+}
+
 /** One DRI row: values for a nutrient / sex / age band / life stage. */
 export interface DriRow {
   nutrient: NutrientCode;
@@ -395,13 +403,26 @@ export function findDriRow(
 /** Where a target number comes from. 'CUSTOM' = user override. */
 export type TargetKind = 'RDA' | 'AI' | 'CDRR' | 'ESTIMATE' | 'CUSTOM';
 
-/** A daily target for one nutrient. `min` = reach at least, `max` = stay below. */
+/** An upper limit that applies only to one form of intake (see {@link ScopedUlScope}). */
+export interface ScopedUl {
+  value: number;
+  scope: ScopedUlScope;
+}
+
+/**
+ * A daily target for one nutrient. `min` = reach at least, `max` = stay below.
+ *
+ * `max` is ALWAYS a limit on total intake (food + supplements), so it is safe to colour a bar
+ * red or to count as "over the limit" when it is exceeded. An upper limit that covers only
+ * part of the intake (e.g. the 350 mg magnesium UL for supplements, folic acid, preformed vitamin A)
+ * is kept apart in `scopedUl`: it is information, never a bound for the intake that the app tracks.
+ */
 export interface Target {
   min?: number;
   max?: number;
   kind: TargetKind;
-  /** Which intake the `max` applies to (only set when `max` comes from a UL). */
-  ulScope?: UlScope;
+  /** Upper limit that applies to supplements / synthetic / preformed forms only. Informational. */
+  scopedUl?: ScopedUl;
 }
 
 /** Targets by nutrient code. */
@@ -431,8 +452,9 @@ export const LIMIT_ENERGY_SHARE = 0.1;
 /**
  * Selects daily nutrient targets for a person.
  *
- * - Table nutrients: `min` = RDA (or AI), `max` = UL; sodium returns only
- *   `max` = CDRR 2300 mg (kind 'CDRR'); caffeine returns a limit (kind 'ESTIMATE').
+ * - Table nutrients: `min` = RDA (or AI), `max` = UL when it applies to total intake; a UL that
+ *   applies only to supplements / synthetic / preformed forms goes to `scopedUl` instead of `max`.
+ *   Sodium returns only `max` = CDRR 2300 mg (kind 'CDRR'); caffeine returns a limit (kind 'ESTIMATE').
  * - Pregnant takes precedence over lactating if both flags are set; life-stage
  *   flags are ignored for males.
  * - `PROTEIN_G`: `min = 0.8 g/kg * weightKg` (1.1 pregnant, 1.3 lactating), kind 'RDA'.
@@ -462,8 +484,8 @@ export function selectTargets(profile: DriProfile): Targets {
     };
     if (min !== undefined) target.min = min;
     if (row.ul !== undefined) {
-      target.max = row.ul;
-      if (row.ulScope) target.ulScope = row.ulScope;
+      if (isScopedUlScope(row.ulScope)) target.scopedUl = { value: row.ul, scope: row.ulScope };
+      else target.max = row.ul;
     }
     targets[nutrient] = target;
   }
@@ -498,10 +520,10 @@ export interface TargetOverride {
  * Applies user overrides on top of base targets (returns a new object).
  *
  * - An override entry of `null` removes the nutrient's target entirely.
- * - Setting `min` or `max` to a number marks the target `kind: 'CUSTOM'`;
- *   overriding `max` clears `ulScope` (a user limit applies to total intake).
+ * - Setting `min` or `max` to a number marks the target `kind: 'CUSTOM'`. A user `max`
+ *   applies to total intake; a `scopedUl` of the base target is kept as information.
  * - Setting a bound to `null` removes that bound; a target left with neither
- *   bound is removed.
+ *   `min` nor `max` is removed (a `scopedUl` alone is not a target).
  */
 export function applyOverrides(
   base: Targets,
@@ -524,12 +546,9 @@ export function applyOverrides(
       next.min = ov.min;
       custom = true;
     }
-    if (ov.max === null) {
-      delete next.max;
-      delete next.ulScope;
-    } else if (ov.max !== undefined) {
+    if (ov.max === null) delete next.max;
+    else if (ov.max !== undefined) {
       next.max = ov.max;
-      delete next.ulScope;
       custom = true;
     }
     if (custom) next.kind = 'CUSTOM';

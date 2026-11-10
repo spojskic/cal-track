@@ -8,11 +8,12 @@ import {
   type NutrientMap,
 } from '@cal/core';
 
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
+import { isUuid } from '@/lib/uuid';
 
 import { cleanNutrients } from './foods';
 import { keys } from './keys';
-import { requireUserId } from './profile';
 
 type Row = any;
 
@@ -143,7 +144,9 @@ export function useSavedMeal(id: string | undefined): UseQueryResult<SavedMeal |
     queryKey: savedMealKeys.detail(id ?? ''),
     enabled: Boolean(id),
     queryFn: async (): Promise<SavedMeal | null> => {
-      const { data, error } = await supabase.from('saved_meals').select(MEAL_SELECT).eq('id', id as string).maybeSingle();
+      // An id that is not a UUID can never exist; answer "not found" without sending it to Postgres.
+      if (!isUuid(id)) return null;
+      const { data, error } = await supabase.from('saved_meals').select(MEAL_SELECT).eq('id', id).maybeSingle();
       if (error) throw error;
       return data ? mapMeal(data as Row) : null;
     },

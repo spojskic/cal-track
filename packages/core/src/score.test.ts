@@ -70,7 +70,7 @@ describe('nutritionScore', () => {
 
   it('ignores limits that only apply to supplements unless asked', () => {
     const t: Targets = {
-      MAGNESIUM_MG: { min: 400, max: 350, kind: 'RDA', ulScope: 'supplement_only' },
+      MAGNESIUM_MG: { min: 400, kind: 'RDA', scopedUl: { value: 350, scope: 'supplement_only' } },
     };
     const ignored = nutritionScore({ MAGNESIUM_MG: 400 }, t);
     expect(ignored.score).toBe(100);
@@ -78,6 +78,27 @@ describe('nutritionScore', () => {
     // excess = 400/350 - 1 = 0.142857 ; magnesium weight 2 ; penalty 0.5 * 2 * 0.142857 = 0.142857
     const penalised = nutritionScore({ MAGNESIUM_MG: 400 }, t, { penalizeScopedLimits: true });
     expect(penalised.score).toBe(86);
+    expect(penalised.perNutrient.MAGNESIUM_MG?.max).toBe(350);
+  });
+
+  it('never counts the scoped UL of real selectTargets output as an excess for food intake', () => {
+    const t = selectTargets({ sex: 'male', age: 30, weightKg: 80, energyKcal: 2500 });
+    const r = nutritionScore({ MAGNESIUM_MG: 900, VITAMIN_A_UG: 9000, FOLATE_UG: 3000, B3_NIACIN_MG: 90 }, t);
+    for (const code of ['MAGNESIUM_MG', 'VITAMIN_A_UG', 'FOLATE_UG', 'B3_NIACIN_MG'] as const) {
+      expect(r.perNutrient[code]?.excess, code).toBeUndefined();
+      expect(r.perNutrient[code]?.fulfillment, code).toBe(1);
+    }
+    expect(r.score).toBe(100);
+  });
+
+  it('still penalises a user-set total max on a nutrient that also has a scoped UL', () => {
+    const t = applyOverrides(selectTargets({ sex: 'male', age: 30, weightKg: 80, energyKcal: 2500 }), {
+      MAGNESIUM_MG: { max: 450 },
+    });
+    expect(nutritionScore({ MAGNESIUM_MG: 450 }, t).perNutrient.MAGNESIUM_MG?.excess).toBe(0);
+    expect(nutritionScore({ MAGNESIUM_MG: 900 }, t).perNutrient.MAGNESIUM_MG?.excess).toBe(1);
+    // the user limit wins over the scoped UL even when scoped limits are penalised
+    expect(nutritionScore({ MAGNESIUM_MG: 900 }, t, { penalizeScopedLimits: true }).perNutrient.MAGNESIUM_MG?.max).toBe(450);
   });
 
   it('weights the nine key nutrients double', () => {

@@ -1,7 +1,8 @@
 /**
  * Small Playwright helpers for react-native-web DOM: Pressable => div[role=button], Text => div, TextInput =>
- * input / textarea that is a direct child of the field's View, next to the label Text (the app's TextField does
- * NOT associate the label with the input, so label based lookup walks the DOM).
+ * input / textarea. The app's TextField sets the label as aria-label (and aria-labelledby), so `getByLabel` finds
+ * a field by its visible label; the DOM walk (`fieldByLabel`) remains as a fallback for inputs that are not
+ * built with TextField.
  */
 import type { Locator, Page } from 'playwright-core';
 
@@ -97,4 +98,57 @@ export async function waitForNoText(page: Page, text: string | RegExp, opts: { t
 /** Scrolls an element into view (scroll containers are inner divs on react-native-web). */
 export async function scrollToText(page: Page, text: string | RegExp, timeoutMs = 6000): Promise<void> {
   await page.getByText(text).first().scrollIntoViewIfNeeded({ timeout: timeoutMs });
+}
+
+/** True when `actual` equals `expected` (string: whole value, ignoring surrounding whitespace; RegExp: `test`). */
+export function valueMatches(actual: string, expected: string | RegExp): boolean {
+  return typeof expected === 'string' ? actual.trim() === expected.trim() : expected.test(actual);
+}
+
+export interface InputValueResult {
+  ok: boolean;
+  /** The last value read, or null when the field was never found / read. */
+  actual: string | null;
+  /** Why the field could not be found or read. */
+  error?: string;
+}
+
+/**
+ * Waits until the input found by `key` (see {@link findField}) has the expected value. Names such as "Ćevapi" are
+ * INPUT VALUES on edit screens, not page text, so `getByText` can never see them.
+ */
+export async function waitForInputValue(page: Page, key: string | RegExp, expected: string | RegExp, timeoutMs = 8000): Promise<InputValueResult> {
+  const deadline = Date.now() + timeoutMs;
+  let field: Locator;
+  try {
+    field = await findField(page, key, timeoutMs);
+  } catch (e) {
+    return { ok: false, actual: null, error: e instanceof Error ? e.message : String(e) };
+  }
+  let actual: string | null = null;
+  let error: string | undefined;
+  for (;;) {
+    try {
+      actual = await field.inputValue({ timeout: 2000 });
+      error = undefined;
+      if (valueMatches(actual, expected)) return { ok: true, actual };
+    } catch (e) {
+      error = e instanceof Error ? (e.message.split('\n')[0] ?? e.message) : String(e);
+    }
+    if (Date.now() > deadline) return { ok: false, actual, ...(error ? { error } : {}) };
+    await page.waitForTimeout(150);
+  }
+}
+
+/**
+ * Closes the open sheet / modal by clicking its scrim (the "Close" button) in the top-left corner, which no sheet
+ * covers, and optionally waits until `gone` is no longer visible.
+ *
+ * Prefer this to the Escape key where the test is not about the keyboard: it needs no keyboard focus and no timing.
+ * (react-native-web's Modal only starts listening for Escape once its fade-in animation ended, which is why the app's
+ * Sheet does not animate on the web; a sheet that stays open leaves a scrim that swallows every following click.)
+ */
+export async function closeSheet(page: Page, gone?: string | RegExp, timeoutMs = 6000): Promise<void> {
+  await page.getByRole('button', { name: 'Close', exact: true }).first().click({ position: { x: 4, y: 4 }, timeout: timeoutMs });
+  if (gone !== undefined) await page.getByText(gone).first().waitFor({ state: 'hidden', timeout: timeoutMs });
 }

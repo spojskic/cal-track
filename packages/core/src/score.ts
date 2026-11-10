@@ -25,8 +25,8 @@ export interface ScoreOptions {
   /** Penalty strength (default 0.5). */
   lambda?: number;
   /**
-   * Also penalise limits that apply only to supplements / synthetic / preformed
-   * forms (`ulScope !== 'all'`). Off by default because the app cannot separate
+   * Also penalise upper limits that apply only to supplements / synthetic / preformed
+   * forms (`Target.scopedUl`). Off by default because the app cannot separate
    * those forms in total intake, so e.g. food magnesium would be wrongly
    * compared with the 350 mg supplement UL.
    */
@@ -93,7 +93,14 @@ export function nutritionScore(
     const target = targets[code];
     if (!target) continue;
     const hasMin = typeof target.min === 'number' && target.min > 0;
-    const hasMax = typeof target.max === 'number' && target.max > 0;
+    // `max` limits total intake; a scoped UL only counts when explicitly asked for.
+    const limit =
+      typeof target.max === 'number' && target.max > 0
+        ? target.max
+        : options.penalizeScopedLimits && target.scopedUl && target.scopedUl.value > 0
+          ? target.scopedUl.value
+          : undefined;
+    const hasMax = limit !== undefined;
     if (!hasMin && !hasMax) continue;
 
     targeted += 1;
@@ -102,7 +109,7 @@ export function nutritionScore(
     const weight = options.weights?.[code] ?? KEY_NUTRIENT_WEIGHTS[code] ?? 1;
     const entry: NutrientScore = { weight };
     if (hasMin) entry.min = target.min;
-    if (hasMax) entry.max = target.max;
+    if (limit !== undefined) entry.max = limit;
 
     if (known) {
       withData += 1;
@@ -114,9 +121,8 @@ export function nutritionScore(
         weightedFulfillment += weight * fulfillment;
         weightSum += weight;
       }
-      const scoped = target.ulScope !== undefined && target.ulScope !== 'all';
-      if (hasMax && (!scoped || options.penalizeScopedLimits)) {
-        const excess = Math.max(0, amount / (target.max as number) - 1);
+      if (limit !== undefined) {
+        const excess = Math.max(0, amount / limit - 1);
         entry.excess = excess;
         penaltySum += weight * excess;
       }

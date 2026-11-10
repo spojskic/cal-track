@@ -105,7 +105,8 @@ Append an object to `SCENARIOS` in `src/scenarios.ts`:
   path: '/water/new',                      // or (fixtures) => `/food/${fixtures.ids.food.egg}`
   auth: 'signed-in',                       // or 'signed-out'
   fixtures: 'default',                     // 'imperial' | 'not-onboarded' | 'empty-diary' | 'fresh-account'
-  expect: ["Today's total"],               // must be visible after load
+  expect: ["Today's total"],               // text that must be visible after load
+  expectInputs: [],                        // input VALUES after load: [{ field: 'Food name', value: 'Ćevapi' }]
   allowBackendErrors: [],                  // expected 4xx, e.g. ['/auth/v1/token'] or /23505/
   allowConsole: [],                        // console messages to ignore for this scenario
   async after(page, ctx) {
@@ -117,12 +118,18 @@ Append an object to `SCENARIOS` in `src/scenarios.ts`:
 ```
 
 * `setup(page, ctx)` runs **before** navigation, `after(page, ctx)` after load + settle.
-* `ctx.step(label, fn)` = an interaction (failure is a WARN), `ctx.expectText / expectUrl / expectMutation / check` =
-  assertions (failure is a FAIL), `ctx.snapshot(label)` = an extra screenshot, `ctx.backend` = the scenario's mock
-  (`backend.mutations`, `backend.rows('diary_entries')`, `backend.calls`).
-* `src/actions.ts` has the helpers: `fill(page, 'Label' | /placeholder/)` finds an input by aria-label, placeholder
-  or the label text next to it (the app's `TextField` does not link labels to inputs), `clickButton`, `clickTab`,
-  `choose`, `clickText`, `scrollToText`.
+* `ctx.step(label, fn)` = an interaction (failure is a WARN), `ctx.expectText / expectInputValue / expectUrl /
+  expectMutation / check` = assertions (failure is a FAIL), `ctx.snapshot(label)` = an extra screenshot,
+  `ctx.backend` = the scenario's mock (`backend.mutations`, `backend.rows('diary_entries')`, `backend.calls`).
+* Names such as "Ćevapi" on edit screens are input **values**, not page text: use `expectInputs` /
+  `ctx.expectInputValue(field, value)`, never `expect` / `expectText`.
+* `src/actions.ts` has the helpers: `fill(page, 'Label' | /placeholder/)` finds an input by aria-label (the app's
+  `TextField` sets its label as aria-label), placeholder or the label text next to it, `clickButton`, `clickTab`
+  (tab names are not upper-case: the visible capitals come from CSS), `choose`, `clickText`, `scrollToText`,
+  `closeSheet` (closes a sheet through its scrim, which needs no keyboard focus and no timing; a sheet that stays
+  open leaves a scrim that swallows every following click, so always close or assert it closed).
+* The blank-screen check waits for the network to go idle and gives a nearly empty screen a few seconds to render
+  before it fails, so a spinner that is still showing is not reported as blank.
 * A new screen: add its scenario. The run prints `UNCOVERED ROUTE ...` for every route file without one, and
   `src/harness.test.ts` fails until you do.
 

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { G_PER_OZ, gramsFromVolume, convertVolume, parseNumber } from '@cal/core';
+import { G_PER_OZ, convertVolume, gramsFromVolume, implausibleAmount, parseNumber } from '@cal/core';
 
 import type { FoodPortion } from '@/data/foods';
 
-import { trimNumber } from './format';
+import { formatKcal, trimNumber } from './format';
 
 /** One selectable unit in the serving picker. `gramsPerUnit` is the mass of ONE unit. */
 export interface ServingOption {
@@ -61,6 +61,50 @@ export function buildServingOptions(
   return options;
 }
 
+/** True for the gram option (the synthetic 'g' one, or a portion that is literally 1 g). */
+export function isGramOption(o: Pick<ServingOption, 'key' | 'label' | 'gramsPerUnit'>): boolean {
+  return o.key === 'g' || (o.label.toLowerCase() === 'g' && Math.abs(o.gramsPerUnit - 1) < 1e-6);
+}
+
+/** A non-blocking warning about an implausible amount. */
+export interface AmountWarning {
+  /** e.g. "That is 34.8 kg - did you mean grams?" */
+  message: string;
+  /** The typed number when reading it as grams would be plausible (offer a one-tap switch), else null. */
+  gramsAlternative: number | null;
+}
+
+/**
+ * Warns when ONE amount is implausible (more than 5 kg or 5000 kcal; see `implausibleAmount` in @cal/core),
+ * typically a portion unit combined with a number meant as grams (200 x "breast (174 g)" = 34.8 kg).
+ *
+ * @param grams    resulting mass
+ * @param kcal     resulting energy, when known
+ * @param amount   the number the user typed
+ * @param inGrams  whether the selected unit already is grams (then there is no alternative to offer)
+ */
+export function amountWarning(args: {
+  grams: number | null;
+  kcal?: number | undefined;
+  amount: number | null;
+  inGrams: boolean;
+}): AmountWarning | null {
+  const { grams, kcal, amount, inGrams } = args;
+  if (grams === null) return null;
+  const kind = implausibleAmount(grams, kcal);
+  if (kind === null) return null;
+  const what = kind === 'mass' ? `${trimNumber(grams / 1000, 1)} kg` : `${formatKcal(kcal)} kcal`;
+  let alternative: number | null = null;
+  if (!inGrams && amount !== null && amount > 0) {
+    const altKcal = kcal !== undefined && grams > 0 ? (kcal / grams) * amount : undefined;
+    if (implausibleAmount(amount, altKcal) === null) alternative = amount;
+  }
+  return {
+    message: alternative !== null ? `That is ${what} - did you mean grams?` : `That is ${what} - please check the amount.`,
+    gramsAlternative: alternative,
+  };
+}
+
 interface InitialServing {
   /** Prefill by total grams (e.g. editing a diary entry). */
   grams?: number;
@@ -81,7 +125,7 @@ function initialChoice(options: ServingOption[], initial?: InitialServing): { ke
     return { key: byPortion.key, amount };
   }
   if (initial?.grams && initial.grams > 0) {
-    const g = options.find((o) => o.key === 'g' || (o.label.toLowerCase() === 'g' && Math.abs(o.gramsPerUnit - 1) < 1e-6));
+    const g = options.find(isGramOption);
     if (g) return { key: g.key, amount: initial.grams };
   }
   const first =
@@ -109,6 +153,8 @@ export function useServing(options: ServingOption[], initial?: InitialServing) {
     amountText: state.amountText,
     grams,
     setAmountText: (text: string) => setState((s) => ({ ...s, amountText: text, touched: true })),
+    /** Reads the number that is already typed in `opt` instead (e.g. "200" meant as grams, not as 200 portions). */
+    reinterpret: (opt: ServingOption) => setState((s) => ({ key: opt.key, amountText: s.amountText, touched: true })),
     select: (opt: ServingOption) =>
       setState((s) => ({
         key: opt.key,

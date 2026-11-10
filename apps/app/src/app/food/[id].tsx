@@ -246,7 +246,9 @@ function FoodDetailView({
         options={options}
         selectedKey={serving.selected?.key}
         onSelect={serving.select}
-        grams={validGrams}
+        grams={grams}
+        kcal={derived.ENERGY_KCAL}
+        onUseGrams={serving.reinterpret}
         error={amountError}
       />
       <View style={[styles.divider, { backgroundColor: colors.border }]} />

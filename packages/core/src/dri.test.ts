@@ -4,6 +4,7 @@ import {
   DRI_TABLE,
   applyOverrides,
   findDriRow,
+  isScopedUlScope,
   selectTargets,
   type DriProfile,
   type Targets,
@@ -84,13 +85,13 @@ describe('DRI_TABLE sanity', () => {
 describe('selectTargets - vitamins', () => {
   it('vitamin C: 90 mg for a man aged 19-50, 75 mg for a woman', () => {
     const m = selectTargets(male30).VITAMIN_C_MG;
-    expect(m).toEqual({ min: 90, max: 2000, kind: 'RDA', ulScope: 'all' });
+    expect(m).toEqual({ min: 90, max: 2000, kind: 'RDA' });
     expect(selectTargets(female30).VITAMIN_C_MG?.min).toBe(75);
     expect(selectTargets({ ...male30, age: 16 }).VITAMIN_C_MG?.min).toBe(75);
   });
 
   it('vitamin D: 15 ug up to 70, 20 ug from 71, UL 100 ug', () => {
-    expect(selectTargets(male30).VITAMIN_D_UG).toEqual({ min: 15, max: 100, kind: 'RDA', ulScope: 'all' });
+    expect(selectTargets(male30).VITAMIN_D_UG).toEqual({ min: 15, max: 100, kind: 'RDA' });
     expect(selectTargets({ ...male30, age: 70 }).VITAMIN_D_UG?.min).toBe(15);
     expect(selectTargets({ ...male30, age: 71 }).VITAMIN_D_UG?.min).toBe(20);
   });
@@ -104,9 +105,8 @@ describe('selectTargets - vitamins', () => {
   it('vitamin A: 900 / 700 RAE with a preformed-only UL of 3000', () => {
     expect(selectTargets(male30).VITAMIN_A_UG).toEqual({
       min: 900,
-      max: 3000,
       kind: 'RDA',
-      ulScope: 'preformed_only',
+      scopedUl: { value: 3000, scope: 'preformed_only' },
     });
     expect(selectTargets(female30).VITAMIN_A_UG?.min).toBe(700);
   });
@@ -115,14 +115,18 @@ describe('selectTargets - vitamins', () => {
     const k = selectTargets(male30).VITAMIN_K_UG;
     expect(k).toEqual({ min: 120, kind: 'AI' });
     expect(selectTargets(female30).VITAMIN_K_UG?.min).toBe(90);
-    expect(selectTargets(male30).FOLATE_UG).toEqual({ min: 400, max: 1000, kind: 'RDA', ulScope: 'synthetic_only' });
+    expect(selectTargets(male30).FOLATE_UG).toEqual({
+      min: 400,
+      kind: 'RDA',
+      scopedUl: { value: 1000, scope: 'synthetic_only' },
+    });
     expect(selectTargets({ ...female30, pregnant: true }).FOLATE_UG?.min).toBe(600);
   });
 });
 
 describe('selectTargets - minerals', () => {
   it('iron: 8 mg men, 18 mg women 19-50, 8 mg women 51+, 27 mg pregnant', () => {
-    expect(selectTargets(male30).IRON_MG).toEqual({ min: 8, max: 45, kind: 'RDA', ulScope: 'all' });
+    expect(selectTargets(male30).IRON_MG).toEqual({ min: 8, max: 45, kind: 'RDA' });
     expect(selectTargets(female30).IRON_MG?.min).toBe(18);
     expect(selectTargets({ ...female30, age: 50 }).IRON_MG?.min).toBe(18);
     expect(selectTargets({ ...female30, age: 51 }).IRON_MG?.min).toBe(8);
@@ -153,7 +157,11 @@ describe('selectTargets - minerals', () => {
   });
 
   it('magnesium: RDA with a supplement-only UL of 350', () => {
-    expect(selectTargets(male30).MAGNESIUM_MG).toEqual({ min: 400, max: 350, kind: 'RDA', ulScope: 'supplement_only' });
+    expect(selectTargets(male30).MAGNESIUM_MG).toEqual({
+      min: 400,
+      kind: 'RDA',
+      scopedUl: { value: 350, scope: 'supplement_only' },
+    });
     expect(selectTargets({ ...male30, age: 35 }).MAGNESIUM_MG?.min).toBe(420);
     expect(selectTargets(female30).MAGNESIUM_MG?.min).toBe(310);
   });
@@ -163,6 +171,59 @@ describe('selectTargets - minerals', () => {
     expect(selectTargets(female30).ZINC_MG?.min).toBe(8);
     expect(selectTargets(male30).SELENIUM_UG).toMatchObject({ min: 55, max: 400 });
     expect(selectTargets(male30).COPPER_MG).toMatchObject({ min: 0.9, max: 10 });
+  });
+});
+
+describe('selectTargets - scoped upper limits', () => {
+  const scopedCodes: NutrientCode[] = ['VITAMIN_A_UG', 'VITAMIN_E_MG', 'B3_NIACIN_MG', 'FOLATE_UG', 'MAGNESIUM_MG'];
+
+  it('never puts a UL that covers only part of the intake into max', () => {
+    for (const sex of ['male', 'female'] as const) {
+      for (const age of [14, 20, 35, 60, 80]) {
+        const t = selectTargets({ sex, age, weightKg: 70, energyKcal: 2200 });
+        for (const code of scopedCodes) {
+          const row = findDriRow(code, sex, age);
+          expect(row?.ul, `${code} ${sex} ${age}`).toBeDefined();
+          expect(t[code]?.max, `${code} ${sex} ${age}`).toBeUndefined();
+          expect(t[code]?.scopedUl?.value, `${code} ${sex} ${age}`).toBe(row?.ul);
+          expect(t[code]?.min, `${code} ${sex} ${age}`).toBeDefined();
+        }
+      }
+    }
+  });
+
+  it('records the scope of each scoped UL', () => {
+    const t = selectTargets(male30);
+    expect(t.VITAMIN_A_UG?.scopedUl).toEqual({ value: 3000, scope: 'preformed_only' });
+    expect(t.VITAMIN_E_MG?.scopedUl).toEqual({ value: 1000, scope: 'supplement_only' });
+    expect(t.B3_NIACIN_MG?.scopedUl).toEqual({ value: 35, scope: 'synthetic_only' });
+    expect(t.FOLATE_UG?.scopedUl).toEqual({ value: 1000, scope: 'synthetic_only' });
+    expect(t.MAGNESIUM_MG?.scopedUl).toEqual({ value: 350, scope: 'supplement_only' });
+  });
+
+  it('keeps total-intake ULs in max without a scopedUl', () => {
+    const t = selectTargets(male30);
+    for (const code of ['VITAMIN_C_MG', 'VITAMIN_D_UG', 'CALCIUM_MG', 'IRON_MG', 'ZINC_MG', 'CAFFEINE_MG'] as const) {
+      expect(t[code]?.max, code).toBeGreaterThan(0);
+      expect(t[code]?.scopedUl, code).toBeUndefined();
+    }
+  });
+
+  it('every target with a min has min below its total max (a scoped UL can sit below the min)', () => {
+    for (const age of [14, 25, 40, 60, 75]) {
+      const t = selectTargets({ sex: 'female', age, weightKg: 65, energyKcal: 2000, pregnant: age >= 14 && age < 40 });
+      for (const target of Object.values(t)) {
+        if (target?.min !== undefined && target.max !== undefined) expect(target.min).toBeLessThanOrEqual(target.max);
+      }
+    }
+  });
+
+  it('isScopedUlScope tells scoped scopes apart from total intake', () => {
+    expect(isScopedUlScope(undefined)).toBe(false);
+    expect(isScopedUlScope('all')).toBe(false);
+    for (const scope of ['supplement_only', 'synthetic_only', 'preformed_only'] as const) {
+      expect(isScopedUlScope(scope)).toBe(true);
+    }
   });
 });
 
@@ -186,7 +247,7 @@ describe('selectTargets - profile-dependent targets', () => {
   });
 
   it('caffeine limit: 400 mg adults, 100 mg teens, 200 mg pregnant', () => {
-    expect(selectTargets(male30).CAFFEINE_MG).toEqual({ max: 400, kind: 'ESTIMATE', ulScope: 'all' });
+    expect(selectTargets(male30).CAFFEINE_MG).toEqual({ max: 400, kind: 'ESTIMATE' });
     expect(selectTargets({ ...male30, age: 16 }).CAFFEINE_MG?.max).toBe(100);
     expect(selectTargets({ ...female30, pregnant: true }).CAFFEINE_MG?.max).toBe(200);
   });
@@ -230,9 +291,21 @@ describe('applyOverrides', () => {
     expect(out.IRON_MG).toEqual(base.IRON_MG);
   });
 
-  it('clears the UL scope when the max is overridden', () => {
+  it('keeps the scoped (supplement-only) UL as information when a total max is overridden', () => {
     const out = applyOverrides(base, { MAGNESIUM_MG: { max: 500 } });
-    expect(out.MAGNESIUM_MG).toEqual({ min: 400, max: 500, kind: 'CUSTOM' });
+    expect(out.MAGNESIUM_MG).toEqual({
+      min: 400,
+      max: 500,
+      kind: 'CUSTOM',
+      scopedUl: { value: 350, scope: 'supplement_only' },
+    });
+  });
+
+  it('removing the max of a nutrient with only a scoped UL changes nothing; removing its min removes the target', () => {
+    expect(applyOverrides(base, { MAGNESIUM_MG: { max: null } }).MAGNESIUM_MG).toEqual(base.MAGNESIUM_MG);
+    const out = applyOverrides(base, { MAGNESIUM_MG: { min: null } });
+    expect(out.MAGNESIUM_MG).toBeUndefined(); // a scoped UL alone is not a target
+    expect('MAGNESIUM_MG' in out).toBe(false);
   });
 
   it('removes a bound with null and the whole target when no bound is left', () => {

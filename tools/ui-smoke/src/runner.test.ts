@@ -56,6 +56,12 @@ class FakeLocator {
   async isVisible() {
     return (await this.count()) > 0;
   }
+  async isEnabled() {
+    return true;
+  }
+  async inputValue() {
+    return this.page.inputValues.get(this.description) ?? '';
+  }
 }
 
 class FakePage extends EventEmitter {
@@ -67,6 +73,11 @@ class FakePage extends EventEmitter {
   screenshots: string[] = [];
   viewports: { width: number; height: number }[] = [];
   evaluateOverrides: { textLength?: number; fatalHits?: string[]; suspectHits?: string[]; extra?: number } = {};
+  /** Successive `textLength` values of the page inspection (the last one repeats): a screen that fills up while loading. */
+  textLengthSequence: number[] = [];
+  /** Value of an input by locator description (`text:<label>`). */
+  inputValues = new Map<string, string>();
+  inspections = 0;
   onClick?: (description: string) => Promise<void> | void;
   onGoto?: (url: string) => Promise<void>;
   keyboard = { press: async () => undefined };
@@ -105,7 +116,9 @@ class FakePage extends EventEmitter {
   async evaluate(script: string) {
     if (script.includes('fatalHits')) {
       const o = this.evaluateOverrides;
-      return { textLength: o.textLength ?? 300, sample: 'sample', fatalHits: o.fatalHits ?? [], suspectHits: o.suspectHits ?? [] };
+      const sequenced = this.textLengthSequence[Math.min(this.inspections, this.textLengthSequence.length - 1)];
+      this.inspections += 1;
+      return { textLength: sequenced ?? o.textLength ?? 300, sample: 'sample', fatalHits: o.fatalHits ?? [], suspectHits: o.suspectHits ?? [] };
     }
     return { innerWidth: 390, innerHeight: 844, extra: this.evaluateOverrides.extra ?? 0 };
   }
@@ -280,6 +293,66 @@ describe('runScenario with a fake browser', () => {
     expect(kinds).toEqual(expect.arrayContaining(['fail:blank', 'fail:overlay', 'warn:text', 'fail:pageerror', 'warn:console', 'fail:console']));
     expect(run.result.issues.find((i) => i.kind === 'pageerror')?.message).toBe('Uncaught exception: boom: x is not a function');
     expect(run.result.issues.some((i) => i.message.includes('log'))).toBe(false);
+  });
+
+  it('does not call a screen blank while it is still loading, but does once it stays empty', async () => {
+    const loading = new FakeBrowser();
+    loading.onContext = (ctx) => {
+      const original = ctx.newPage.bind(ctx);
+      ctx.newPage = async () => {
+        const p = await original();
+        p.textLengthSequence = [4, 4, 4, 120]; // spinner, spinner, spinner, then the content
+        return p;
+      };
+    };
+    const ok = await runScenario(deps(loading), scenario(), 1, 'phone');
+    expect(ok.result.issues.filter((i) => i.kind === 'blank')).toEqual([]);
+
+    const empty = new FakeBrowser();
+    empty.onContext = (ctx) => {
+      const original = ctx.newPage.bind(ctx);
+      ctx.newPage = async () => {
+        const p = await original();
+        p.textLengthSequence = [4];
+        return p;
+      };
+    };
+    const blank = await runScenario(deps(empty), scenario(), 1, 'phone');
+    expect(blank.result.issues.filter((i) => i.kind === 'blank')).toHaveLength(1);
+  });
+
+  it('checks input values (scenario.expectInputs and ctx.expectInputValue)', async () => {
+    const browser = new FakeBrowser();
+    browser.onContext = (ctx) => {
+      const original = ctx.newPage.bind(ctx);
+      ctx.newPage = async () => {
+        const p = await original();
+        p.visibleTexts = ['Dashboard and some more text', 'Food name', 'Recipe name'];
+        p.inputValues.set('text:Food name', 'Ćevapi');
+        return p;
+      };
+    };
+    const run = await runScenario(
+      deps(browser),
+      scenario({
+        expectInputs: [
+          { field: 'Food name', value: 'Ćevapi' },
+          { field: 'Food name', value: 'Burek' },
+        ],
+        async after(_p, ctx) {
+          expect(await ctx.expectInputValue('Food name', /^Ćev/, { timeout: 50 })).toBe(true);
+          expect(await ctx.expectInputValue('Recipe name', 'Piletina', { timeout: 50 })).toBe(false);
+          expect(await ctx.expectInputValue('Not on the page', 'x', { timeout: 50 })).toBe(false);
+        },
+      }),
+      1,
+      'phone',
+    );
+    const messages = run.result.issues.map((i) => i.message);
+    expect(messages).toContain('Expected input Food name to have the value Burek but it is "Ćevapi"');
+    expect(messages).toContain('Expected input Recipe name to have the value Piletina but it is ""');
+    expect(messages.some((m) => m.startsWith('Expected input Not on the page to have the value x'))).toBe(true);
+    expect(messages.some((m) => m.includes('value Ćevapi'))).toBe(false);
   });
 
   it('honours allowText / allowConsole and the --console-errors=warn setting', async () => {

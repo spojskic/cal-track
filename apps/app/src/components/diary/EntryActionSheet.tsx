@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { deriveNutrients, parseNumber, scaleNutrients } from '@cal/core';
 
 import { formatNumber } from '@/components/charts/format';
+import { amountWarning } from '@/components/food/serving';
+import { AmountWarningNote } from '@/components/food/serving-picker';
 import { NumberField } from '@/components/forms';
 import { AppText, Button } from '@/components/ui';
 import {
@@ -131,6 +133,9 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
     return deriveNutrients(scaleNutrients(entry.food.nutrients, grams), { carbBasis: entry.food.carbBasis });
   }, [valid, grams, entry.food.nutrients, entry.food.carbBasis]);
 
+  // Non-blocking: 200 x a 174 g portion is 34.8 kg - offer to read the typed number as grams.
+  const warning = amountWarning({ grams, kcal: preview?.ENERGY_KCAL, amount, inGrams: unit.key === 'g' });
+
   const selectUnit = (next: UnitOption) => {
     haptic('selection');
     const currentGrams = grams ?? entry.grams;
@@ -200,6 +205,17 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
             ))}
           </ScrollView>
         </View>
+      ) : null}
+
+      {warning ? (
+        <AmountWarningNote
+          warning={warning}
+          onUseGrams={() => {
+            haptic('selection');
+            setUnitOverride('g');
+            setTextOverride(text);
+          }}
+        />
       ) : null}
 
       <View style={[styles.preview, { backgroundColor: colors.surfaceAlt }]}>

@@ -43,8 +43,13 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   const wide = width >= WIDE_BREAKPOINT;
 
+  // react-native-web's Modal only becomes active (Escape closes it, focus is trapped) once its fade-in animation
+  // ended, and it keeps a click-blocking layer while it fades out. On the web the sheet therefore appears and
+  // disappears at once, so Escape works immediately and the page is usable the moment the sheet is closed.
+  const animationType = Platform.OS === 'web' ? 'none' : 'fade';
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible={visible} transparent animationType={animationType} onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={[styles.overlay, wide ? styles.overlayCenter : styles.overlayBottom]}>

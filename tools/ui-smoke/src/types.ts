@@ -48,6 +48,12 @@ export interface ScenarioContext {
   expectText(text: string | RegExp, options?: TextOptions): Promise<boolean>;
   /** FAIL when the text is (still) visible after `timeout` ms. */
   expectNoText(text: string | RegExp, options?: TextOptions): Promise<boolean>;
+  /**
+   * FAIL unless the input found by label / placeholder (string: label or placeholder, RegExp: aria-label or
+   * placeholder) gets the value (string: the whole value, RegExp: a match). For names that are input values on
+   * edit screens ("Ćevapi", "Moj doručak"), which `expectText` cannot see.
+   */
+  expectInputValue(field: string | RegExp, value: string | RegExp, options?: { timeout?: number }): Promise<boolean>;
   /** FAIL unless the page URL matches. */
   expectUrl(pattern: RegExp, timeout?: number): Promise<boolean>;
   /** FAIL unless a committed mutation matching the predicate was recorded (polls briefly: writes are async). */
@@ -74,6 +80,8 @@ export interface Scenario {
   viewports?: ViewportName[];
   /** Texts that must be visible after the page settled (case-insensitive substrings or regexes). */
   expect?: (string | RegExp)[];
+  /** Input values that must be present after the page settled (see `ScenarioContext.expectInputValue`). */
+  expectInputs?: { field: string | RegExp; value: string | RegExp }[];
   /** Console messages matching one of these are ignored for this scenario. */
   allowConsole?: RegExp[];
   /** Backend errors (`METHOD /path ... code: message`) matching one of these are expected here. */

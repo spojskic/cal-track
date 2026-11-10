@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 
 import type { AppFiles } from './app-files';
+import { waitForInputValue } from './actions';
 import { backendIssues, dedupeIssues, functionCalls } from './analysis';
 import { dateShiftScript, inspectPageScript, scrollMetricsScript, seedSessionScript } from './browser-scripts';
 import { APP_ORIGIN, FIXED_NOW_MS, STORAGE_KEY, TIMEZONE } from './constants';
@@ -61,6 +62,11 @@ const firstLine = (e: unknown): string => {
 };
 
 const MAX_TALL_HEIGHT = 5000;
+/** Fewer visible characters than this is a blank screen. */
+const MIN_TEXT_LENGTH = 20;
+/** How long a nearly empty screen may still be loading before it counts as blank. */
+const BLANK_GRACE_MS = 6000;
+const BLANK_POLL_MS = 250;
 
 export async function runScenario(deps: RunDeps, scenario: Scenario, index: number, viewportName: ViewportName): Promise<ScenarioRun> {
   const started = Date.now();
@@ -115,9 +121,16 @@ export async function runScenario(deps: RunDeps, scenario: Scenario, index: numb
 
   const inspect = async (): Promise<void> => {
     if (!page) return;
-    const info = (await page.evaluate(inspectPageScript())) as PageInfo;
+    // A screen that is still loading (spinner, a retried request) is not blank: wait for the network to go idle and
+    // give it a moment to render text before judging.
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    let info = (await page.evaluate(inspectPageScript())) as PageInfo;
+    for (let waited = 0; info.textLength < MIN_TEXT_LENGTH && waited < BLANK_GRACE_MS; waited += BLANK_POLL_MS) {
+      await page.waitForTimeout(BLANK_POLL_MS);
+      info = (await page.evaluate(inspectPageScript())) as PageInfo;
+    }
     textLength = info.textLength;
-    if (info.textLength < 20) push('fail', 'blank', `Blank screen: ${info.textLength} characters of visible text`);
+    if (info.textLength < MIN_TEXT_LENGTH) push('fail', 'blank', `Blank screen: ${info.textLength} characters of visible text`);
     const allowText = scenario.allowText ?? [];
     for (const hit of info.fatalHits) if (!allowText.some((re) => re.test(hit))) push('fail', 'overlay', `Error text on the screen: "${hit}"`);
     for (const hit of info.suspectHits) if (!allowText.some((re) => re.test(hit))) push('warn', 'text', `Suspicious text on the screen: "${hit}" (${info.sample.slice(0, 120)}...)`);
@@ -166,6 +179,14 @@ export async function runScenario(deps: RunDeps, scenario: Scenario, index: numb
         push('fail', 'assertion', `Text should not be visible: ${String(text)}`);
         return false;
       }
+    },
+    async expectInputValue(field, value, o) {
+      const result = await waitForInputValue(p, field, value, textTimeout(o));
+      if (result.ok) return true;
+      const actual = result.actual === null ? '' : ` but it is "${result.actual.slice(0, 80)}"`;
+      const why = result.error && result.actual === null ? ` (${result.error.slice(0, 120)})` : '';
+      push('fail', 'assertion', `Expected input ${String(field)} to have the value ${String(value)}${actual}${why}`);
+      return false;
     },
     async expectUrl(pattern, timeout = 8000) {
       try {
@@ -248,6 +269,7 @@ export async function runScenario(deps: RunDeps, scenario: Scenario, index: numb
     await settle();
     await inspect();
     for (const expected of scenario.expect ?? []) await c.expectText(expected);
+    for (const input of scenario.expectInputs ?? []) await c.expectInputValue(input.field, input.value);
     await capture('', true);
 
     if (scenario.after) {

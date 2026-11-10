@@ -14,6 +14,7 @@ import {
   gToOz,
   gramsFor,
   gramsFromVolume,
+  implausibleAmount,
   inToCm,
   kgToLb,
   kgToStone,
@@ -188,5 +189,30 @@ describe('portions', () => {
     expect(portions.find((p) => p.label === 'tsp')?.grams).toBe(5);
     expect(portions.find((p) => p.label === 'fl oz')?.grams).toBeCloseTo(29.5735, 4);
     expect(volumePortions(1.03).find((p) => p.label === 'cup')?.grams).toBeCloseTo(247.2, 10);
+  });
+});
+
+describe('implausibleAmount', () => {
+  it('flags more than 5 kg as a mass problem', () => {
+    expect(implausibleAmount(34800, 41760)).toBe('mass');
+    expect(implausibleAmount(5001)).toBe('mass');
+  });
+
+  it('flags more than 5000 kcal as an energy problem when the mass is fine', () => {
+    expect(implausibleAmount(1000, 9000)).toBe('energy');
+    expect(implausibleAmount(1000, 5001)).toBe('energy');
+  });
+
+  it('accepts ordinary and boundary amounts', () => {
+    expect(implausibleAmount(200, 330)).toBeNull();
+    expect(implausibleAmount(5000, 5000)).toBeNull();
+    expect(implausibleAmount(0)).toBeNull();
+  });
+
+  it('ignores missing or non-finite values', () => {
+    expect(implausibleAmount(null, undefined)).toBeNull();
+    expect(implausibleAmount(undefined, null)).toBeNull();
+    expect(implausibleAmount(Number.NaN, Number.NaN)).toBeNull();
+    expect(implausibleAmount(Number.POSITIVE_INFINITY)).toBeNull();
   });
 });

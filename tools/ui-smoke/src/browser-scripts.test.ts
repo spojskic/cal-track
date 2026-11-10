@@ -11,6 +11,7 @@ import {
   scrollMainScript,
   scrollMetricsScript,
   seedSessionScript,
+  truncatedTextScript,
 } from './browser-scripts';
 import { FIXED_NOW_MS } from './constants';
 
@@ -33,13 +34,13 @@ function storage() {
 
 describe('every script is syntactically valid JavaScript', () => {
   it('compiles', () => {
-    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'https://a.test', storageKey: 'k', session: {} }), inspectPageScript(), scrollMetricsScript(), scrollMainScript(100)]) {
+    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'https://a.test', storageKey: 'k', session: {} }), inspectPageScript(), scrollMetricsScript(), scrollMainScript(100), truncatedTextScript('[role="tab"]')]) {
       expect(() => new vm.Script(code)).not.toThrow();
     }
   });
 
   it('has no TypeScript artefacts (esbuild __name helper, type annotations)', () => {
-    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'o', storageKey: 'k', session: {} }), inspectPageScript(), scrollMetricsScript(), scrollMainScript(1)]) {
+    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'o', storageKey: 'k', session: {} }), inspectPageScript(), scrollMetricsScript(), scrollMainScript(1), truncatedTextScript('x')]) {
       expect(code).not.toMatch(/__name|: string|: number|as unknown/);
     }
   });
@@ -187,5 +188,39 @@ describe('scroll scripts', () => {
     const none = make([el('visible', 3000, 800)]);
     run(scrollMainScript(300), none.ctx);
     expect(none.scrolled).toEqual([300]);
+  });
+});
+
+describe('truncatedTextScript', () => {
+  const node = (scrollWidth: number, clientWidth: number, textContent = '', children: unknown[] = []) => ({
+    scrollWidth,
+    clientWidth,
+    textContent,
+    querySelectorAll: () => children,
+  });
+  const make = (roots: unknown[], seen: string[] = []) =>
+    sandbox({
+      document: {
+        querySelectorAll: (selector: string) => {
+          seen.push(selector);
+          return roots;
+        },
+      },
+    });
+
+  it('reports the roots whose own box or a descendant is clipped, with normalised text', () => {
+    const seen: string[] = [];
+    const roots = [
+      node(80, 80, 'FOOD'),
+      node(60, 60, 'BIOMETRIC  1', [node(95, 60)]), // the label inside is wider than its box
+      node(90, 70, 'NOTE\n 1'), // the root itself is clipped
+    ];
+    expect(run<string[]>(truncatedTextScript('[role="tab"]'), make(roots, seen))).toEqual(['BIOMETRIC 1', 'NOTE 1']);
+    expect(seen).toEqual(['[role="tab"]']);
+  });
+
+  it('tolerates a one pixel rounding difference and an empty match', () => {
+    expect(run<string[]>(truncatedTextScript('x'), make([node(81, 80, 'A')]))).toEqual([]);
+    expect(run<string[]>(truncatedTextScript('x'), make([]))).toEqual([]);
   });
 });

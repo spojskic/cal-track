@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lbToKg } from '@cal/core';
 
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 import { addDays, todayISO } from '@/state/selected-date';
 
 import { invalidateDay, keys } from './keys';
-import { requireUserId, useUserId } from './profile';
+import { useUserId } from './profile';
 
 /*
  * Body measurements live in `biometrics` (shared with the dashboard / device sync):

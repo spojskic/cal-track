@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 
 import { invalidateDay, keys } from './keys';
@@ -25,9 +26,7 @@ export function useAddDiaryEntry() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (e: NewDiaryEntry) => {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id;
-      if (!userId) throw new Error('Not signed in');
+      const userId = await requireUserId();
       const { data, error } = await supabase
         .from('diary_entries')
         .insert({

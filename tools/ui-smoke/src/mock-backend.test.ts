@@ -477,6 +477,87 @@ describe('update and delete', () => {
   });
 });
 
+describe('foods_protect_referenced / supersede_food (the immutability trigger of the migration)', () => {
+  const own = (name: string) => ({ name, source: 'custom', kind: 'custom', owner_id: USER.id, nutrients: { ENERGY_KCAL: 100, PROTEIN_G: 5 } });
+
+  it('rejects changes of nutrients, carb_basis and density of a food that a diary entry references', () => {
+    const { call, backend, fx } = setup();
+    const id = fx.ids.food.cevapi;
+    for (const patch of [{ nutrients: { ENERGY_KCAL: 1 } }, { carb_basis: 'excludes_fiber' }, { density_g_per_ml: 1.2 }]) {
+      const res = call('PATCH', `/rest/v1/foods?id=eq.${id}`, { body: patch });
+      expect(res.status, JSON.stringify(patch)).toBe(400);
+      expect(res.json.code).toBe('23001');
+      expect(res.json.hint).toContain('supersede_food');
+    }
+    const food = backend.rows('foods').find((f) => f.id === id);
+    expect(food?.nutrients).toMatchObject({ ENERGY_KCAL: 258 });
+    expect(food?.carb_basis).not.toBe('excludes_fiber');
+    // the failed updates are recorded as failed mutations and changed nothing
+    expect(backend.mutations.filter((m) => m.table === 'foods' && !m.ok)).toHaveLength(3);
+    expect(backend.mutationsOf('foods', 'update')).toHaveLength(0);
+  });
+
+  it('also protects a food that is only an ingredient of a recipe, and leaves an unreferenced food alone', () => {
+    const { call, backend, fx } = setup();
+    const created = call('POST', '/rest/v1/foods?select=id', { body: own('Domaći preljev'), headers: { ...ONE, ...REP } });
+    expect(created.status).toBe(201);
+    const id = created.json.id as string;
+    // never referenced: nutrients can change freely
+    expect(call('PATCH', `/rest/v1/foods?id=eq.${id}`, { body: { nutrients: { ENERGY_KCAL: 120 } } }).status).toBe(204);
+    // referenced only by a recipe ingredient row
+    const ingredient = call('POST', '/rest/v1/recipe_ingredients', { body: { recipe_food_id: fx.ids.food.recipeChickenRice, ingredient_food_id: id, grams: 20, sort_order: 9 } });
+    expect(ingredient.status).toBe(201);
+    expect(backend.rows('diary_entries').some((e) => e.food_id === id)).toBe(false);
+    const blocked = call('PATCH', `/rest/v1/foods?id=eq.${id}`, { body: { nutrients: { ENERGY_KCAL: 130 } } });
+    expect(blocked.status).toBe(400);
+    expect(blocked.json.code).toBe('23001');
+    // metadata stays editable
+    expect(call('PATCH', `/rest/v1/foods?id=eq.${id}`, { body: { name: 'Domaći preljev 2', brand: 'Moja kuhinja' } }).status).toBe(204);
+  });
+
+  it('blocks the merge path of an upsert as well', () => {
+    const { call, fx } = setup();
+    const cevapi = call('GET', `/rest/v1/foods?id=eq.${fx.ids.food.cevapi}&select=*`, { headers: ONE }).json as Record<string, unknown>;
+    const res = call('POST', '/rest/v1/foods?on_conflict=id', {
+      body: { ...cevapi, nutrients: { ENERGY_KCAL: 5 } },
+      headers: { prefer: 'resolution=merge-duplicates,return=minimal' },
+    });
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe('23001');
+  });
+
+  it('supersede_food archives the old row, copies the food with version + 1 and its portions, and returns the new id', () => {
+    const { call, backend, fx } = setup();
+    const oldPortions = backend.rows('food_portions').filter((p) => p.food_id === fx.ids.food.cevapi);
+    expect(oldPortions.length).toBeGreaterThan(0);
+    const v2 = call('POST', '/rest/v1/rpc/supersede_food', { body: { p_food_id: fx.ids.food.cevapi } }).json as string;
+    const v3 = call('POST', '/rest/v1/rpc/supersede_food', { body: { p_food_id: v2 } }).json as string;
+    const rows = backend.rows('foods');
+    const row = (id: string) => rows.find((f) => f.id === id) as Record<string, unknown>;
+    expect(row(fx.ids.food.cevapi).archived).toBe(true);
+    expect(row(v2)).toMatchObject({ version: 2, supersedes: fx.ids.food.cevapi, archived: true, kind: 'custom', owner_id: USER.id, name: 'Ćevapi' });
+    expect(row(v3)).toMatchObject({ version: 3, supersedes: v2, archived: false });
+    expect(row(v3).nutrients).toEqual(row(fx.ids.food.cevapi).nutrients);
+    const newPortions = backend.rows('food_portions').filter((p) => p.food_id === v2);
+    expect(newPortions.map((p) => [p.label, p.grams])).toEqual(oldPortions.map((p) => [p.label, p.grams]));
+    expect(newPortions.every((p) => !oldPortions.some((o) => o.id === p.id))).toBe(true); // copies, not shared rows
+    // the new version is unreferenced, so its nutrients can be changed
+    expect(call('PATCH', `/rest/v1/foods?id=eq.${v3}`, { body: { nutrients: { ENERGY_KCAL: 99 } } }).status).toBe(204);
+    expect(backend.integrityErrors()).toEqual([]);
+  });
+
+  it('supersede_food on an unknown or foreign food fails without changing anything', () => {
+    const { call, backend, fx } = setup();
+    const before = JSON.stringify(backend.rows('foods'));
+    const missing = call('POST', '/rest/v1/rpc/supersede_food', { body: { p_food_id: fx.ids.missing } });
+    expect(missing.status).toBeGreaterThanOrEqual(400);
+    expect(missing.json.code).toBe('P0002');
+    expect(JSON.stringify(backend.rows('foods'))).toBe(before);
+    expect(backend.mutations.filter((m) => m.table === 'rpc:supersede_food' && m.ok)).toEqual([]);
+    expect(backend.mutations.filter((m) => m.table === 'rpc:supersede_food' && !m.ok)).toHaveLength(1);
+  });
+});
+
 describe('rpc', () => {
   it('search_foods is accent-insensitive and returns the summary row shape', () => {
     const { call } = setup();

@@ -3,11 +3,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { completeness as computeCompleteness } from '@cal/core';
 import type { NutrientEstimate } from '@cal/ai';
 
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 
 import { cleanNutrients, prepareNutrients } from './foods';
 import { keys } from './keys';
-import { requireUserId } from './profile';
 
 export interface AiEstimateFoodInput {
   name: string;

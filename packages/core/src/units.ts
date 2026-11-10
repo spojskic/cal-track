@@ -325,3 +325,25 @@ export function volumePortions(densityGPerMl: number): PortionUnit[] {
     grams: gramsFromVolume(convertVolume(1, unit, 'ml'), densityGPerMl),
   }));
 }
+
+// ------------------------------------------------------ plausibility
+
+/** A single logged amount above this mass is almost certainly a unit slip (e.g. 200 "pieces" of 174 g). */
+export const IMPLAUSIBLE_AMOUNT_GRAMS = 5000;
+
+/** A single logged amount above this energy is almost certainly a unit slip. */
+export const IMPLAUSIBLE_AMOUNT_KCAL = 5000;
+
+/**
+ * Whether ONE logged amount of a food looks like a mistake: more than 5 kg ('mass') or more than
+ * 5000 kcal ('energy'). Mass wins when both apply. Returns null for plausible or unknown amounts.
+ * Meant for a non-blocking warning, never for validation.
+ */
+export function implausibleAmount(
+  grams: number | null | undefined,
+  kcal?: number | null,
+): 'mass' | 'energy' | null {
+  if (typeof grams === 'number' && Number.isFinite(grams) && grams > IMPLAUSIBLE_AMOUNT_GRAMS) return 'mass';
+  if (typeof kcal === 'number' && Number.isFinite(kcal) && kcal > IMPLAUSIBLE_AMOUNT_KCAL) return 'energy';
+  return null;
+}

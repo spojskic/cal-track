@@ -11,6 +11,7 @@ import {
   type NutrientMap,
 } from '@cal/core';
 
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 import { addDays, todayISO } from '@/state/selected-date';
 
@@ -348,9 +349,7 @@ export function useCopyDiaryEntries() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CopyDiaryEntriesInput): Promise<number> => {
-      const { data: auth } = await supabase.auth.getSession();
-      const userId = auth.session?.user.id;
-      if (!userId) throw new Error('Not signed in');
+      const userId = await requireUserId();
 
       let query = supabase
         .from('diary_entries')

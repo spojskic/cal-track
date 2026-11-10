@@ -17,7 +17,8 @@
  */
 import type { Page } from 'playwright-core';
 
-import { choose, clickButton, clickTab, clickText, fill, findField, scrollToText } from './actions';
+import { choose, clickButton, clickTab, clickText, closeSheet, fill, scrollToText } from './actions';
+import { truncatedTextScript } from './browser-scripts';
 import { BARCODES, IDS, USER } from './fixtures';
 import type { Scenario, ScenarioContext } from './types';
 
@@ -32,11 +33,6 @@ async function stepThen(ctx: ScenarioContext, label: string, act: () => Promise<
 
 async function openRow(page: Page, name: RegExp): Promise<void> {
   await page.getByRole('button', { name }).first().click({ timeout: 6000 });
-}
-
-async function escape(page: Page): Promise<void> {
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(250);
 }
 
 export const SCENARIOS: Scenario[] = [
@@ -217,33 +213,76 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    name: 'diary: an absurd amount in the entry sheet warns and offers grams',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Banana, raw'],
+    async after(page, ctx) {
+      await stepThen(
+        ctx,
+        'open the banana entry (1 x medium) and wait for its units',
+        async () => {
+          await openRow(page, /Banana, raw/);
+          await ctx.expectText('Delete entry');
+          await page.getByText('Unit', { exact: true }).first().waitFor({ state: 'visible', timeout: 6000 }); // portions loaded
+        },
+        async () => {
+          // 100 x "medium" (118 g) = 11.8 kg
+          await stepThen(ctx, 'type 100', () => fill(page, /^Amount/, '100'), async () => {
+            await ctx.expectText('That is 11.8 kg - did you mean grams?');
+            await ctx.snapshot('warning', { tall: false });
+            await stepThen(ctx, 'tap "Use 100 g"', () => clickButton(page, 'Use 100 g', { exact: true }), async () => {
+              await ctx.expectNoText('did you mean grams');
+              await ctx.step('save', () => clickButton(page, 'Save', { exact: true }));
+              await ctx.expectMutation('diary_entries', 'update', (m) => payloadOf(m).grams === 100);
+            });
+          });
+        },
+      );
+    },
+  },
+  {
     name: 'diary: menus, tabs and day navigation',
     route: '/diary',
     path: '/diary',
     auth: 'signed-in',
     expect: ['Breakfast'],
     async after(page, ctx) {
+      // Escape closes a sheet right away (the sheet does not animate on the web, see components/diary/Sheet.tsx).
       await stepThen(ctx, 'open the meal options of Breakfast', () => clickButton(page, 'Breakfast options'), async () => {
         await ctx.expectText('Add food to Breakfast');
         await ctx.snapshot('meal-menu', { tall: false });
-        await escape(page);
+        await ctx.step('press Escape', () => page.keyboard.press('Escape'));
+        await ctx.expectNoText('Add food to Breakfast', { timeout: 3000 });
+        // Whatever happened, leave no open scrim behind: it would swallow the clicks of the next steps.
+        await ctx.step('make sure the menu is closed', async () => {
+          if (await page.getByText('Add food to Breakfast').first().isVisible()) await closeSheet(page, 'Add food to Breakfast');
+        });
       });
+      // The scrim ("Close") works at any moment and does not depend on keyboard focus.
       await stepThen(ctx, 'open the diary actions', () => clickButton(page, 'More diary actions'), async () => {
         await ctx.expectText('Copy a day from');
-        await escape(page);
+        await ctx.step('close the diary actions', () => closeSheet(page, 'Copy a day from'));
       });
-      await stepThen(ctx, 'exercise tab', () => clickTab(page, /Exercise/), async () => {
+      // The tab names are "Exercise, 2" / "Body (biometric), 2" (phone) or "Biometric, 2" (wide): the visible text is
+      // upper-case through CSS, the accessible name is not, hence role + name with a case-insensitive pattern.
+      await stepThen(ctx, 'exercise tab', () => clickTab(page, /^exercise/i), async () => {
         await ctx.expectText('Running, treadmill, general');
         await ctx.snapshot('exercise-tab');
       });
-      await stepThen(ctx, 'biometric tab', () => clickTab(page, /Biometric/), async () => {
+      await stepThen(ctx, 'biometric tab', () => clickTab(page, /biometric/i), async () => {
         await ctx.expectText('Add biometric');
         await ctx.snapshot('biometric-tab');
       });
-      await stepThen(ctx, 'note tab', () => clickTab(page, /Note/), async () => {
+      await stepThen(ctx, 'note tab', () => clickTab(page, /^note/i), async () => {
         await ctx.expectText('Trening je išao odlično');
       });
-      await ctx.step('back to the food tab', () => clickTab(page, /^Food/));
+      await ctx.step('back to the food tab', () => clickTab(page, /^food/i));
+      await ctx.check('no tab label is truncated with an ellipsis', async () => {
+        const truncated = await page.evaluate(truncatedTextScript('[role="tab"]'));
+        if (Array.isArray(truncated) && truncated.length > 0) throw new Error(`truncated tab labels: ${truncated.join(', ')}`);
+      });
       await stepThen(ctx, 'previous day', () => clickButton(page, 'Previous day', { exact: true }), async () => {
         await ctx.expectText('Salmon, Atlantic, farmed, raw');
         await ctx.snapshot('yesterday');
@@ -408,13 +447,51 @@ export const SCENARIOS: Scenario[] = [
     auth: 'signed-in',
     expect: ['Chicken breast, skinless, boneless, raw', 'Serving', 'Add to diary'],
     async after(page, ctx) {
-      await stepThen(ctx, 'set the amount to 200 g', () => fill(page, 'Amount', '200'), async () => {
-        await ctx.expectText('= 200 g');
-        await ctx.snapshot('amount-200g');
-      });
-      await stepThen(ctx, 'add to the diary', () => clickButton(page, /Add to diary/), async () => {
+      // The amount is multiplied by the selected unit: the default is the "breast, boneless (174 g)" portion, so
+      // grams have to be chosen first (typing 200 with the portion selected means 200 breasts, see the next scenario).
+      await stepThen(
+        ctx,
+        'choose the g unit and set the amount to 200',
+        async () => {
+          await choose(page, /^g, 1 grams each$/);
+          await fill(page, 'Amount', '200');
+        },
+        async () => {
+          await ctx.expectText('= 200 g');
+          await ctx.expectNoText('did you mean grams');
+          await ctx.snapshot('amount-200g');
+        },
+      );
+      await stepThen(ctx, 'add to the diary', () => clickButton(page, /^Add to diary/), async () => {
+        // The confirmation only appears after the insert succeeded; it stays for under a second, so wait for it first.
+        await ctx.expectText(/Added to /);
         await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.chickenRaw && payloadOf(m).grams === 200 && payloadOf(m).entry_date === ctx.fixtures.today);
-        await ctx.expectText('Added');
+      });
+    },
+  },
+  {
+    name: 'food detail: an absurd amount warns and offers a one-tap switch to grams',
+    route: '/food/[id]',
+    path: `/food/${F.chickenRaw}`,
+    auth: 'signed-in',
+    expect: ['Chicken breast, skinless, boneless, raw', 'Serving', 'Add to diary'],
+    async after(page, ctx) {
+      // 200 x "breast, boneless (174 g)" = 34.8 kg: the app warns but does not block.
+      await stepThen(ctx, 'type 200 with the portion unit selected', () => fill(page, 'Amount', '200'), async () => {
+        await ctx.expectText('= 34800 g');
+        await ctx.expectText('That is 34.8 kg - did you mean grams?');
+        await ctx.snapshot('warning');
+        await ctx.check('the warning does not block adding', async () => {
+          if (!(await page.getByRole('button', { name: /^Add to diary/ }).first().isEnabled({ timeout: 3000 }))) throw new Error('"Add to diary" is disabled');
+        });
+        await stepThen(ctx, 'tap "Use 200 g"', () => clickButton(page, 'Use 200 g', { exact: true }), async () => {
+          await ctx.expectText('= 200 g');
+          await ctx.expectNoText('did you mean grams');
+          await stepThen(ctx, 'add to the diary', () => clickButton(page, /^Add to diary/), async () => {
+            await ctx.expectText(/Added to /);
+            await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.chickenRaw && payloadOf(m).grams === 200);
+          });
+        });
       });
     },
   },
@@ -428,9 +505,13 @@ export const SCENARIOS: Scenario[] = [
       await stepThen(ctx, 'pick the "medium" unit', () => page.getByRole('radio', { name: /medium/ }).first().click({ timeout: 6000 }), async () => {
         await ctx.expectText('= 118 g');
       });
-      await stepThen(ctx, 'toggle the favorite star', () => clickButton(page, /favorites/i), () =>
-        ctx.expectMutation('favorites', 'upsert', (m) => payloadOf(m).food_id === F.banana).then(() => undefined),
-      );
+      // Banana is a favorite in the fixtures: the first tap removes it, the second adds it back.
+      await stepThen(ctx, 'remove banana from the favorites', () => clickButton(page, 'Remove from favorites', { exact: true }), async () => {
+        await ctx.expectMutation('favorites', 'delete', (m) => m.filter.includes(F.banana));
+        await stepThen(ctx, 'add it back', () => clickButton(page, 'Add to favorites', { exact: true }), () =>
+          ctx.expectMutation('favorites', 'upsert', (m) => payloadOf(m).food_id === F.banana).then(() => undefined),
+        );
+      });
     },
   },
   { name: 'food detail: rich micronutrients (salmon)', route: '/food/[id]', path: `/food/${F.salmon}`, auth: 'signed-in', expect: ['Salmon, Atlantic, farmed, raw', 'Vitamin D'] },
@@ -448,27 +529,40 @@ export const SCENARIOS: Scenario[] = [
     allowText: [/Food not found/],
   },
   {
-    name: 'food detail: invalid id degrades gracefully',
+    name: 'food detail: invalid id shows "not found" without asking the database',
     route: '/food/[id]',
     path: '/food/not-a-uuid',
     auth: 'signed-in',
     // PostgREST rejects the uuid (22P02): the screen must show an error card, not crash.
-    expect: [/Could not load this food|Food not found/],
-    allowBackendErrors: ['22P02'],
-    allowText: [/Could not load/],
+    // The id is checked before it is queried: Postgres would answer "invalid input syntax for type uuid" (22P02),
+    // which must never reach the user. The screen shows the same card as for an unknown id.
+    expect: ['Food not found'],
+    allowText: [/Food not found/],
+    async after(_page, ctx) {
+      await ctx.check('the invalid id never reached the backend', () => {
+        const sent = ctx.backend.calls.filter((c) => c.query.includes('not-a-uuid') || c.path.includes('not-a-uuid'));
+        if (sent.length > 0) throw new Error(`sent to the backend: ${sent.map((c) => `${c.method} ${c.target}`).join(', ')}`);
+      });
+      await ctx.expectNoText('invalid input syntax');
+    },
   },
   {
-    name: 'food edit: rename without touching nutrients, then change nutrients (new version)',
+    name: 'food edit: rename without touching nutrients (updated in place)',
     route: '/food/edit/[id]',
     path: `/food/edit/${F.cevapi}`,
     auth: 'signed-in',
-    expect: ['Ćevapi', 'Save changes'],
+    expect: ['Save changes'],
+    // The name of the food is the VALUE of the name field, not page text.
+    expectInputs: [{ field: 'Food name', value: 'Ćevapi' }],
     async after(page, ctx) {
       await stepThen(ctx, 'rename and save', async () => {
         await fill(page, 'Food name', 'Ćevapi (domaći)');
         await clickButton(page, 'Save changes', { exact: true });
       }, async () => {
         await ctx.expectMutation('foods', 'update', (m) => payloadOf(m).name === 'Ćevapi (domaći)');
+        await ctx.check('the nutrients did not change, so no new version was needed', () => {
+          if (ctx.backend.mutationsOf('rpc:supersede_food', 'rpc').length > 0) throw new Error('supersede_food was called for a rename');
+        });
       });
     },
   },
@@ -477,16 +571,27 @@ export const SCENARIOS: Scenario[] = [
     route: '/food/edit/[id]',
     path: `/food/edit/${F.cevapi}`,
     auth: 'signed-in',
-    expect: ['Ćevapi', 'Save changes'],
+    expect: ['Save changes'],
+    expectInputs: [{ field: 'Food name', value: 'Ćevapi' }],
+    // The mock enforces the immutability trigger like the database does: the in-place update is rejected (23001).
     allowBackendErrors: ['23001'],
     async after(page, ctx) {
       await stepThen(ctx, 'change the energy and save', async () => {
         await fill(page, 'Energy', '270');
         await clickButton(page, 'Save changes', { exact: true });
       }, async () => {
-        // The immutability trigger rejects the in-place update; the app then calls supersede_food.
         await ctx.expectMutation('rpc:supersede_food', 'rpc');
+        await ctx.expectUrl(/\/food\/(?!edit)[0-9a-f-]{36}/); // replaced by the detail page of the new version
         await ctx.expectText('Ćevapi');
+        await ctx.check('the logged version is archived and a new version holds the new energy', () => {
+          const foods = ctx.backend.rows('foods');
+          const old = foods.find((f) => f.id === F.cevapi);
+          const next = foods.find((f) => f.supersedes === F.cevapi);
+          if (old?.archived !== true) throw new Error('the logged version was not archived');
+          if (!next || next.version !== 2 || (next.nutrients as Record<string, number>).ENERGY_KCAL !== 270) throw new Error(`unexpected new version: ${JSON.stringify(next?.nutrients ?? null)}`);
+          if ((old.nutrients as Record<string, number>).ENERGY_KCAL !== 258) throw new Error('the logged version changed');
+          if (!ctx.backend.rows('diary_entries').some((e) => e.food_id === F.cevapi)) throw new Error('the diary entries lost their food');
+        });
       });
     },
   },
@@ -712,9 +817,29 @@ export const SCENARIOS: Scenario[] = [
     expect: ['Piletina s rižom', 'Edit recipe', 'Servings'],
     async after(page, ctx) {
       await stepThen(ctx, 'switch to per 100 g', () => clickButton(page, 'Per 100 g', { exact: true }), () => ctx.snapshot('per-100g'));
-      await stepThen(ctx, 'add one serving to the diary', () => clickButton(page, /Add 1 serving to diary/), () =>
-        ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.recipeChickenRice).then(() => undefined),
-      );
+      // "Add 1 serving to diary" opens the food screen of the recipe, where the entry is confirmed.
+      await stepThen(ctx, 'open "Add 1 serving to diary"', () => clickButton(page, /^Add 1 serving to diary/), async () => {
+        await ctx.expectUrl(new RegExp(`/food/${F.recipeChickenRice}`));
+        await ctx.expectText('Serving');
+        await stepThen(ctx, 'confirm on the food screen', () => clickButton(page, /^Add to diary/), async () => {
+          await ctx.expectText(/Added to /);
+          await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.recipeChickenRice && payloadOf(m).grams === 450);
+        });
+      });
+    },
+  },
+  {
+    name: 'recipe detail: invalid id shows "not found" without asking the database',
+    route: '/recipe/[id]',
+    path: '/recipe/not-a-uuid',
+    auth: 'signed-in',
+    expect: ['Recipe not found'],
+    allowText: [/not found/i],
+    async after(_page, ctx) {
+      await ctx.check('the invalid id never reached the backend', () => {
+        const sent = ctx.backend.calls.filter((c) => c.query.includes('not-a-uuid') || c.path.includes('not-a-uuid'));
+        if (sent.length > 0) throw new Error(`sent to the backend: ${sent.map((c) => `${c.method} ${c.target}`).join(', ')}`);
+      });
     },
   },
   {
@@ -722,15 +847,53 @@ export const SCENARIOS: Scenario[] = [
     route: '/recipe/edit/[id]',
     path: `/recipe/edit/${F.recipeChickenRice}`,
     auth: 'signed-in',
-    expect: ['Piletina s rižom', 'Ingredients'],
+    expect: ['Ingredients'],
+    // The name of the recipe is the VALUE of the name field, not page text.
+    expectInputs: [{ field: 'Recipe name', value: 'Piletina s rižom' }],
+    // The recipe is logged (yesterday): changing what is in it changes its nutrients, the immutability trigger
+    // rejects that in place (23001) and the app creates the next version with supersede_food.
     allowBackendErrors: ['23001'],
     async after(page, ctx) {
-      await stepThen(ctx, 'change the servings and save', async () => {
-        await fill(page, 'Number of servings', '3');
-        await clickButton(page, /Save/);
+      await stepThen(ctx, 'change the chicken from 300 g to 250 g and save', async () => {
+        await openRow(page, /^Chicken breast, skinless, boneless, raw\./);
+        await fill(page, 'Amount', '250');
+        await clickButton(page, /^Save changes/);
       }, async () => {
-        // The recipe is logged (yesterday): the DB trigger forces a new version.
         await ctx.expectMutation('rpc:supersede_food', 'rpc');
+        await ctx.expectUrl(new RegExp(`/recipe/(?!edit)(?!${F.recipeChickenRice})[0-9a-f-]{36}`)); // the NEW version
+        await ctx.expectText('Saved as a new version');
+        await ctx.check('the logged version is archived and the new one has the new amount', () => {
+          const foods = ctx.backend.rows('foods');
+          const next = foods.find((f) => f.supersedes === F.recipeChickenRice);
+          if (foods.find((f) => f.id === F.recipeChickenRice)?.archived !== true) throw new Error('the logged recipe version was not archived');
+          if (!next || next.version !== 2) throw new Error('no version 2 of the recipe');
+          const chicken = ctx.backend.rows('recipe_ingredients').find((r) => r.recipe_food_id === next.id && r.ingredient_food_id === F.chickenRaw);
+          if (chicken?.grams !== 250) throw new Error(`chicken in the new version: ${String(chicken?.grams)} g`);
+          const old = ctx.backend.rows('recipe_ingredients').find((r) => r.recipe_food_id === F.recipeChickenRice && r.ingredient_food_id === F.chickenRaw);
+          if (old?.grams !== 300) throw new Error('the logged version lost its ingredients');
+        });
+      });
+    },
+  },
+  {
+    name: 'recipe edit: a change that keeps the nutrients is saved in place',
+    route: '/recipe/edit/[id]',
+    path: `/recipe/edit/${F.recipeChickenRice}`,
+    auth: 'signed-in',
+    expect: ['Ingredients'],
+    expectInputs: [{ field: 'Recipe name', value: 'Piletina s rižom' }],
+    async after(page, ctx) {
+      // Servings do not change the per-100 g nutrients, so the immutability trigger does not fire.
+      await stepThen(ctx, 'change the servings to 3 and save', async () => {
+        await fill(page, 'Number of servings', '3');
+        await clickButton(page, /^Save changes/);
+      }, async () => {
+        await ctx.expectMutation('recipes', 'update', (m) => payloadOf(m).servings === 3);
+        await ctx.check('no new version was created', () => {
+          if (ctx.backend.mutationsOf('rpc:supersede_food', 'rpc').length > 0) throw new Error('supersede_food was called');
+          if (ctx.backend.rows('foods').some((f) => f.supersedes === F.recipeChickenRice)) throw new Error('a new version exists');
+        });
+        await ctx.expectUrl(new RegExp(`/recipe/${F.recipeChickenRice}`));
       });
     },
   },
@@ -739,11 +902,27 @@ export const SCENARIOS: Scenario[] = [
     route: '/saved-meal/[id]',
     path: `/saved-meal/${IDS.savedMeal.breakfast}`,
     auth: 'signed-in',
-    expect: ['Moj doručak', 'Oats, rolled, dry', 'Banana, raw'],
+    expect: ['Oats, rolled, dry', 'Banana, raw'],
+    // The name of the saved meal is the VALUE of the name field, not page text.
+    expectInputs: [{ field: 'Saved meal name', value: 'Moj doručak' }],
     async after(page, ctx) {
       await stepThen(ctx, 'add the meal to the diary', () => clickButton(page, /Add 3 foods to/), () =>
         ctx.expectMutation('diary_entries', 'insert', (m) => rowsOf(m).length === 3 && rowsOf(m).every((r) => r.source === 'copy')),
       );
+    },
+  },
+  {
+    name: 'saved meal: invalid id shows "not found" without asking the database',
+    route: '/saved-meal/[id]',
+    path: '/saved-meal/not-a-uuid',
+    auth: 'signed-in',
+    expect: ['Saved meal not found'],
+    allowText: [/not found/i],
+    async after(_page, ctx) {
+      await ctx.check('the invalid id never reached the backend', () => {
+        const sent = ctx.backend.calls.filter((c) => c.query.includes('not-a-uuid') || c.path.includes('not-a-uuid'));
+        if (sent.length > 0) throw new Error(`sent to the backend: ${sent.map((c) => `${c.method} ${c.target}`).join(', ')}`);
+      });
     },
   },
   {
@@ -827,12 +1006,28 @@ export const SCENARIOS: Scenario[] = [
     async after(page, ctx) {
       await stepThen(ctx, 'search for magnesium', () => fill(page, 'Search nutrients', 'magnesium'), async () => {
         await ctx.expectText('Magnesium');
+        // The 350 mg upper limit of magnesium covers supplements only: it is shown as information, never as a maximum.
+        await ctx.expectText('At least 420 mg');
+        await ctx.expectText('Upper limit 350 mg applies to supplements only');
+        await ctx.expectNoText('420 to 350');
         await stepThen(ctx, 'open the editor', () => clickButton(page, /^Magnesium, .*Edit target/), async () => {
           await ctx.snapshot('editor', { tall: false });
+          await ctx.expectInputValue('Minimum (mg)', '420');
+          await ctx.expectInputValue('Maximum (mg)', '');
+          await ctx.check('an untouched editor can be saved (no "minimum above maximum")', async () => {
+            if (!(await page.getByRole('button', { name: 'Save', exact: true }).first().isEnabled({ timeout: 3000 }))) throw new Error('"Save" is disabled');
+          });
           await stepThen(ctx, 'set a minimum of 500 and save', async () => {
             await fill(page, 'Minimum (mg)', '500');
             await clickButton(page, 'Save', { exact: true });
-          }, () => ctx.expectMutation('nutrient_targets', 'upsert', (m) => payloadOf(m).nutrient_code === 'MAGNESIUM_MG' && payloadOf(m).min_value === 500));
+          }, async () => {
+            await ctx.expectMutation(
+              'nutrient_targets',
+              'upsert',
+              (m) => payloadOf(m).nutrient_code === 'MAGNESIUM_MG' && payloadOf(m).min_value === 500 && (payloadOf(m).max_value ?? null) === null,
+            );
+            await ctx.expectText('At least 500 mg');
+          });
         });
       });
     },

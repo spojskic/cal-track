@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import type { ActivityLevel, BmrFormula, EnergyMode, Sex, UnitSystem } from '@cal/core';
 
 import { useAuth } from '@/lib/auth';
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 
 import { keys } from './keys';
@@ -33,19 +34,6 @@ export type ProfilePatch = Partial<Omit<Profile, 'user_id'>>;
 /** The signed-in user's id, or undefined while signed out. */
 export function useUserId(): string | undefined {
   return useAuth().session?.user.id;
-}
-
-/**
- * Resolves the current user's id for a write. Reads the locally stored session first
- * (no network round trip) and falls back to `auth.getUser()`.
- */
-export async function requireUserId(): Promise<string> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const fromSession = sessionData.session?.user.id;
-  if (fromSession) return fromSession;
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw new Error('You are signed out. Please sign in again.');
-  return data.user.id;
 }
 
 /** Query key of the profile. Includes the user id so a cached profile never leaks across accounts. */

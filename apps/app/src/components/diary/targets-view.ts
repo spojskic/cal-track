@@ -104,8 +104,9 @@ export function targetSplit(targets: ResolvedTargets | undefined): MacroKcal | u
 
 /**
  * Target used for a nutrient's bar. Macros/energy come from the resolved macro + energy targets; the rest from the
- * DRI/override map. Upper limits that apply only to supplements / synthetic / preformed forms are ignored (total
- * intake cannot be split by form), the same rule as the nutrition score.
+ * DRI/override map. `Target.max` is always a limit on total intake; upper limits that apply only to supplements /
+ * synthetic / preformed forms live in `Target.scopedUl` and are never a bound here (total intake cannot be split by
+ * form), the same rule as the nutrition score.
  */
 export function effectiveTarget(
   code: NutrientCode,
@@ -129,10 +130,7 @@ export function effectiveTarget(
     default:
       break;
   }
-  const t = targets.nutrients[code];
-  if (!t) return undefined;
-  const scoped = t.ulScope !== undefined && t.ulScope !== 'all';
-  return scoped ? { ...t, max: undefined } : t;
+  return targets.nutrients[code];
 }
 
 /** Rings for the highlighted nutrients that have a minimum target. */

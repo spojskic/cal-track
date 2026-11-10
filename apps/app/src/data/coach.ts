@@ -14,10 +14,11 @@ import {
   type SummaryExerciseRow,
   type SummaryWeightRow,
 } from '@/ai/coach-summary';
+import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 import { addDays } from '@/state/selected-date';
 
-import { requireUserId, useUserId } from './profile';
+import { useUserId } from './profile';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Types + keys
