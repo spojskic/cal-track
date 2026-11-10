@@ -9,6 +9,9 @@ A short wizard on first sign-in: units, sex, birthdate, height, weight (optional
 style. It ends with a live breakdown of your numbers.
 
 - **Energy target** = BMR + baseline activity, adjusted for your weight goal (about 7,700 kcal per kg of body weight).
+  The activity level can be *None (watch only)*: nothing is added for everyday movement, so with a watch connected and the
+  Device-adjusted mode, everything the watch records counts and your budget starts at the resting burn (a lower floor on days
+  without watch data).
   BMR formulas: Mifflin-St Jeor (default), Katch-McArdle and Cunningham (need body fat), Harris-Benedict, or a number you type.
   Goals show a warning above a safe rate (about 1% of body weight per week) and a calorie floor (1,500 men / 1,200 women).
 - **Macros**: ratios (e.g. 30/40/30), fixed grams, protein per kg, or a keto mode with fixed net carbs. Net carbs are optional

@@ -148,6 +148,7 @@ export function computeBmr(profile: BmrProfile, formula: BmrFormula): number {
  * only the activity part, so BMR is not counted twice.
  */
 export const ACTIVITY_FRACTIONS: Readonly<Record<ActivityLevel, number>> = {
+  none: 0,
   sedentary: 0.2,
   light: 0.375,
   moderate: 0.55,

@@ -236,7 +236,7 @@ const defs: TableDef[] = [
       height_cm: num({ gt: 0 }),
       unit_system: text({ notNull: true, default: { value: 'metric' }, oneOf: ['metric', 'imperial'] }),
       timezone: text({ notNull: true, default: { value: 'UTC' } }),
-      activity_level: text({ oneOf: ['sedentary', 'light', 'moderate', 'very'] }),
+      activity_level: text({ oneOf: ['none', 'sedentary', 'light', 'moderate', 'very'] }),
       bmr_formula: text({
         notNull: true,
         default: { value: 'mifflin' },

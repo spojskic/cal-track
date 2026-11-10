@@ -105,7 +105,8 @@ describe('computeBmr', () => {
 
 describe('baseline activity', () => {
   it('is the classic multiplier minus one, as a fraction of BMR', () => {
-    expect(ACTIVITY_FRACTIONS).toEqual({ sedentary: 0.2, light: 0.375, moderate: 0.55, very: 0.725 });
+    expect(ACTIVITY_FRACTIONS).toEqual({ none: 0, sedentary: 0.2, light: 0.375, moderate: 0.55, very: 0.725 });
+    expect(baselineActivityKcal(1780, 'none')).toBe(0);
     expect(baselineActivityKcal(1780, 'sedentary')).toBeCloseTo(356, 10);
     expect(baselineActivityKcal(1780, 'light')).toBeCloseTo(667.5, 10);
     expect(baselineActivityKcal(1780, 'moderate')).toBeCloseTo(979, 10);
@@ -761,5 +762,87 @@ describe('ageFromBirthdate', () => {
   it('rejects malformed dates', () => {
     expect(() => ageFromBirthdate('15/06/1990', '2024-01-01')).toThrow(RangeError);
     expect(() => ageFromBirthdate('1990-13-01', '2024-01-01')).toThrow(RangeError);
+  });
+});
+
+describe('activity level "none" (the watch is the only source of activity)', () => {
+  const bmr = 1800;
+  const input = (level: 'none' | 'sedentary', over: Partial<ExpenditureInput> = {}): ExpenditureInput => ({
+    mode: 'device_adjusted',
+    bmr,
+    baselineActivityKcal: baselineActivityKcal(bmr, level),
+    manualExerciseKcal: 0,
+    intakeKcal: 0,
+    tefEnabled: false,
+    ...over,
+  });
+
+  it('adds nothing for everyday movement: without a device the day is just the resting burn', () => {
+    const r = computeExpenditure(input('none'));
+    expect(r.total).toBe(bmr);
+    expect(r.aboveBaseline).toBe(0);
+  });
+
+  it('every kcal the watch records counts, because there is no baseline for it to replace', () => {
+    // 300 kcal of walking + a one hour, 600 kcal workout recorded by the watch
+    const r = computeExpenditure(input('none', { deviceActiveKcal: 900, deviceWorkoutKcal: 600, exerciseMinutes: 60 }));
+    expect(r.adjustedBaseline).toBe(0);
+    expect(r.trackerActivity).toBe(300);
+    expect(r.total).toBe(bmr + 900);
+    expect(r.aboveBaseline).toBe(900);
+  });
+
+  it('the budget is then the watch total minus the deficit, with a lower floor than any baseline level would give', () => {
+    const none = computeExpenditure(input('none'));
+    const sedentary = computeExpenditure(input('sedentary'));
+    expect(none.total).toBeLessThan(sedentary.total);
+    const watch = { deviceActiveKcal: 900, deviceWorkoutKcal: 600, exerciseMinutes: 60 };
+    const withWatchNone = computeExpenditure(input('none', watch));
+    const deficit = 550;
+    const targetNone = bmr - deficit;
+    expect(energyRemaining({ targetKcal: targetNone, aboveBaselineKcal: withWatchNone.aboveBaseline, expenditureKcal: withWatchNone.total, consumedKcal: 0 }).target).toBe(
+      withWatchNone.total - deficit,
+    );
+  });
+});
+
+describe('activity level "none" (the watch is the only source of activity)', () => {
+  const bmr = 1800;
+  const input = (level: 'none' | 'sedentary', over: Partial<ExpenditureInput> = {}): ExpenditureInput => ({
+    mode: 'device_adjusted',
+    bmr,
+    baselineActivityKcal: baselineActivityKcal(bmr, level),
+    manualExerciseKcal: 0,
+    intakeKcal: 0,
+    tefEnabled: false,
+    ...over,
+  });
+
+  it('adds nothing for everyday movement: without a device the day is just the resting burn', () => {
+    const r = computeExpenditure(input('none'));
+    expect(r.total).toBe(bmr);
+    expect(r.aboveBaseline).toBe(0);
+  });
+
+  it('every kcal the watch records counts, because there is no baseline for it to replace', () => {
+    // 300 kcal of walking + a one hour, 600 kcal workout recorded by the watch
+    const r = computeExpenditure(input('none', { deviceActiveKcal: 900, deviceWorkoutKcal: 600, exerciseMinutes: 60 }));
+    expect(r.adjustedBaseline).toBe(0);
+    expect(r.trackerActivity).toBe(300);
+    expect(r.total).toBe(bmr + 900);
+    expect(r.aboveBaseline).toBe(900);
+  });
+
+  it('the budget is then the watch total minus the deficit, with a lower floor than any baseline level would give', () => {
+    const none = computeExpenditure(input('none'));
+    const sedentary = computeExpenditure(input('sedentary'));
+    expect(none.total).toBeLessThan(sedentary.total);
+    const watch = { deviceActiveKcal: 900, deviceWorkoutKcal: 600, exerciseMinutes: 60 };
+    const withWatchNone = computeExpenditure(input('none', watch));
+    const deficit = 550;
+    const targetNone = bmr - deficit;
+    expect(energyRemaining({ targetKcal: targetNone, aboveBaselineKcal: withWatchNone.aboveBaseline, expenditureKcal: withWatchNone.total, consumedKcal: 0 }).target).toBe(
+      withWatchNone.total - deficit,
+    );
   });
 });

@@ -14,7 +14,8 @@ export type NutrientMap = Partial<Record<NutrientCode, number>>;
 export type Sex = 'male' | 'female';
 
 /** Baseline daily activity (excluding logged exercise). */
-export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'very';
+/** 'none' adds nothing for everyday movement (the baseline is 0): for people who let a watch dictate their activity. */
+export type ActivityLevel = 'none' | 'sedentary' | 'light' | 'moderate' | 'very';
 
 /**
  * How `CARBS_G` of a food is defined.

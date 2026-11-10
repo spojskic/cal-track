@@ -8,6 +8,12 @@ export interface OptionDef<T extends string> {
 
 export const ACTIVITY_OPTIONS: readonly OptionDef<ActivityLevel>[] = [
   {
+    value: 'none',
+    label: 'None (watch only)',
+    description:
+      'Adds nothing for everyday movement. Choose this when your watch should be the only source of activity: with the Device-adjusted energy mode your budget starts at your resting burn and grows with what Garmin records.',
+  },
+  {
     value: 'sedentary',
     label: 'Sedentary',
     description: 'Mostly sitting: a desk or home-based day with short walks. Roughly under 5,000 steps.',
