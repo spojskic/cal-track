@@ -1197,6 +1197,10 @@ export const SCENARIOS: Scenario[] = [
       await ctx.check('AI actions are hidden without a connected key', async () => {
         if (await page.getByText('Photo log').count()) throw new Error('"Photo log" is visible although AI is not connected');
       });
+      await ctx.check('the "Scan nutrition label" action is hidden without a connected key', async () => {
+        if (await page.getByText(/nutrition label/i).count()) throw new Error('"Scan nutrition label" is visible although AI is not connected');
+        if (await page.getByRole('button', { name: /nutrition label/i }).count()) throw new Error('a "nutrition label" button exists although AI is not connected');
+      });
       await stepThen(ctx, 'tap Search food', () => clickButton(page, /Search food/), () => ctx.expectUrl(/\/search/));
     },
   },
@@ -1461,6 +1465,12 @@ export const SCENARIOS: Scenario[] = [
     auth: 'signed-in',
     expect: ['Food', 'Save food'],
     async after(page, ctx) {
+      // AI is not connected in the harness: the form offers no "Scan nutrition label" and shows no scan banner.
+      await ctx.check('no "Scan nutrition label" button or label banner without a connected key', async () => {
+        if (await page.getByText(/nutrition label/i).count()) throw new Error('the form mentions a nutrition label although AI is not connected');
+        if (await page.getByText('Read from a photo of the label').count()) throw new Error('the label banner is visible without a scan');
+        if (await page.getByRole('button', { name: /nutrition label/i }).count()) throw new Error('a "nutrition label" button exists although AI is not connected');
+      });
       await stepThen(ctx, 'fill the form', async () => {
         await fill(page, 'Food name', 'Domaći hljeb');
         await fill(page, 'Energy', '250');
@@ -1523,6 +1533,9 @@ export const SCENARIOS: Scenario[] = [
         await clickButton(page, 'Look up', { exact: true });
       }, async () => {
         await ctx.expectText(/Barcode lookup unavailable|Product not found/, { timeout: 12_000 });
+        await ctx.check('no "Fill in from the nutrition label (AI)" action without a connected key', async () => {
+          if (await page.getByText(/nutrition label/i).count()) throw new Error('the result card offers the nutrition label scan although AI is not connected');
+        });
         await ctx.snapshot('not-found');
       });
     },
@@ -1969,6 +1982,24 @@ export const SCENARIOS: Scenario[] = [
 
   // ------------------------------------------------------------------------------------------ AI screens (no key: gated)
   { name: 'ai: describe a meal (AI not set up)', route: '/ai/describe', path: '/ai/describe', auth: 'signed-in', expect: ['AI is not set up'] },
+  {
+    name: 'ai: scan nutrition label (AI not set up)',
+    route: '/ai/label',
+    // The barcode and meal group a scan result would carry into the new food are accepted and ignored here.
+    path: '/ai/label?gtin=03017620422003&from=food-form',
+    auth: 'signed-in',
+    expect: ['AI is not set up'],
+    async after(page, ctx) {
+      await ctx.check('no camera or photo controls without a connected key', async () => {
+        for (const name of [/take a photo/i, /choose from library/i, /read label/i]) {
+          if (await page.getByRole('button', { name }).count()) throw new Error(`a "${String(name)}" button is visible although AI is not connected`);
+        }
+      });
+      await ctx.check('no food is created by opening the screen', () => {
+        if (ctx.backend.mutationsOf('foods', 'insert').length > 0) throw new Error('a food was inserted');
+      });
+    },
+  },
   { name: 'ai: photo log (AI not set up)', route: '/ai/photo', path: '/ai/photo', auth: 'signed-in', expect: [/AI is not set up|Checking your AI connection/] },
   { name: 'ai: recipe from a description (AI not set up)', route: '/ai/recipe', path: '/ai/recipe', auth: 'signed-in', expect: [/AI is not set up|Checking your AI connection/] },
 

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AiLabelButton } from '@/components/ai';
 import { closeScreen } from '@/components/activity/navigation';
 import { hapticSelection, hapticSuccess } from '@/components/food/feedback';
 import { firstParam } from '@/components/food/format';
@@ -551,6 +552,8 @@ function ResultCard({
             No food with barcode {result.gtin14.replace(/^0+/, '')} in the food database or Open Food Facts.
           </AppText>
           <Button label="Create custom food with this barcode" onPress={() => goCreate(result.gtin14)} />
+          {/* Renders nothing unless the AI gate is open. The barcode goes into the new food. */}
+          <AiLabelButton label="Fill in from the nutrition label (AI)" gtin={result.gtin14} mealGroupId={mealGroupId} />
           <Button label="Search by name" variant="secondary" onPress={goSearch} />
           <Button label="Scan again" variant="ghost" onPress={onRescan} />
         </Card>

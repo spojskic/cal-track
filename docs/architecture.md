@@ -9,8 +9,10 @@ apps/app/            Expo SDK 58 app (Expo Router): one codebase for iOS, Androi
   src/ai/              OpenRouter key store and client wiring, AI gate, coach chat state
   src/health/          Apple Health / Health Connect providers, sync logic, background task
   src/components/      UI by area; src/theme/ colours and spacing; src/lib/ Supabase client, auth
-packages/core/       pure TypeScript, no I/O: nutrient catalog, energy and macro maths, intake tables, recipes, scoring
-packages/ai/         OpenRouter client, PKCE sign-in, meal/recipe pipelines, the coach with its topic guard
+packages/core/       pure TypeScript, no I/O: nutrient catalog, energy and macro maths, intake tables, recipes, scoring,
+                     nutrition-label vocabulary and the label -> new-food draft conversion
+packages/ai/         OpenRouter client, PKCE sign-in, meal/recipe pipelines, the nutrition-label reader, the coach with its
+                     topic guard (depends on packages/core for the label vocabulary)
 supabase/            migrations, seeds, config, edge functions
 tools/importer/      loads USDA FoodData Central and the Canadian Nutrient File into Postgres
 tools/db-tests/      tests that run the real migrations in Postgres-in-WASM (PGlite)

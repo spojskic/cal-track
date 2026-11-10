@@ -3,7 +3,7 @@
  * The API key is redacted from every message.
  */
 
-import { isAbortError, isOpenRouterError, redactSecrets } from './errors';
+import { isAbortError, isNoLabelFoundError, isOpenRouterError, redactSecrets } from './errors';
 
 export interface AiErrorPresentation {
   message: string;
@@ -22,6 +22,9 @@ export function presentAiError(e: unknown, secrets: Array<string | null | undefi
   const extra = secrets.filter((s): s is string => typeof s === 'string' && s.length > 0);
   if (isAbortError(e)) {
     return { message: 'Cancelled.', kind: 'aborted', retryable: true, tryAnotherModel: false, needsReconnect: false };
+  }
+  if (isNoLabelFoundError(e)) {
+    return { message: e.message, kind: 'no_label', retryable: true, tryAnotherModel: false, needsReconnect: false };
   }
   if (isOpenRouterError(e)) {
     const tryAnotherModel = e.kind === 'moderation' || e.kind === 'invalid_output' || e.kind === 'bad_request';

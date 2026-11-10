@@ -26,7 +26,7 @@ you (each account is separated by row-level security) and by the operator, who a
 - **AI coach chats**, if you use the coach: the conversation text. These are deleted automatically after 90 days unless you switch
   that off, and you can delete all of them at any time in the app.
 
-Meal photos you take for the optional photo log are **not** stored by Cal Track.
+Meal photos you take for the optional photo log, and photos of a nutrition label you take for "Scan nutrition label", are **not** stored by Cal Track.
 
 ## What stays on your device
 
@@ -42,6 +42,8 @@ device to OpenRouter** (and from there to the model provider you picked); Cal Tr
 and the provider's terms; you can restrict providers in your OpenRouter settings. What is sent, and only when you use that feature:
 
 - **Photo log:** the meal photo, resized on your phone, and a short instruction (and your optional note).
+- **Scan nutrition label:** the photo of the label, resized on your phone, and a short instruction. What the AI reads from it only
+  fills in the "New food" form on your phone; you check and edit it, and nothing is saved until you press Save food.
 - **Describe a meal / AI recipe:** the text you typed.
 - **Coach:** your message, the recent conversation, and a compact summary of your data: sex, age, height, activity level, your
   targets and goal, calorie and macro totals of the last 14 days, weight trend, steps, active calories and workouts of the last

@@ -15,6 +15,9 @@
  *   const guesses = await estimateMissing({ client, model: model.id, items: matched }); // flag "AI estimate"
  *
  *   const turn = await runCoachTurn({ client, model, history, userMessage, summary, onDelta });
+ *
+ *   const label = await runLabelPipeline({ client, model: model.id, imageBase64, mimeType: 'image/jpeg' });
+ *   const draft = labelToFoodDraft(label);                          // @cal/core: the values for the new-food form
  */
 
 export * from './errors';
@@ -30,6 +33,7 @@ export * from './schemas';
 export * from './prompts';
 export * from './similarity';
 export * from './pipeline';
+export * from './label';
 export * from './food-candidate';
 export * from './error-presentation';
 export * from './coach';

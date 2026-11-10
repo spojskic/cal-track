@@ -14,7 +14,7 @@ import type { FoodInput } from '@/data/foods';
 import { validateBarcode } from '@/data/foods';
 import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
 
-import { NumberField, Segmented, SwitchRow, TextField } from '../forms';
+import { NumberField, Segmented, SwitchRow, TextField, WarningHint } from '../forms';
 import { AppText, Button, Card } from '../ui';
 import { UNIT_LABEL, formatAmount, trimNumber } from './format';
 
@@ -22,15 +22,37 @@ export interface FoodFormInitial {
   name?: string;
   brand?: string | null;
   gtin?: string | null;
-  /** Per 100 g. */
+  /** Per 100 g, or per serving when `basis` is 'perServing'. */
   nutrients?: NutrientMap;
+  /** What `nutrients` are per. Default per 100 g. 'perServing' = per the first serving (`servings[0]`). */
+  basis?: Basis;
   carbBasis?: CarbBasis;
   densityGPerMl?: number | null;
-  /** Grams of ONE unit named `name`. */
-  servings?: { name: string; grams: number }[];
+  /** Grams of ONE unit named `name`. `null` grams = not known yet (the form asks for it). */
+  servings?: { name: string; grams: number | null }[];
+  /**
+   * Review mode for values that were filled in by a machine (a nutrition label scan): nutrients to mark "check this
+   * value" until the user edits them, and the same for fields other than nutrients.
+   */
+  unclear?: readonly NutrientCode[];
+  unclearFields?: readonly CheckField[];
+  /** Open "More nutrients" when it holds filled values, so none of them is hidden from the review. */
+  expandFilled?: boolean;
 }
 
 type Basis = 'per100g' | 'perServing';
+
+/** Fields other than nutrients that can carry a "check this" marker. */
+export type CheckField = 'name' | 'brand' | 'serving' | 'basis' | 'carbBasis';
+
+const CHECK_VALUE = 'Check this value against the label.';
+const NO_FLAGS: ReadonlySet<string> = new Set();
+
+/** Marker keys: a nutrient code, or `field:<name>`. */
+function initialFlags(initial: FoodFormInitial | undefined): ReadonlySet<string> {
+  if (!initial || (!initial.unclear?.length && !initial.unclearFields?.length)) return NO_FLAGS;
+  return new Set<string>([...(initial.unclear ?? []), ...(initial.unclearFields ?? []).map((f) => `field:${f}`)]);
+}
 
 const MAIN_FIELDS: NutrientCode[] = ['ENERGY_KCAL', 'PROTEIN_G', 'CARBS_G', 'FAT_G'];
 const LABEL_FIELDS: NutrientCode[] = [
@@ -113,33 +135,48 @@ export function FoodForm({
   const [gtin, setGtin] = useState(initial?.gtin ?? '');
   const [servings, setServings] = useState<ServingRow[]>(() =>
     initial?.servings && initial.servings.length > 0
-      ? initial.servings.map((s) => ({ name: s.name, grams: trimNumber(s.grams, 3) }))
+      ? initial.servings.map((s) => ({ name: s.name, grams: s.grams === null ? '' : trimNumber(s.grams, 3) }))
       : [{ name: '', grams: '' }],
   );
-  const [basis, setBasis] = useState<Basis>('per100g');
+  const [basis, setBasis] = useState<Basis>(initial?.basis ?? 'per100g');
   const [values, setValues] = useState<Record<string, string>>(() => initialValues(initial?.nutrients));
   const [includesFiber, setIncludesFiber] = useState((initial?.carbBasis ?? 'includes_fiber') === 'includes_fiber');
   const [density, setDensity] = useState(
     initial?.densityGPerMl ? trimNumber(initial.densityGPerMl, 4) : '',
   );
   const [openLabel, setOpenLabel] = useState(() => anyFilled(initialValues(initial?.nutrients), LABEL_FIELDS));
-  const [openMore, setOpenMore] = useState(false);
+  const [openMore, setOpenMore] = useState(
+    () => initial?.expandFilled === true && MORE_GROUPS.some((g) => anyFilled(initialValues(initial.nutrients), g.fields)),
+  );
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const v = initialValues(initial?.nutrients);
     return Object.fromEntries(MORE_GROUPS.map((g) => [g.code, anyFilled(v, g.fields)]));
   });
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
+  // "Check this" markers; each one goes away as soon as the user touches that field.
+  const [flags, setFlags] = useState<ReadonlySet<string>>(() => initialFlags(initial));
+
+  function clearFlag(key: string) {
+    setFlags((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }
 
   const primaryServingGrams = parseNumber(servings[0]?.grams ?? '');
   const primaryServingName = servings[0]?.name.trim() ?? '';
 
   function setValue(code: NutrientCode, text: string) {
+    clearFlag(code);
     setValues((v) => ({ ...v, [code]: text }));
     if (errors.fields[code]) setErrors((e) => ({ ...e, fields: { ...e.fields, [code]: undefined } }));
   }
 
   function changeBasis(next: Basis) {
     if (next === basis) return;
+    clearFlag('field:basis');
     if (primaryServingGrams === null || primaryServingGrams <= 0) {
       setErrors((e) => ({ ...e, basis: 'Enter the serving size in grams first (Serving size section).' }));
       return;
@@ -288,6 +325,7 @@ export function FoodForm({
           value={values[code] ?? ''}
           onChange={(t) => setValue(code, t)}
           error={errors.fields[code] ?? null}
+          warning={flags.has(code) ? CHECK_VALUE : null}
           selectTextOnFocus
         />
       </View>
@@ -324,21 +362,27 @@ export function FoodForm({
             value={name}
             onChangeText={(t) => {
               setName(t);
+              clearFlag('field:name');
               if (errors.name) setErrors((e) => ({ ...e, name: undefined }));
             }}
             placeholder="e.g. Domaći hljeb"
             autoCapitalize="sentences"
             maxLength={120}
             error={errors.name ?? null}
+            warning={flags.has('field:name') ? 'Check the name against the package.' : null}
             accessibilityLabel="Food name"
           />
           <TextField
             label="Brand (optional)"
             value={brand}
-            onChangeText={setBrand}
+            onChangeText={(t) => {
+              setBrand(t);
+              clearFlag('field:brand');
+            }}
             placeholder="e.g. Klas"
             autoCapitalize="words"
             maxLength={80}
+            warning={flags.has('field:brand') ? 'Check the brand against the package.' : null}
           />
           <TextField
             label="Barcode (optional)"
@@ -367,9 +411,10 @@ export function FoodForm({
                 <TextField
                   label={i === 0 ? 'Serving name' : `Serving ${i + 1} name`}
                   value={row.name}
-                  onChangeText={(t) =>
-                    setServings((s) => s.map((r, j) => (j === i ? { ...r, name: t } : r)))
-                  }
+                  onChangeText={(t) => {
+                    if (i === 0) clearFlag('field:serving');
+                    setServings((s) => s.map((r, j) => (j === i ? { ...r, name: t } : r)));
+                  }}
                   placeholder="slice, cup, bar..."
                   maxLength={40}
                   error={errors.servings[i]?.name ?? null}
@@ -380,11 +425,13 @@ export function FoodForm({
                   label="Grams"
                   unit="g"
                   value={row.grams}
-                  onChange={(t) =>
-                    setServings((s) => s.map((r, j) => (j === i ? { ...r, grams: t } : r)))
-                  }
+                  onChange={(t) => {
+                    if (i === 0) clearFlag('field:serving');
+                    setServings((s) => s.map((r, j) => (j === i ? { ...r, grams: t } : r)));
+                  }}
                   placeholder="30"
                   error={errors.servings[i]?.grams ?? null}
+                  warning={i === 0 && flags.has('field:serving') ? 'Check the serving size against the label.' : null}
                 />
               </View>
               {servings.length > 1 ? (
@@ -420,6 +467,8 @@ export function FoodForm({
           />
           {errors.basis ? (
             <AppText variant="small" style={{ color: colors.danger }}>{errors.basis}</AppText>
+          ) : flags.has('field:basis') ? (
+            <WarningHint>{'Check whether the label\u2019s values are per 100 g or per serving.'}</WarningHint>
           ) : (
             <AppText variant="small" muted>
               {referenceText}
@@ -431,8 +480,12 @@ export function FoodForm({
           <SwitchRow
             label="Total carbs include fiber"
             description="On for US-style labels. Turn off if the label's carbohydrates already exclude fiber."
+            warning={flags.has('field:carbBasis') ? 'Not sure which one this label is. Check it.' : null}
             value={includesFiber}
-            onChange={setIncludesFiber}
+            onChange={(v) => {
+              clearFlag('field:carbBasis');
+              setIncludesFiber(v);
+            }}
           />
           {errors.nutrition ? (
             <AppText accessibilityLiveRegion="polite" style={{ color: colors.danger, fontWeight: '600' }}>

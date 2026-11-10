@@ -14,8 +14,15 @@ export function TextField({
   label,
   hint,
   error,
+  warning,
   ...input
-}: TextInputProps & { label: string; hint?: string; error?: string | null }) {
+}: TextInputProps & {
+  label: string;
+  hint?: string;
+  error?: string | null;
+  /** "Check this value" marker (orange border and a "?" hint), e.g. a number the AI was unsure about. An error wins. */
+  warning?: string | null;
+}) {
   const { colors } = useTheme();
   const labelId = `field-label-${useId().replace(/[^A-Za-z0-9_-]/g, '')}`;
   const explicitName = input.accessibilityLabel ?? input['aria-label'];
@@ -28,21 +35,38 @@ export function TextField({
         accessibilityLabel={explicitName ?? label}
         aria-label={explicitName ?? label}
         {...(explicitName === undefined ? { accessibilityLabelledBy: labelId } : {})}
+        {...(warning && !error ? { accessibilityHint: warning } : {})}
         style={[
           styles.input,
           {
             color: colors.text,
-            borderColor: error ? colors.danger : colors.border,
+            borderColor: error ? colors.danger : warning ? colors.warning : colors.border,
             backgroundColor: colors.surfaceAlt,
           },
+          warning && !error ? styles.inputWarning : null,
           input.style,
         ]}
       />
       {error ? (
         <AppText variant="small" style={{ color: colors.danger }}>{error}</AppText>
+      ) : warning ? (
+        <WarningHint>{warning}</WarningHint>
       ) : hint ? (
         <AppText variant="small" muted>{hint}</AppText>
       ) : null}
+    </View>
+  );
+}
+
+/** A "?" badge and a short sentence: the value above it needs a second look. Not an error (nothing is blocked). */
+export function WarningHint({ children }: { children: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.warningRow}>
+      <View accessible={false} style={[styles.warningBadge, { backgroundColor: colors.warning }]}>
+        <Text style={styles.warningBadgeText}>?</Text>
+      </View>
+      <AppText variant="small" style={styles.warningText}>{children}</AppText>
     </View>
   );
 }
@@ -55,6 +79,7 @@ export function NumberField({
   unit,
   hint,
   error,
+  warning,
   ...input
 }: Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange'> & {
   label: string;
@@ -64,6 +89,8 @@ export function NumberField({
   unit?: string;
   hint?: string;
   error?: string | null;
+  /** "Check this value" marker, see TextField. */
+  warning?: string | null;
 }) {
   return (
     <TextField
@@ -74,6 +101,7 @@ export function NumberField({
       inputMode="decimal"
       hint={hint}
       error={error}
+      warning={warning}
       {...input}
     />
   );
@@ -121,11 +149,14 @@ export function Segmented<T extends string>({
 export function SwitchRow({
   label,
   description,
+  warning,
   value,
   onChange,
 }: {
   label: string;
   description?: string;
+  /** "Check this" hint under the description, see WarningHint. */
+  warning?: string | null;
   value: boolean;
   onChange: (value: boolean) => void;
 }) {
@@ -135,6 +166,7 @@ export function SwitchRow({
       <View style={{ flex: 1, gap: 2 }}>
         <AppText variant="body" style={{ fontWeight: '600' }}>{label}</AppText>
         {description ? <AppText variant="small" muted>{description}</AppText> : null}
+        {warning ? <WarningHint>{warning}</WarningHint> : null}
       </View>
       <Switch
         value={value}
@@ -154,6 +186,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     fontSize: 16,
   },
+  inputWarning: { borderWidth: 2 },
+  warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  warningBadge: { width: 18, height: 18, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  warningBadgeText: { color: '#1A1A1A', fontSize: 12, fontWeight: '800', lineHeight: 15 },
+  warningText: { flex: 1 },
   segmented: {
     flexDirection: 'row',
     borderRadius: radius.pill,

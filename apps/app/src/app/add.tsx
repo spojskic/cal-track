@@ -52,7 +52,7 @@ const ACTIONS: Action[] = [
     route: '/food/new',
     symbol: { ios: 'plus.circle.fill', android: 'add_circle', web: 'add_circle' },
   },
-  // ---- AI actions: PLACEHOLDERS owned by the AI agent (routes /ai/photo and /ai/describe are built there).
+  // ---- AI actions (routes /ai/photo, /ai/describe and /ai/label).
   // Keep `ai: true` so the useAiGate() filter below hides them unless AI is enabled.
   {
     key: 'photo',
@@ -70,6 +70,15 @@ const ACTIONS: Action[] = [
     hint: 'Type what you ate, AI fills it in',
     route: '/ai/describe',
     symbol: { ios: 'text.bubble.fill', android: 'chat', web: 'chat' },
+    ai: true,
+  },
+  {
+    key: 'label',
+    section: 'food',
+    label: 'Scan nutrition label',
+    hint: 'Photograph a label, AI fills in a new food',
+    route: '/ai/label',
+    symbol: { ios: 'doc.text.viewfinder', android: 'document_scanner', web: 'document_scanner' },
     ai: true,
   },
   // ---- end AI placeholders

@@ -60,7 +60,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Cal Track uses the camera to scan barcodes and photograph meals.",
+          "cameraPermission": "Cal Track uses the camera to scan barcodes and to photograph meals and nutrition labels.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -68,8 +68,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Cal Track lets you pick meal photos to log food.",
-          "cameraPermission": "Cal Track uses the camera to scan barcodes and photograph meals.",
+          "photosPermission": "Cal Track lets you pick meal or nutrition label photos to log food.",
+          "cameraPermission": "Cal Track uses the camera to scan barcodes and to photograph meals and nutrition labels.",
           "microphonePermission": false
         }
       ],

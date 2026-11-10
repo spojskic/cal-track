@@ -9,3 +9,4 @@ export * from './exercises';
 export * from './recipe';
 export * from './score';
 export * from './resolve-targets';
+export * from './label';

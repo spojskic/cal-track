@@ -109,7 +109,7 @@ export function ConnectionStatusCard() {
 
       {!apiKey ? (
         <AppText muted>
-          AI is optional. Connect your own OpenRouter key to log meals from photos or text and to draft recipes. Without a
+          AI is optional. Connect your own OpenRouter key to log meals from photos or text, read nutrition labels and draft recipes. Without a
           key, Cal Track works exactly the same and shows no AI features.
         </AppText>
       ) : keyStatus === 'valid' && keyInfo ? (
@@ -326,7 +326,7 @@ export function PrivacyCard() {
     <Card>
       <AppText variant="heading" accessibilityRole="header">Privacy</AppText>
       <AppText>
-        What is sent: when you use Photo log, Describe a meal or recipe drafts, the photo or text you submit (and, for the
+        What is sent: when you use Photo log, Scan nutrition label, Describe a meal or recipe drafts, the photo or text you submit (and, for the
         upcoming AI Coach, a short summary of your targets and diary) goes directly from this device to OpenRouter and the
         model provider you selected. Cal Track does not receive it. Photos are resized on your device and are never
         uploaded to Cal Track.

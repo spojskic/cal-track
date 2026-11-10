@@ -31,8 +31,8 @@ One page per day with prev/next navigation.
   limit. A dash means "unknown", never zero.
 - **Also on the page**: exercise, water, notes, and a *Devices* group for data imported from your watch.
 
-The **+** button opens one sheet for everything you can add: search food, scan barcode, photo log and describe meal (when AI is
-on), custom food, exercise, biometric, note, water.
+The **+** button opens one sheet for everything you can add: search food, scan barcode, photo log, describe meal and scan nutrition label
+(when AI is on), custom food, exercise, biometric, note, water.
 
 ## Foods
 
@@ -74,8 +74,9 @@ the server when the watch syncs, from the moment of connecting) is built but swi
 
 ## AI (optional, your own key)
 
-Appears only after you connect an OpenRouter key *and* pick a model that accepts images. Photo log, describe-a-meal, AI recipe
-drafts and the coach are covered in [AI and privacy](ai-and-privacy.md).
+Appears only after you connect an OpenRouter key *and* pick a model that accepts images. Photo log, describe-a-meal, scan nutrition
+label (photograph a label and review a pre-filled New food form), AI recipe drafts and the coach are covered in
+[AI and privacy](ai-and-privacy.md).
 
 ## Not built yet
 

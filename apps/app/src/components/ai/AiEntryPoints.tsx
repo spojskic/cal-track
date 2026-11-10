@@ -1,6 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { openLabelScan, type LabelScanTarget } from '@/ai/navigation';
 import { useAiGate } from '@/ai/use-ai-gate';
 import { Button } from '@/components/ui';
 import { spacing } from '@/theme';
@@ -33,6 +34,20 @@ export function AiMealButtons() {
       </View>
     </View>
   );
+}
+
+/**
+ * "Scan nutrition label" entry point: photograph a label, the New food form opens filled in for review. Renders
+ * NOTHING unless the AI gate is open (validated key on this device + image-capable model).
+ */
+export function AiLabelButton({
+  label = 'Scan nutrition label',
+  variant = 'secondary',
+  ...target
+}: LabelScanTarget & { label?: string; variant?: 'primary' | 'secondary' | 'ghost' }) {
+  const gate = useAiGate();
+  if (!gate.enabled) return null;
+  return <Button label={label} variant={variant} onPress={() => openLabelScan(target)} />;
 }
 
 const styles = StyleSheet.create({

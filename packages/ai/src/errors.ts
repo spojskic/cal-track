@@ -104,6 +104,20 @@ export function isOpenRouterError(e: unknown): e is OpenRouterError {
   return e instanceof OpenRouterError;
 }
 
+/** The AI answered, but the photo has no readable nutrition label (not a label, or nothing could be read from it). */
+export class NoLabelFoundError extends Error {
+  constructor(
+    message = 'No nutrition label was found in this photo. Photograph the Nutrition Facts table straight on, close enough to read it, in good light, with the whole table in view.',
+  ) {
+    super(message);
+    this.name = 'NoLabelFoundError';
+  }
+}
+
+export function isNoLabelFoundError(e: unknown): e is NoLabelFoundError {
+  return e instanceof NoLabelFoundError;
+}
+
 /** Error thrown when the caller's AbortSignal fires. Mirrors DOM `AbortError`. */
 export class AbortError extends Error {
   constructor(message = 'The operation was aborted') {
