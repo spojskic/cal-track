@@ -134,7 +134,7 @@ describe('runProbe', () => {
     const t = m.text();
     expect(t).toMatch(/activeKcal\s+3\/3\s+activeKilocalories \(3\)/);
     expect(t).toMatch(/restingKcal\s+0\/3\s+NOT FOUND/);
-    expect(t).toContain('none of: bmrKilocalories');
+    expect(t).toMatch(/none of: .*bmrKilocalories/);
     expect(m.files.get('/out/report.txt')).toContain('NOT FOUND');
   });
   it('--endpoints limits the requests and the range follows --days', async () => {

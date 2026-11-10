@@ -1633,4 +1633,34 @@ export const SCENARIOS: Scenario[] = [
   { name: 'ai: describe a meal (AI not set up)', route: '/ai/describe', path: '/ai/describe', auth: 'signed-in', expect: ['AI is not set up'] },
   { name: 'ai: photo log (AI not set up)', route: '/ai/photo', path: '/ai/photo', auth: 'signed-in', expect: [/AI is not set up|Checking your AI connection/] },
   { name: 'ai: recipe from a description (AI not set up)', route: '/ai/recipe', path: '/ai/recipe', auth: 'signed-in', expect: [/AI is not set up|Checking your AI connection/] },
+
+  // ------------------------------------------------------------------------------------------ app shell navigation
+  {
+    // Regression: the sidebar (wide) and the bottom bar (phone) rendered but did nothing when pressed, because the
+    // expo-router/ui <TabTrigger>s were hidden inside custom components and never registered. Every other scenario
+    // opens its page by URL, so this is the one place that clicks the real navigation.
+    name: 'shell: main navigation (sidebar on desktop, tab bar on phone)',
+    route: '/',
+    path: '/',
+    auth: 'signed-in',
+    expect: ['Dashboard'],
+    async after(page, ctx) {
+      const navLink = (name: string) => page.getByRole('link', { name, exact: true }).first();
+      // Each entry: the nav item, the URL it must lead to and a text that only that screen shows (so the screen
+      // really switched, not just the address bar).
+      const pages: { name: string; url: RegExp; text: string | RegExp }[] = [
+        { name: 'Diary', url: /\/diary/, text: 'Breakfast' },
+        { name: 'Foods', url: /\/foods/, text: 'Favorites' },
+        { name: 'More', url: /\/more/, text: 'Sign out' },
+        { name: 'Dashboard', url: /^https?:\/\/[^/]+\/?(\?.*)?$/, text: 'Logging streak' },
+      ];
+      for (const target of pages) {
+        await stepThen(ctx, `open ${target.name} from the navigation`, () => navLink(target.name).click({ timeout: 6000 }), async () => {
+          await ctx.expectUrl(target.url);
+          await ctx.expectText(target.text);
+        });
+      }
+      await stepThen(ctx, 'open the add sheet from the navigation', () => clickButton(page, 'Add to diary'), () => ctx.expectUrl(/\/add/));
+    },
+  },
 ];

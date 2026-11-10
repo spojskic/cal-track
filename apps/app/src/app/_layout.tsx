@@ -39,7 +39,17 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+          // Screens that opt in with `<Stack.Screen options={{ headerShown: true }} />` inherit the theme, so the
+          // header is dark in dark mode instead of the default white navigation header.
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.text,
+          headerTitleStyle: { color: colors.text },
+          headerShadowVisible: false,
+        }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(app)" />
         <Stack.Screen
