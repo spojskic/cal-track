@@ -3,12 +3,14 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CompletenessDot } from '@/components/food/completeness';
 import { formatKcal, trimNumber } from '@/components/food/format';
-import { SourceBadge } from '@/components/food/source-badge';
+import { SourceLabel } from '@/components/food/source-badge';
+import { SAVED_MEAL_LABEL, foodSourceLabel } from '@/components/food/source-label';
 import { AppText } from '@/components/ui';
 import type { RecipeSummary } from '@/data/recipes';
 import type { SavedMeal } from '@/data/saved-meals';
-import { radius, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
+/** A flat list row (a hairline underneath, like the food rows next to it in the Foods tab). */
 function RowShell({
   label,
   onPress,
@@ -24,11 +26,7 @@ function RowShell({
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-        pressed && { opacity: 0.7 },
-      ]}>
+      style={({ pressed }) => [styles.row, { borderBottomColor: colors.border }, pressed && { opacity: 0.7 }]}>
       {children}
     </Pressable>
   );
@@ -43,6 +41,10 @@ export function RecipeRow({ recipe, onPress }: { recipe: RecipeSummary; onPress:
       ? 'Calories unknown'
       : `${formatKcal(recipe.kcalPerServing)} kcal per serving`;
   const servings = `${trimNumber(recipe.servings, 2)} ${recipe.servings === 1 ? 'serving' : 'servings'}`;
+  const macros =
+    recipe.proteinPerServing !== null || recipe.carbsPerServing !== null || recipe.fatPerServing !== null
+      ? `  |  P ${gramsText(recipe.proteinPerServing)}  |  C ${gramsText(recipe.carbsPerServing)}  |  F ${gramsText(recipe.fatPerServing)}`
+      : '';
   return (
     <RowShell
       label={`${recipe.name}. ${perServing}. ${servings}. Open recipe`}
@@ -52,23 +54,16 @@ export function RecipeRow({ recipe, onPress }: { recipe: RecipeSummary; onPress:
           {recipe.name}
         </AppText>
         <View style={styles.meta}>
-          <SourceBadge source="recipe" />
-          <AppText variant="small" muted numberOfLines={1} style={styles.shrink}>
-            {servings}
-            {recipe.servingWeightG ? ` \u00B7 ${gramsText(recipe.servingWeightG)} each` : ''}
-          </AppText>
-        </View>
-        <View style={styles.meta}>
           <CompletenessDot value={recipe.completeness} size={8} />
           <AppText variant="small" muted numberOfLines={1} style={styles.shrink}>
             {perServing}
-            {recipe.proteinPerServing !== null || recipe.carbsPerServing !== null || recipe.fatPerServing !== null
-              ? `  |  P ${gramsText(recipe.proteinPerServing)}  |  C ${gramsText(recipe.carbsPerServing)}  |  F ${gramsText(recipe.fatPerServing)}`
-              : ''}
+            {` \u00B7 ${servings}`}
+            {recipe.servingWeightG ? ` \u00B7 ${gramsText(recipe.servingWeightG)} each` : ''}
+            {macros}
           </AppText>
         </View>
       </View>
-      <AppText muted>{'\u203A'}</AppText>
+      <SourceLabel info={foodSourceLabel('recipe', 'recipe')} />
     </RowShell>
   );
 }
@@ -99,7 +94,7 @@ export function SavedMealRow({ meal, onPress }: { meal: SavedMeal; onPress: () =
           </AppText>
         ) : null}
       </View>
-      <AppText muted>{'\u203A'}</AppText>
+      <SourceLabel info={SAVED_MEAL_LABEL} />
     </RowShell>
   );
 }
@@ -109,14 +104,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 64,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.sm + spacing.xs,
+    minHeight: 60,
   },
-  main: { flex: 1, gap: 3, paddingVertical: spacing.xs },
-  name: { fontWeight: '600', fontSize: 15 },
+  main: { flex: 1, gap: 2 },
+  name: { fontWeight: '700', fontSize: 16 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   shrink: { flexShrink: 1 },
 });

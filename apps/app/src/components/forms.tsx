@@ -84,17 +84,20 @@ export function Segmented<T extends string>({
   options,
   value,
   onChange,
+  compact,
 }: {
   label?: string;
   options: { value: T; label: string }[];
   value: T | null | undefined;
   onChange: (value: T) => void;
+  /** Lower, tighter segments (list screens that keep the control above a long list). Default: the regular size. */
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   return (
     <View style={styles.field}>
       {label ? <AppText variant="label" muted>{label}</AppText> : null}
-      <View style={[styles.segmented, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.segmented, compact && styles.segmentedCompact, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
         {options.map((opt) => {
           const selected = opt.value === value;
           return (
@@ -103,8 +106,8 @@ export function Segmented<T extends string>({
               accessibilityRole="button"
               accessibilityState={{ selected }}
               onPress={() => onChange(opt.value)}
-              style={[styles.segment, selected && { backgroundColor: colors.primary }]}>
-              <Text style={[styles.segmentLabel, { color: selected ? colors.onPrimary : colors.text }]}>
+              style={[styles.segment, compact && styles.segmentCompact, selected && { backgroundColor: colors.primary }]}>
+              <Text style={[styles.segmentLabel, compact && styles.segmentLabelCompact, { color: selected ? colors.onPrimary : colors.text }]}>
                 {opt.label}
               </Text>
             </Pressable>
@@ -158,7 +161,10 @@ const styles = StyleSheet.create({
     padding: 3,
     gap: 3,
   },
+  segmentedCompact: { padding: 2, gap: 2 },
   segment: { flex: 1, minHeight: 38, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.sm },
+  segmentCompact: { minHeight: 32, paddingHorizontal: spacing.xs },
   segmentLabel: { fontSize: 14, fontWeight: '600' },
+  segmentLabelCompact: { fontSize: 13 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
 });

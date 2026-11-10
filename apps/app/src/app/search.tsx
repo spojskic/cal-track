@@ -1,14 +1,7 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { hapticSelection } from '@/components/food/feedback';
 import { ONLINE_LOOKUP_ENABLED } from '@/lib/features';
@@ -166,6 +159,19 @@ export default function SearchScreen() {
     }
   }
 
+  /** Opens the barcode scanner with the same context as this screen (meal, pick mode); it can come back here. */
+  function openScanner() {
+    hapticSelection();
+    router.push({
+      pathname: '/scan',
+      params: {
+        from: 'search',
+        ...(meal.mealGroupId ? { mealGroupId: meal.mealGroupId } : {}),
+        ...(pickMode ? { mode: 'pick' } : {}),
+      },
+    });
+  }
+
   function onQuickAdd(food: FoodSummary) {
     if (pickMode) {
       void pickFood(food);
@@ -249,8 +255,8 @@ export default function SearchScreen() {
             online.data.length === 0 ? (
               <AppText muted>No online products found for this search.</AppText>
             ) : (
-              <View style={styles.list}>
-                <AppText variant="label" muted>Online results</AppText>
+              <View>
+                <AppText variant="label" muted style={styles.onlineTitle}>Online results</AppText>
                 {online.data.map((r) => (
                   <View key={r.gtin14} style={opening === r.gtin14 ? { opacity: 0.6 } : undefined}>
                     <FoodRow food={r} onPress={() => openOnlineResult(r)} />
@@ -291,7 +297,7 @@ export default function SearchScreen() {
               Adding to {meal.mealGroupName ?? 'your diary'} {'\u00B7'} {formatDayLabel(date)}
             </AppText>
             {meal.groups.length > 0 ? (
-              <MealGroupChips groups={meal.groups} value={meal.mealGroupId} onChange={meal.setMealGroupId} />
+              <MealGroupChips compact groups={meal.groups} value={meal.mealGroupId} onChange={meal.setMealGroupId} />
             ) : null}
           </>
         )}
@@ -305,37 +311,64 @@ export default function SearchScreen() {
       <Stack.Screen options={{ headerShown: true, title: pickMode ? 'Add ingredient' : 'Add food' }} />
       <View style={styles.inner}>
         <View style={[styles.sticky, { backgroundColor: colors.background }]}>
-          <View
-            style={[
-              styles.searchBox,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}>
-            <TextInput
-              autoFocus
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search foods, e.g. banana or ćevapi"
-              placeholderTextColor={colors.textMuted}
-              accessibilityLabel="Search foods"
-              returnKeyType="search"
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={[styles.input, { color: colors.text }]}
-            />
-            {search.isFetching && searching ? (
-              <ActivityIndicator color={colors.textMuted} style={styles.spinner} accessibilityLabel="Searching" />
-            ) : query.length > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-                onPress={() => setQuery('')}
-                hitSlop={8}
-                style={styles.clear}>
-                <Text style={{ color: colors.textMuted, fontSize: 18 }}>{'\u2715'}</Text>
-              </Pressable>
-            ) : null}
+          <View style={styles.searchRow}>
+            {/* The input must stay a DIRECT child of the bordered pill: the web focus colour (lib/web-styles.ts) goes to its parent. */}
+            <View
+              style={[
+                styles.searchBox,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}>
+              <SymbolView
+                name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+                size={18}
+                tintColor={colors.textMuted}
+              />
+              <TextInput
+                autoFocus
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search foods, e.g. banana or ćevapi"
+                placeholderTextColor={colors.textMuted}
+                accessibilityLabel="Search foods"
+                returnKeyType="search"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[styles.input, { color: colors.text }]}
+              />
+              {search.isFetching && searching ? (
+                <ActivityIndicator color={colors.textMuted} style={styles.spinner} accessibilityLabel="Searching" />
+              ) : query.length > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                  onPress={() => setQuery('')}
+                  hitSlop={8}
+                  style={styles.clear}>
+                  <SymbolView
+                    name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+                    size={18}
+                    tintColor={colors.textMuted}
+                  />
+                </Pressable>
+              ) : null}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Scan barcode"
+              onPress={openScanner}
+              style={({ pressed }) => [
+                styles.scanButton,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                pressed && { opacity: 0.7 },
+              ]}>
+              <SymbolView
+                name={{ ios: 'barcode.viewfinder', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
+                size={24}
+                tintColor={colors.text}
+              />
+            </Pressable>
           </View>
-          <Segmented<TabKey> options={TABS} value={tab} onChange={setTab} />
+          <Segmented<TabKey> compact options={TABS} value={tab} onChange={setTab} />
         </View>
 
         <FlatList
@@ -344,7 +377,6 @@ export default function SearchScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={Separator}
           ListHeaderComponent={header}
           ListFooterComponent={footer}
           ListEmptyComponent={
@@ -386,29 +418,36 @@ export default function SearchScreen() {
   );
 }
 
-function Separator() {
-  return <View style={{ height: spacing.sm }} />;
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   inner: { flex: 1, width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
-  sticky: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
+  sticky: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs, gap: spacing.sm },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    minHeight: 46,
   },
-  input: { flex: 1, fontSize: 16, minHeight: 46 },
-  spinner: { marginLeft: spacing.sm },
-  clear: { marginLeft: spacing.sm, padding: spacing.xs },
+  input: { flex: 1, fontSize: 16, minHeight: 44 },
+  spinner: { marginLeft: spacing.xs },
+  clear: { padding: spacing.xs },
+  scanButton: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2, flexGrow: 1 },
-  listHeader: { gap: spacing.sm, paddingBottom: spacing.sm },
-  destination: { gap: spacing.sm },
-  list: { gap: spacing.sm },
+  listHeader: { gap: spacing.xs, paddingTop: spacing.xs, paddingBottom: spacing.xs },
+  destination: { gap: spacing.xs },
+  onlineTitle: { paddingBottom: spacing.xs },
   footer: { gap: spacing.lg, marginTop: spacing.lg },
   empty: { alignItems: 'center', paddingVertical: spacing.xl },
   emptyText: { textAlign: 'center' },

@@ -1,18 +1,21 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { FoodSource } from '@/data/foods';
-import { radius, spacing, useTheme } from '@/theme';
+import type { FoodKind, FoodSource } from '@/data/foods';
+import { spacing, useTheme } from '@/theme';
 
 import { AppText } from '../ui';
 import { CompletenessDot } from './completeness';
-import { macroLine } from './format';
-import { SourceBadge } from './source-badge';
+import { formatKcal, macroLine } from './format';
+import { SourceLabel } from './source-badge';
+import { foodSourceLabel } from './source-label';
 
 /** What a row needs to render; FoodSummary and online search results both fit. */
 export interface FoodRowData {
   name: string;
   brand: string | null;
   source: FoodSource;
+  /** Own foods and recipes are told apart from database foods by this (optional: online results have none). */
+  kind?: FoodKind;
   kcal100g: number | null;
   protein100g: number | null;
   carbs100g: number | null;
@@ -23,8 +26,9 @@ export interface FoodRowData {
 export type QuickAddState = 'idle' | 'pending' | 'done';
 
 /**
- * A search/list row: name, brand, source badge, kcal + P/C/F per 100 g, completeness dot and an
- * optional quick-add "+" button.
+ * A flat list row (no card, a hairline underneath): bold name, muted detail line (brand and kcal per 100 g), the source
+ * label right-aligned and coloured by what it is (own food, recipe, database), an optional favourite star and an
+ * optional quick-add "+" button. Put rows in a padded container: the hairline spans the container.
  */
 export function FoodRow({
   food,
@@ -41,37 +45,34 @@ export function FoodRow({
 }) {
   const { colors } = useTheme();
   const summary = macroLine(food);
+  const source = foodSourceLabel(food.source, food.kind);
   return (
-    <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.row, { borderBottomColor: colors.border }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${food.name}${food.brand ? `, ${food.brand}` : ''}. ${summary.replace(/\|/g, ',')} per 100 grams. Open details`}
+        accessibilityLabel={`${food.name}${food.brand ? `, ${food.brand}` : ''}. ${summary.replace(/\|/g, ',')} per 100 grams. Source: ${source.full}. Open details`}
         onPress={onPress}
         style={({ pressed }) => [styles.main, pressed && { opacity: 0.7 }]}>
-        <View style={styles.titleRow}>
-          <AppText variant="body" style={styles.name} numberOfLines={2}>
-            {food.name}
-          </AppText>
-          {favorite ? (
-            <Text accessibilityLabel="Favorite" style={{ color: colors.primary, fontSize: 14 }}>
-              {'\u2605'}
-            </Text>
-          ) : null}
-        </View>
-        <View style={styles.metaRow}>
-          <SourceBadge source={food.source} />
-          {food.brand ? (
-            <AppText variant="small" muted numberOfLines={1} style={styles.brand}>
-              {food.brand}
+        <View style={styles.text}>
+          <View style={styles.titleRow}>
+            <AppText variant="body" style={styles.name} numberOfLines={2}>
+              {food.name}
             </AppText>
-          ) : null}
+            {favorite ? (
+              <Text accessibilityLabel="Favorite" style={{ color: colors.primary, fontSize: 14 }}>
+                {'\u2605'}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.detailRow}>
+            <CompletenessDot value={food.completeness} size={8} />
+            <AppText variant="small" muted numberOfLines={1} style={styles.detail}>
+              {food.brand ? `${food.brand} \u00B7 ` : ''}
+              {formatKcal(food.kcal100g)} kcal per 100 g
+            </AppText>
+          </View>
         </View>
-        <View style={styles.metaRow}>
-          <CompletenessDot value={food.completeness} size={8} />
-          <AppText variant="small" muted numberOfLines={1} style={styles.brand}>
-            {summary} per 100 g
-          </AppText>
-        </View>
+        <SourceLabel info={source} />
       </Pressable>
       {onQuickAdd ? (
         <Pressable
@@ -81,6 +82,7 @@ export function FoodRow({
           }
           disabled={quickAddState === 'pending'}
           onPress={onQuickAdd}
+          hitSlop={4}
           style={({ pressed }) => [
             styles.add,
             {
@@ -106,22 +108,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: spacing.sm,
-    minHeight: 64,
+    minHeight: 60,
   },
-  main: { flex: 1, gap: 3, paddingVertical: spacing.xs },
+  main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xs },
+  text: { flex: 1, gap: 2 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { flexShrink: 1, fontWeight: '600', fontSize: 15 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  brand: { flexShrink: 1 },
+  name: { flexShrink: 1, fontWeight: '700', fontSize: 16 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  detail: { flexShrink: 1 },
   add: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },

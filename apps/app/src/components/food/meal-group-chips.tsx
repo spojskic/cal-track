@@ -9,10 +9,13 @@ export function MealGroupChips({
   groups,
   value,
   onChange,
+  compact,
 }: {
   groups: MealGroup[];
   value: string | undefined;
   onChange: (id: string) => void;
+  /** Smaller chips for screens that keep the chips above a long list. */
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   return (
@@ -28,12 +31,15 @@ export function MealGroupChips({
             onPress={() => onChange(g.id)}
             style={[
               styles.chip,
+              compact && styles.chipCompact,
               {
                 backgroundColor: selected ? colors.primary : colors.surfaceAlt,
                 borderColor: selected ? colors.primary : colors.border,
               },
             ]}>
-            <Text style={[styles.label, { color: selected ? colors.onPrimary : colors.text }]}>{g.name}</Text>
+            <Text style={[styles.label, compact && styles.labelCompact, { color: selected ? colors.onPrimary : colors.text }]}>
+              {g.name}
+            </Text>
           </Pressable>
         );
       })}
@@ -71,5 +77,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  chipCompact: { minHeight: 30, paddingHorizontal: spacing.sm + 2 },
   label: { fontSize: 14, fontWeight: '600' },
+  labelCompact: { fontSize: 13 },
 });

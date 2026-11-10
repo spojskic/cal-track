@@ -433,6 +433,19 @@ export async function lookupBarcode(rawGtin: string): Promise<BarcodeLookupResul
   return lookupRemote(gtin14);
 }
 
+/**
+ * Name and brand of one food (null = no such food, or not visible to this user). For flows that only need to label a
+ * product they already hold the id of, e.g. a scanned barcode handed to a recipe as an ingredient.
+ */
+export async function fetchFoodIdentity(foodId: string): Promise<{ name: string; brand: string | null } | null> {
+  if (!isUuid(foodId)) return null;
+  const { data, error } = await supabase.from('foods').select('name,brand').eq('id', foodId).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as Row;
+  return { name: String(row.name ?? ''), brand: row.brand ? String(row.brand) : null };
+}
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------

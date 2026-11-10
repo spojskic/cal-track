@@ -7,5 +7,7 @@ export { MealGroupChips, useMealGroupChoice } from './meal-group-chips';
 export { NutrientPanel, targetStatus } from './nutrient-panel';
 export { amountWarning, buildServingOptions, isGramOption, useServing, type AmountWarning, type ServingOption } from './serving';
 export { AmountWarningNote, ServingPicker } from './serving-picker';
-export { SourceBadge, sourceAttribution, sourceInfo } from './source-badge';
+export { SourceBadge, SourceLabel, sourceAttribution, sourceInfo } from './source-badge';
+export { SAVED_MEAL_LABEL, foodSourceLabel, sourceToneColor, type SourceLabelInfo, type SourceTone } from './source-label';
+export { SCAN_BARCODE_TYPES, classifyScan, type ScanOutcome } from './scan-code';
 export { Toast } from './toast';

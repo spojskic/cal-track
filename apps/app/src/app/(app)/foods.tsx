@@ -111,24 +111,41 @@ export default function FoodsScreen() {
         Foods
       </AppText>
 
-      <Pressable
-        accessibilityRole="search"
-        accessibilityLabel="Search foods"
-        onPress={() => open('/search')}
-        style={({ pressed }) => [
-          styles.searchBox,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-          pressed && { opacity: 0.8 },
-        ]}>
-        <SymbolView
-          name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
-          size={18}
-          tintColor={colors.textMuted}
-        />
-        <AppText muted style={styles.searchText}>
-          Search foods, e.g. banana or ćevapi
-        </AppText>
-      </Pressable>
+      <View style={styles.searchRow}>
+        <Pressable
+          accessibilityRole="search"
+          accessibilityLabel="Search foods"
+          onPress={() => open('/search')}
+          style={({ pressed }) => [
+            styles.searchBox,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && { opacity: 0.8 },
+          ]}>
+          <SymbolView
+            name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+            size={18}
+            tintColor={colors.textMuted}
+          />
+          <AppText muted style={styles.searchText}>
+            Search foods, e.g. banana or ćevapi
+          </AppText>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Scan barcode"
+          onPress={() => open('/scan')}
+          style={({ pressed }) => [
+            styles.scanButton,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && { opacity: 0.7 },
+          ]}>
+          <SymbolView
+            name={{ ios: 'barcode.viewfinder', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
+            size={24}
+            tintColor={colors.text}
+          />
+        </Pressable>
+      </View>
 
       <View style={styles.actions}>
         <View style={styles.action}>
@@ -195,7 +212,6 @@ export default function FoodsScreen() {
         data={items}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={Separator}
         ListHeaderComponent={header}
         ListEmptyComponent={emptyState}
         keyboardShouldPersistTaps="handled"
@@ -216,10 +232,6 @@ export default function FoodsScreen() {
   );
 }
 
-function Separator() {
-  return <View style={{ height: spacing.sm }} />;
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   listContent: {
@@ -231,7 +243,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: { gap: spacing.md, paddingBottom: spacing.md },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -239,6 +253,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     minHeight: 48,
+  },
+  scanButton: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchText: { flex: 1, fontSize: 16 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

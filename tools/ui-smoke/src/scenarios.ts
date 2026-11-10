@@ -1123,6 +1123,19 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    name: 'foods tab: the scan button opens the scanner',
+    route: '/foods',
+    path: '/foods',
+    auth: 'signed-in',
+    expect: ['Foods', 'Favorites'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'tap the Scan barcode button', () => clickButton(page, 'Scan barcode', { exact: true }), async () => {
+        await ctx.expectUrl(/\/scan/);
+        await ctx.expectText('Enter barcode');
+      });
+    },
+  },
+  {
     name: 'foods tab: empty states of a new account',
     route: '/foods',
     path: '/foods',
@@ -1180,6 +1193,20 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    name: 'add sheet: Scan barcode opens the scanner',
+    route: '/add',
+    path: '/add',
+    auth: 'signed-in',
+    expect: ['Scan barcode'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'tap Scan barcode', () => clickButton(page, /^Scan barcode/), async () => {
+        await ctx.expectUrl(/\/scan/);
+        // The harness browser has no camera: the scanner shows why, and the typed entry is right there.
+        await ctx.expectText('Enter barcode');
+      });
+    },
+  },
+  {
     name: 'search: chicken, ćevapi, online fallback',
     route: '/search',
     path: '/search',
@@ -1229,6 +1256,39 @@ export const SCENARIOS: Scenario[] = [
           await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.cevapi);
         },
       );
+    },
+  },
+  {
+    name: 'search: the scan button next to the field opens the scanner and X comes back',
+    route: '/search',
+    path: '/search',
+    auth: 'signed-in',
+    expect: ['Adding to', 'Recently used'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'tap the Scan barcode button', () => clickButton(page, 'Scan barcode', { exact: true }), async () => {
+        await ctx.expectUrl(/\/scan\?(?=.*from=search)/);
+        // No camera in the harness: the permission / fallback UI and the typed entry are shown.
+        await ctx.expectText('Enter barcode');
+        await ctx.expectText(/Camera (access needed|not available|access is blocked|could not start)/);
+        await ctx.snapshot('scanner-fallback', { tall: false });
+        await stepThen(ctx, 'close the scanner with the X', () => clickButton(page, 'Close', { exact: true }), async () => {
+          await ctx.expectUrl(/\/search/);
+          await ctx.expectText('Recently used');
+        });
+      });
+    },
+  },
+  {
+    name: 'search: in pick mode (adding an ingredient) the scan button stays and passes the pick context',
+    route: '/search',
+    path: '/search?mode=pick',
+    auth: 'signed-in',
+    expect: ['Choose a food to add'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'tap the Scan barcode button', () => clickButton(page, 'Scan barcode', { exact: true }), async () => {
+        await ctx.expectUrl(/\/scan\?(?=.*from=search)(?=.*mode=pick)/);
+        await ctx.expectText('Enter barcode');
+      });
     },
   },
   {

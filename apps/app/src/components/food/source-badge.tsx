@@ -3,28 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { FoodSource } from '@/data/foods';
 import { palette, radius, spacing, useTheme } from '@/theme';
 
-interface SourceInfo {
-  label: string;
-  /** Accessible, spelled-out source name. */
-  full: string;
-}
+import { SOURCES, sourceInfo, sourceToneColor, type SourceLabelInfo } from './source-label';
 
-const SOURCES: Record<FoodSource, SourceInfo> = {
-  fdc_foundation: { label: 'USDA', full: 'USDA FoodData Central' },
-  fdc_sr_legacy: { label: 'USDA', full: 'USDA FoodData Central' },
-  fdc_fndds: { label: 'USDA', full: 'USDA FoodData Central' },
-  fdc_branded: { label: 'USDA', full: 'USDA FoodData Central (branded)' },
-  cnf: { label: 'CNF', full: 'Canadian Nutrient File' },
-  cofid: { label: 'CoFID', full: 'UK Composition of Foods' },
-  off: { label: 'OFF', full: 'Open Food Facts' },
-  custom: { label: 'Custom', full: 'Custom food' },
-  recipe: { label: 'Recipe', full: 'Recipe' },
-  ai_estimate: { label: 'AI', full: 'AI estimate' },
-};
-
-export function sourceInfo(source: FoodSource): SourceInfo {
-  return SOURCES[source];
-}
+export { sourceInfo };
 
 /** Attribution / licensing line shown on the food detail page, or null when none is needed. */
 export function sourceAttribution(source: FoodSource): string | null {
@@ -69,7 +50,24 @@ export function SourceBadge({ source }: { source: FoodSource }) {
   );
 }
 
+/**
+ * The right-aligned source label of a flat list row: plain coloured text ("Custom Food" in the primary colour,
+ * "Custom Recipe" / "Saved Meal" in teal, database names muted). Build `info` with `foodSourceLabel` or `SAVED_MEAL_LABEL`.
+ */
+export function SourceLabel({ info }: { info: SourceLabelInfo }) {
+  const { colors } = useTheme();
+  return (
+    <Text
+      accessibilityLabel={`Source: ${info.full}`}
+      numberOfLines={1}
+      style={[styles.label, { color: sourceToneColor(info.tone, colors) }]}>
+      {info.text}
+    </Text>
+  );
+}
+
 const styles = StyleSheet.create({
+  label: { fontSize: 12, fontWeight: '700', textAlign: 'right', flexShrink: 0, maxWidth: 110 },
   badge: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.pill,

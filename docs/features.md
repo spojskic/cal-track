@@ -37,6 +37,7 @@ on), custom food, exercise, biometric, note, water.
 ## Foods
 
 - **Search** is accent-insensitive and typo-tolerant, so "cevapi" finds "Ćevapi". Tabs: All, Recent, Favorites, My foods.
+  Results are a flat list: name, brand and kcal per 100 g, with the source (Custom Food, Custom Recipe, USDA, ...) at the right.
   Results are ranked by your own history first, then by data quality (USDA Foundation and SR Legacy first, then survey foods,
   then branded products).
 - **Food page**: choose an amount and unit (household portions from the data, grams, ounces), see the full nutrient panel for
@@ -44,7 +45,10 @@ on), custom food, exercise, biometric, note, water.
   food actually has data for.
 - **Custom foods**: any name (Bosnian and English both work), serving sizes, a full nutrient form, optional barcode.
 - **Barcode scan** and **Search online**: look in your database first, then USDA branded foods and Open Food Facts through the
-  edge functions, and cache what you use. Needs the functions deployed; the camera needs a device or HTTPS.
+  edge functions, and cache what you use. Needs the functions deployed; the camera needs a device or HTTPS. The scanner opens
+  from the barcode button next to the search field (also when you add an ingredient to a recipe), from the Foods tab and from
+  the **+** sheet; *Flash* switches the torch on and *Type barcode* lets you enter the digits. A QR code that holds a product
+  number (or a GS1 link) is looked up too; any other QR code only shows "That QR code is not a food barcode".
 - **Recipes**: ingredients with grams, number of servings and a *final cooked weight* (cooked dishes weigh less than their raw
   ingredients). Logged as "1 serving", "full recipe" or by grams. Editing a recipe you already logged creates a new version, so
   old days keep their numbers.
