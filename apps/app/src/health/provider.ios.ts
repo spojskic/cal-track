@@ -34,7 +34,7 @@ import type { ObjectTypeIdentifier, QuantityTypeIdentifier } from '@kingstinct/r
 
 type HK = typeof import('@kingstinct/react-native-healthkit');
 
-const OWN_BUNDLE_IDS: ReadonlySet<string> = new Set(['com.caltrack.app']);
+const OWN_BUNDLE_IDS: ReadonlySet<string> = new Set(['com.spojskic.caltrack', 'com.caltrack.app']);
 
 function loadHealthKit(): HK {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -8,14 +8,14 @@
     "scheme": "caltrack",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.caltrack.app",
+      "bundleIdentifier": "com.spojskic.caltrack",
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.caltrack.app",
+      "package": "com.spojskic.caltrack",
       "adaptiveIcon": {
         "backgroundColor": "#262A3B",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
