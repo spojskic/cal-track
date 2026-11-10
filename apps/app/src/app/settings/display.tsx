@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { UnitToggle } from '@/components/settings/body-fields';
 import { KeyValueRow, Note } from '@/components/settings/rows';
 import { errorMessage } from '@/components/settings/save-row';
+import { ThemePicker } from '@/components/settings/theme-picker';
 import { AppText, Card, Screen } from '@/components/ui';
 import { useProfile, useUpdateProfile } from '@/data/profile';
 import { spacing, useTheme } from '@/theme';
@@ -35,32 +36,28 @@ export default function DisplayScreen() {
           <ActivityIndicator color={colors.primary} accessibilityLabel="Loading settings" />
         </View>
       ) : (
-        <>
-          <Card>
-            <AppText variant="heading">Units</AppText>
-            <UnitToggle
-              label="Measurement system"
-              value={system}
-              onChange={(unit_system) => {
-                if (profile) update.mutate({ unit_system });
-              }}
-            />
-            <AppText variant="small" muted>
-              Applies to body weight, height and food weights. Your data is always stored in metric units, so you can
-              switch at any time without losing precision.
-            </AppText>
-            <UnitExamples system={system} />
-            {update.error ? <Note tone="danger">{errorMessage(update.error)}</Note> : null}
-          </Card>
-          <Card>
-            <AppText variant="heading">Appearance</AppText>
-            <AppText muted>
-              Cal Track follows your device&apos;s light or dark appearance setting automatically. Change it in your
-              system settings.
-            </AppText>
-          </Card>
-        </>
+        <Card>
+          <AppText variant="heading">Units</AppText>
+          <UnitToggle
+            label="Measurement system"
+            value={system}
+            onChange={(unit_system) => {
+              if (profile) update.mutate({ unit_system });
+            }}
+          />
+          <AppText variant="small" muted>
+            Applies to body weight, height and food weights. Your data is always stored in metric units, so you can
+            switch at any time without losing precision.
+          </AppText>
+          <UnitExamples system={system} />
+          {update.error ? <Note tone="danger">{errorMessage(update.error)}</Note> : null}
+        </Card>
       )}
+      {/* The theme is saved on this device, so it does not wait for the profile. */}
+      <Card>
+        <AppText variant="heading">Appearance</AppText>
+        <ThemePicker />
+      </Card>
     </Screen>
   );
 }

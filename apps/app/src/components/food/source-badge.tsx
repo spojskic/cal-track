@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { FoodSource } from '@/data/foods';
-import { palette, radius, spacing, useTheme } from '@/theme';
+import { radius, spacing, useTheme } from '@/theme';
 
 import { SOURCES, sourceInfo, sourceToneColor, type SourceLabelInfo } from './source-label';
 
@@ -36,9 +36,9 @@ export function SourceBadge({ source }: { source: FoodSource }) {
     source === 'custom' || source === 'recipe'
       ? colors.accent
       : source === 'ai_estimate'
-        ? palette.purple
+        ? colors.fat
         : source === 'off'
-          ? palette.orange
+          ? colors.energy
           : colors.textMuted;
   return (
     <View

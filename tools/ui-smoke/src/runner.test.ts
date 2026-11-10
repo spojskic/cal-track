@@ -17,6 +17,7 @@ import { AppFiles } from './app-files';
 import { ANON_KEY, APP_ORIGIN, BACKEND_ORIGIN, FIXED_NOW_MS, STORAGE_KEY, TIMEZONE } from './constants';
 import { USER } from './fixtures';
 import { slugify, runScenario, type RunDeps } from './runner';
+import { THEME_STORAGE_KEY } from './theme-seed';
 import { SCENARIOS } from './scenarios';
 import { resolvePath, type Scenario } from './types';
 
@@ -264,6 +265,27 @@ describe('runScenario with a fake browser', () => {
     expect(run.result.screenshots).toEqual(['phone/007-demo-scenario-one.png']);
     expect(existsSync(join(out, 'phone', '007-demo-scenario-one.png'))).toBe(true);
     expect(page(browser).currentUrl).toBe(`${APP_ORIGIN}/`);
+  });
+
+  it('--theme seeds the saved theme choice next to the session, and a run without it seeds nothing', async () => {
+    const browser = new FakeBrowser();
+    await runScenario(deps(browser, { theme: 'dracula' }), scenario(), 1, 'phone');
+    const ctx = browser.contexts[0]!;
+    expect(ctx.initScripts).toHaveLength(3); // date shift, session, theme
+    ctx.runInitScripts(APP_ORIGIN);
+    // the palette's own side is pinned, the other side keeps its default
+    expect(JSON.parse(ctx.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'dark', light: 'kanagawa-lotus', dark: 'dracula' });
+    expect(ctx.storage.has(STORAGE_KEY)).toBe(true);
+
+    const light = new FakeBrowser();
+    await runScenario(deps(light, { theme: 'github-light' }), scenario({ auth: 'signed-out' }), 1, 'phone-dark');
+    light.contexts[0]!.runInitScripts(APP_ORIGIN);
+    expect(JSON.parse(light.contexts[0]!.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'light', light: 'github-light', dark: 'kanagawa-wave' });
+
+    const plain = new FakeBrowser();
+    await runScenario(deps(plain), scenario({ auth: 'signed-out' }), 1, 'phone');
+    plain.contexts[0]!.runInitScripts(APP_ORIGIN);
+    expect(plain.contexts[0]!.storage.has(THEME_STORAGE_KEY)).toBe(false);
   });
 
   it('signed-out scenarios get no session; the desktop viewport is used for desktop', async () => {

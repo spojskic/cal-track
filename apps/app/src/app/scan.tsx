@@ -32,7 +32,7 @@ import {
 } from '@/data/foods';
 import { fetchDefaultServing } from '@/data/recipes';
 import { deliverPickedFood, hasFoodPickHandler } from '@/state/food-picker';
-import { MAX_CONTENT_WIDTH, palette, radius, spacing, useTheme } from '@/theme';
+import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
 
 type ScanResult =
   | BarcodeLookupResult
@@ -312,10 +312,10 @@ export default function ScanScreen() {
       </View>
     );
   } else if (starting) {
-    // ---- Still starting: dark stage with a spinner.
+    // ---- Still starting: dark stage with a spinner. Black and white on purpose: the camera screen looks the same in every palette.
     body = (
-      <View style={[styles.screen, styles.center, { backgroundColor: colors.sidebar }]}>
-        <ActivityIndicator color={colors.onSidebar} accessibilityLabel="Starting camera" />
+      <View style={[styles.screen, styles.center, styles.stage]}>
+        <ActivityIndicator color="#FFFFFF" accessibilityLabel="Starting camera" />
       </View>
     );
   } else {
@@ -323,7 +323,7 @@ export default function ScanScreen() {
     const frameSize = Math.round(Math.min(Math.max(Math.min(width * 0.72, height * 0.4), 180), 320));
     const hint = locked ? 'Barcode captured' : (notice?.text ?? SCAN_HINT);
     body = (
-      <View style={[styles.screen, { backgroundColor: colors.sidebar }]}>
+      <View style={[styles.screen, styles.stage]}>
         <CameraView
           style={StyleSheet.absoluteFill}
           facing="back"
@@ -341,7 +341,7 @@ export default function ScanScreen() {
           <View
             style={[
               styles.frame,
-              { width: frameSize, height: frameSize, borderColor: locked ? palette.green : '#FFFFFF' },
+              { width: frameSize, height: frameSize, borderColor: locked ? colors.success : '#FFFFFF' },
             ]}
           />
         </View>
@@ -368,7 +368,7 @@ export default function ScanScreen() {
                     ? { ios: 'bolt.fill', android: 'flash_on', web: 'flash_on' }
                     : { ios: 'bolt.slash.fill', android: 'flash_off', web: 'flash_off' }
                 }
-                tint={torch ? palette.amber : '#FFFFFF'}
+                tint={torch ? colors.warning : '#FFFFFF'}
                 onPress={() => setTorch((t) => !t)}
               />
             ) : (
@@ -598,6 +598,7 @@ function ResultCard({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  stage: { backgroundColor: '#000000' },
   center: { alignItems: 'center', justifyContent: 'center' },
   scroll: { flexGrow: 1 },
   content: {

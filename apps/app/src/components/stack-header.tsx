@@ -1,7 +1,8 @@
 import type { NativeStackHeaderProps } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Glyph } from '@/components/Glyph';
 import { AppText } from '@/components/ui';
 import { spacing, useTheme } from '@/theme';
 
@@ -59,7 +60,7 @@ function BackButton({ onPress }: { onPress: () => void }) {
       hitSlop={6}
       onPress={onPress}
       style={({ pressed }) => [styles.back, { backgroundColor: pressed ? colors.border : colors.surfaceAlt }]}>
-      <Text style={[styles.chevron, { color: colors.text }]}>{'\u2039'}</Text>
+      <Glyph name="chevron-left" size={24} color={colors.text} />
     </Pressable>
   );
 }
@@ -74,5 +75,4 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 18, fontWeight: '700' },
   titleCentered: { textAlign: 'center' },
   back: { width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, alignItems: 'center', justifyContent: 'center' },
-  chevron: { fontSize: 30, lineHeight: 34, fontWeight: '400', marginTop: -2 },
 });

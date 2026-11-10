@@ -10,8 +10,10 @@ import {
   buttonLayoutScript,
   inspectPageScript,
   scrollMainScript,
+  readThemeScript,
   scrollMetricsScript,
   seedSessionScript,
+  seedThemeScript,
   truncatedTextScript,
 } from './browser-scripts';
 import { FIXED_NOW_MS } from './constants';
@@ -35,13 +37,13 @@ function storage() {
 
 describe('every script is syntactically valid JavaScript', () => {
   it('compiles', () => {
-    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'https://a.test', storageKey: 'k', session: {} }), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(100), truncatedTextScript('[role="tab"]')]) {
+    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'https://a.test', storageKey: 'k', session: {} }), seedThemeScript({ origin: 'https://a.test', storageKey: 'k', prefs: {} }), readThemeScript('k'), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(100), truncatedTextScript('[role="tab"]')]) {
       expect(() => new vm.Script(code)).not.toThrow();
     }
   });
 
   it('has no TypeScript artefacts (esbuild __name helper, type annotations)', () => {
-    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'o', storageKey: 'k', session: {} }), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(1), truncatedTextScript('x')]) {
+    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'o', storageKey: 'k', session: {} }), seedThemeScript({ origin: 'o', storageKey: 'k', prefs: {} }), readThemeScript('k'), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(1), truncatedTextScript('x')]) {
       expect(code).not.toMatch(/__name|: string|: number|as unknown/);
     }
   });
@@ -111,6 +113,51 @@ describe('seedSessionScript', () => {
       sessionStorage: storage(),
     });
     expect(() => run(seedSessionScript({ origin: 'https://app.test', storageKey: 'k', session }), ctx)).not.toThrow();
+  });
+});
+
+describe('seedThemeScript / readThemeScript', () => {
+  const prefs = { mode: 'dark', light: 'kanagawa-lotus', dark: 'dracula' };
+
+  it('stores the theme choice once per tab, on the app origin only, without disturbing the session seed in the same tab', () => {
+    const local = storage();
+    const ctx = sandbox({ location: { origin: 'https://app.test' }, localStorage: local, sessionStorage: storage() });
+    run(seedSessionScript({ origin: 'https://app.test', storageKey: 'sb-mock-auth-token', session: { user: { id: 'u' } } }), ctx);
+    const theme = seedThemeScript({ origin: 'https://app.test', storageKey: 'cal-track.theme.v1', prefs });
+    run(theme, ctx);
+    expect(JSON.parse(local.data.get('cal-track.theme.v1') as string)).toEqual(prefs);
+    expect(local.data.has('sb-mock-auth-token')).toBe(true);
+    // the user changed the theme in the app and reloaded: the seed must not win again
+    local.data.set('cal-track.theme.v1', '{"mode":"light"}');
+    run(theme, ctx);
+    expect(local.data.get('cal-track.theme.v1')).toBe('{"mode":"light"}');
+    const other = sandbox({ location: { origin: 'null' }, localStorage: storage(), sessionStorage: storage() });
+    run(theme, other);
+    expect((other.localStorage as ReturnType<typeof storage>).data.size).toBe(0);
+  });
+
+  it('reads the saved choice and the chrome the app set on the page', () => {
+    const local = storage();
+    local.data.set('cal-track.theme.v1', JSON.stringify(prefs));
+    const doc = {
+      body: {},
+      documentElement: { style: { colorScheme: 'dark' }, getAttribute: (n: string) => (n === 'data-theme' ? 'dracula' : null) },
+      querySelector: (sel: string) => (sel === 'meta[name="theme-color"]' ? { getAttribute: () => '#282A36' } : null),
+    };
+    const ctx = sandbox({ document: doc, localStorage: local, getComputedStyle: () => ({ backgroundColor: 'rgb(40, 42, 54)' }) });
+    expect(run(readThemeScript('cal-track.theme.v1'), ctx)).toEqual({
+      stored: JSON.stringify(prefs),
+      bodyBackground: 'rgb(40, 42, 54)',
+      colorScheme: 'dark',
+      themeColor: '#282A36',
+      paletteId: 'dracula',
+    });
+  });
+
+  it('reads a bare page without throwing (nothing saved, no meta tag)', () => {
+    const doc = { body: null, documentElement: { style: {}, getAttribute: () => null }, querySelector: () => null };
+    const ctx = sandbox({ document: doc, localStorage: storage(), getComputedStyle: () => ({ backgroundColor: '' }) });
+    expect(run(readThemeScript('k'), ctx)).toEqual({ stored: null, bodyBackground: null, colorScheme: '', themeColor: null, paletteId: null });
   });
 });
 

@@ -41,18 +41,51 @@ export function dateShiftScript(targetMs: number): string {
 }
 
 /**
+ * Writes one localStorage value BEFORE the app scripts run, once per tab: a sessionStorage flag (one per `flag` name, so
+ * several seeds can share a tab) prevents re-seeding after the app cleared the value and reloaded.
+ */
+function seedLocalStorageScript(opts: { origin: string; storageKey: string; value: unknown; flag: string }): string {
+  return `(function () {
+  try {
+    if (location.origin !== ${JSON.stringify(opts.origin)}) return;
+    if (window.sessionStorage.getItem(${JSON.stringify(opts.flag)}) === '1') return;
+    window.sessionStorage.setItem(${JSON.stringify(opts.flag)}, '1');
+    window.localStorage.setItem(${JSON.stringify(opts.storageKey)}, ${JSON.stringify(JSON.stringify(opts.value))});
+  } catch (e) { /* storage unavailable */ }
+})();`;
+}
+
+/**
  * Stores the supabase-js session in localStorage BEFORE the app scripts run (once per tab: a sessionStorage
  * flag prevents re-seeding after the app signed out and reloaded).
  */
 export function seedSessionScript(opts: { origin: string; storageKey: string; session: unknown }): string {
+  return seedLocalStorageScript({ origin: opts.origin, storageKey: opts.storageKey, value: opts.session, flag: '__smoke_seeded' });
+}
+
+/** Stores the saved theme choice (`--theme=<paletteId>`) in localStorage BEFORE the app scripts run, once per tab. */
+export function seedThemeScript(opts: { origin: string; storageKey: string; prefs: unknown }): string {
+  return seedLocalStorageScript({ origin: opts.origin, storageKey: opts.storageKey, value: opts.prefs, flag: '__smoke_theme_seeded' });
+}
+
+/**
+ * What the theme looks like right now: the saved choice (raw localStorage string, or null), the computed background of the
+ * page body, and the chrome the app sets on the page (`color-scheme`, `<meta name="theme-color">`, the palette id).
+ */
+export function readThemeScript(storageKey: string): string {
   return `(function () {
-  try {
-    if (location.origin !== ${JSON.stringify(opts.origin)}) return;
-    if (window.sessionStorage.getItem('__smoke_seeded') === '1') return;
-    window.sessionStorage.setItem('__smoke_seeded', '1');
-    window.localStorage.setItem(${JSON.stringify(opts.storageKey)}, ${JSON.stringify(JSON.stringify(opts.session))});
-  } catch (e) { /* storage unavailable */ }
-})();`;
+  var stored = null;
+  try { stored = window.localStorage.getItem(${JSON.stringify(storageKey)}); } catch (e) { /* storage unavailable */ }
+  var root = document.documentElement;
+  var meta = document.querySelector('meta[name="theme-color"]');
+  return {
+    stored: stored,
+    bodyBackground: document.body ? getComputedStyle(document.body).backgroundColor : null,
+    colorScheme: root && root.style ? root.style.colorScheme || '' : '',
+    themeColor: meta ? meta.getAttribute('content') : null,
+    paletteId: root ? root.getAttribute('data-theme') : null
+  };
+})()`;
 }
 
 /** Text that signals a broken screen (fatal) or a suspicious one (warning). Sources of JS regular expressions. */

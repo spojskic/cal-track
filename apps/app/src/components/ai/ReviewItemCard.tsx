@@ -1,7 +1,8 @@
 import type { NutrientMap } from '@cal/core';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { Glyph } from '@/components/Glyph';
 import { formatAmount, formatKcal } from '@/components/food/format';
 import { SourceBadge } from '@/components/food/source-badge';
 import { AppText, Button } from '@/components/ui';
@@ -92,7 +93,7 @@ export function ReviewItemCard({
             onPress={onRemove}
             hitSlop={10}
             style={styles.remove}>
-            <Text style={{ color: colors.textMuted, fontSize: 18 }}>{'\u2715'}</Text>
+            <Glyph name="close" size={18} color={colors.textMuted} />
           </Pressable>
         ) : null}
       </View>
@@ -155,7 +156,7 @@ export function ReviewItemCard({
           disabled={locked}
           onPress={() => nudge(-1)}
           style={[styles.step, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-          <Text style={[styles.stepText, { color: colors.text }]}>{'\u2212'}</Text>
+          <Glyph name="minus" size={22} color={colors.text} />
         </Pressable>
         <View style={styles.flex}>
           <AppText variant="label" muted>Amount (g)</AppText>
@@ -185,7 +186,7 @@ export function ReviewItemCard({
           disabled={locked}
           onPress={() => nudge(1)}
           style={[styles.step, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-          <Text style={[styles.stepText, { color: colors.text }]}>+</Text>
+          <Glyph name="plus" size={22} color={colors.text} />
         </Pressable>
       </View>
       {range ? <AppText variant="small" muted>{range}</AppText> : null}
@@ -226,7 +227,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepText: { fontSize: 22, fontWeight: '600' },
   input: {
     minHeight: 46,
     borderWidth: StyleSheet.hairlineWidth,

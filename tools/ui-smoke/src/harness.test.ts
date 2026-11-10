@@ -12,7 +12,7 @@ import { backendIssues, dedupeIssues } from './analysis';
 import { AppFiles, contentTypeFor } from './app-files';
 import { isValidExport } from './build';
 import { MAC_CHROME, resolveChrome } from './chrome';
-import { DEFAULT_DIST, DEFAULT_OUT, parseArgs } from './cli';
+import { DEFAULT_DIST, DEFAULT_OUT, USAGE, parseArgs } from './cli';
 import { ANON_KEY, APP_ORIGIN, BACKEND_ORIGIN, STORAGE_KEY } from './constants';
 import { IDS, buildFixtures } from './fixtures';
 import { classifyConsole } from './known-noise';
@@ -394,6 +394,19 @@ describe('cli', () => {
     expect(errors).toEqual([]);
     expect(options).toMatchObject({ skipBuild: false, out: DEFAULT_OUT, dist: DEFAULT_DIST, headed: false, list: false, consoleErrors: 'fail', workers: 2, timeoutMs: 120_000 });
     expect(DEFAULT_OUT).toBe('/tmp/cal-ui-smoke');
+    expect(options.theme).toBeUndefined(); // nothing seeded: the app starts with its own default theme
+  });
+
+  it('--theme takes a known palette id (both forms) and rejects anything else', () => {
+    expect(parseArgs(['--theme=dracula']).options.theme).toBe('dracula');
+    expect(parseArgs(['--', '--theme', 'kanagawa-lotus', '--skip-build']).options).toMatchObject({ theme: 'kanagawa-lotus', skipBuild: true });
+    const bad = parseArgs(['--theme=solarized-hot']);
+    expect(bad.options.theme).toBeUndefined();
+    expect(bad.errors).toHaveLength(1);
+    expect(bad.errors[0]).toContain('unknown palette "solarized-hot"');
+    expect(bad.errors[0]).toContain('kanagawa-wave'); // lists the known ids
+    expect(parseArgs(['--theme']).errors).toEqual(['--theme needs a value']);
+    expect(USAGE).toContain('--theme=<paletteId>');
   });
 
   it('parses flags in both --k=v and --k v form and ignores the pnpm "--" separator', () => {

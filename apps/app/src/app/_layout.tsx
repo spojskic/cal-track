@@ -13,7 +13,7 @@ import { AuthProvider, useAuth } from '@/lib/auth';
 import { queryClient, queryPersister } from '@/lib/query';
 import '@/lib/web-styles';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { useTheme } from '@/theme';
+import { useTheme, useThemeChrome, useThemeReady } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -22,10 +22,12 @@ function RootNavigator() {
   const segments = useSegments();
   const { colors, isDark } = useTheme();
   const profile = useProfile();
+  // The saved theme is read before the splash screen hides, so the app never flashes the default palette first.
+  const themeReady = useThemeReady();
 
   useEffect(() => {
-    if (!loading) SplashScreen.hideAsync();
-  }, [loading]);
+    if (!loading && themeReady) SplashScreen.hideAsync();
+  }, [loading, themeReady]);
 
   // The native window / root view behind the screens. Without this it stays white and shows through at the rounded
   // corners and between screens while a transition runs.
@@ -33,6 +35,7 @@ function RootNavigator() {
     void SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
   }, [colors.background]);
 
+  if (!themeReady) return null;
   if (!isSupabaseConfigured) return <SetupRequired />;
   if (loading) return null;
 
@@ -71,6 +74,7 @@ function RootNavigator() {
 /** React Navigation's own colours (screen containers, headers, tab areas) follow the app theme instead of its light default. */
 function NavigationTheme({ children }: { children: ReactNode }) {
   const { colors, isDark } = useTheme();
+  useThemeChrome();
   const base = isDark ? DarkTheme : DefaultTheme;
   const value = {
     ...base,

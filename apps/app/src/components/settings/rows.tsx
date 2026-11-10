@@ -1,35 +1,71 @@
-import type { ReactNode } from 'react';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
 import { radius, spacing, useTheme } from '@/theme';
 
-/** Tappable list row with a chevron (menu entries). */
+/** Width reserved for a row icon, so labels line up whether or not a row has one. */
+const ICON_SLOT = 24;
+/** Horizontal padding of a `list` row (it sits inside a Card that has `LIST_CARD_PADDING`). */
+const LIST_ROW_PADDING = spacing.md;
+/** Padding of a Card that holds `list` rows: small, so the hover highlight of a row stays inside the rounded card. */
+export const LIST_CARD_PADDING = spacing.sm;
+/** Divider inset that lines a divider up with the label of a `list` row with an icon. */
+export const LIST_DIVIDER_INSET = LIST_ROW_PADDING + ICON_SLOT + spacing.md;
+
+/**
+ * Tappable list row with a chevron (menu entries).
+ * - `icon`: a small symbol at the left (decorative: hidden from screen readers, the label says it).
+ * - `variant="list"`: a row for a grouped list (the More screen): its own horizontal padding, a rounded highlight on hover and press
+ *   (put it in a Card with `padding: LIST_CARD_PADDING` and `gap: 0`), and a description cut at two lines. Default: unchanged.
+ */
 export function NavRow({
   label,
   description,
   onPress,
   disabled,
   badge,
+  icon,
+  variant = 'default',
 }: {
   label: string;
   description?: string;
   onPress: () => void;
   disabled?: boolean;
   badge?: string;
+  icon?: SymbolViewProps['name'];
+  variant?: 'default' | 'list';
 }) {
   const { colors } = useTheme();
+  const [hovered, setHovered] = useState(false);
+  const list = variant === 'list';
+  const accessibleName = [label, description, badge].filter(Boolean).join('. ');
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={description ? `${label}. ${description}` : label}
+      accessibilityLabel={accessibleName}
       accessibilityState={{ disabled: Boolean(disabled) }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.navRow, { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 }]}>
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={({ pressed }) => [
+        styles.navRow,
+        list && styles.listRow,
+        list && !disabled && (hovered || pressed) ? { backgroundColor: colors.surfaceAlt } : null,
+        { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 },
+      ]}>
+      {icon ? (
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.iconSlot}>
+          <SymbolView name={icon} size={20} tintColor={colors.textMuted} />
+        </View>
+      ) : null}
       <View style={styles.flex}>
         <AppText variant="body" style={styles.bold}>{label}</AppText>
-        {description ? <AppText variant="small" muted>{description}</AppText> : null}
+        {description ? (
+          <AppText variant="small" muted numberOfLines={list ? 2 : undefined}>{description}</AppText>
+        ) : null}
       </View>
       {badge ? <Badge label={badge} /> : null}
       <Text style={[styles.chevron, { color: colors.textMuted }]}>{'\u203A'}</Text>
@@ -37,10 +73,10 @@ export function NavRow({
   );
 }
 
-/** Thin divider between rows inside a Card. */
-export function Divider() {
+/** Thin divider between rows inside a Card. `inset`: leave that much space at the left (see `LIST_DIVIDER_INSET`). */
+export function Divider({ inset }: { inset?: number }) {
   const { colors } = useTheme();
-  return <View style={[styles.divider, { backgroundColor: colors.border }]} />;
+  return <View style={[styles.divider, { backgroundColor: colors.border }, inset ? { marginLeft: inset } : null]} />;
 }
 
 /** Label on the left, value on the right; `strong` for subtotal / total rows. */
@@ -166,6 +202,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1, gap: 2 },
   bold: { fontWeight: '700' },
   navRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52, paddingVertical: spacing.sm },
+  listRow: { minHeight: 56, paddingHorizontal: LIST_ROW_PADDING, borderRadius: radius.sm },
+  iconSlot: { width: ICON_SLOT, alignItems: 'center', justifyContent: 'center' },
   chevron: { fontSize: 22, fontWeight: '300' },
   divider: { height: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
   kvRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.xs },

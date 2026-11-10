@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Glyph } from '@/components/Glyph';
 import { AppText } from '@/components/ui';
 import { radius, spacing, useTheme } from '@/theme';
 
@@ -32,7 +33,7 @@ export function CheckboxRow({
           styles.box,
           { borderColor: checked ? colors.primary : colors.textMuted, backgroundColor: checked ? colors.primary : 'transparent' },
         ]}>
-        {checked ? <Text style={[styles.tick, { color: colors.onPrimary }]}>{'\u2713'}</Text> : null}
+        {checked ? <Glyph name="check" size={16} color={colors.onPrimary} strokeWidth={3} /> : null}
       </View>
       <View style={styles.text}>
         <AppText variant="body" style={styles.label}>{label}</AppText>
@@ -53,7 +54,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 1,
   },
-  tick: { fontSize: 15, fontWeight: '800', lineHeight: 18 },
   text: { flex: 1, gap: 2 },
   label: { fontWeight: '600' },
 });

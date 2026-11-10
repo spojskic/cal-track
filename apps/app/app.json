@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "caltrack",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#12141F",
+    "backgroundColor": "#1F1F28",
     "ios": {
       "bundleIdentifier": "com.spojskic.caltrack",
       "supportsTablet": true,
@@ -18,7 +18,7 @@
     "android": {
       "package": "com.spojskic.caltrack",
       "adaptiveIcon": {
-        "backgroundColor": "#262A3B",
+        "backgroundColor": "#1F1F28",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -53,7 +53,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#262A3B",
+          "backgroundColor": "#1F1F28",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 140
         }

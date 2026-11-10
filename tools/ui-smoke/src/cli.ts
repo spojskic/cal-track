@@ -1,4 +1,5 @@
 /** Command line parsing for `pnpm --filter @cal/ui-smoke smoke [-- flags]`. */
+import { KNOWN_PALETTE_IDS } from './theme-seed';
 
 export interface CliOptions {
   skipBuild: boolean;
@@ -18,10 +19,29 @@ export interface CliOptions {
   workers: number;
   /** Keep the Metro cache for the export (default: cleared so env values cannot be stale). */
   keepCache: boolean;
+  /** Palette id the app starts with (seeded as the saved theme choice); default: nothing seeded, the app's own default. */
+  theme?: string;
 }
 
 export const DEFAULT_OUT = '/tmp/cal-ui-smoke';
 export const DEFAULT_DIST = '/tmp/cal-ui-smoke-dist';
+
+/** The known palette ids as comma separated lines of at most `width` characters, each indented by 24 spaces. */
+function wrapIds(ids: readonly string[], width = 62): string {
+  const lines: string[] = [];
+  let line = '';
+  for (const id of ids) {
+    const piece = line ? `${line}, ${id}` : id;
+    if (piece.length > width && line) {
+      lines.push(`${line},`);
+      line = id;
+    } else {
+      line = piece;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.join('\n                        ');
+}
 
 export const USAGE = `Usage: pnpm --filter @cal/ui-smoke smoke [-- options]
 
@@ -32,6 +52,8 @@ export const USAGE = `Usage: pnpm --filter @cal/ui-smoke smoke [-- options]
   --dist=<dir>          web export directory (default ${DEFAULT_DIST})
   --chrome=<path>       Chrome executable (default: $CHROME_PATH, macOS Google Chrome, Playwright cache)
   --viewports=a,b       phone, desktop, phone-dark, desktop-dark (default phone,desktop)
+  --theme=<paletteId>   start the app with this palette (saved theme choice, pinned to its light/dark side); known ids:
+                        ${wrapIds(KNOWN_PALETTE_IDS)}
   --console-errors=warn treat console.error as WARN instead of FAIL
   --timeout=<seconds>   limit per scenario run (default 120)
   --workers=<n>         scenario runs in parallel (default 2)
@@ -115,6 +137,13 @@ export function parseArgs(argv: readonly string[]): { options: CliOptions; error
       case 'viewports': {
         const v = take(name, inline);
         if (v) options.viewports = v.split(',').map((s) => s.trim()).filter(Boolean);
+        break;
+      }
+      case 'theme': {
+        const v = take(name, inline);
+        if (v === undefined) break;
+        if (KNOWN_PALETTE_IDS.includes(v)) options.theme = v;
+        else errors.push(`--theme: unknown palette "${v}" (known: ${KNOWN_PALETTE_IDS.join(', ')})`);
         break;
       }
       case 'console-errors': {

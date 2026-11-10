@@ -24,6 +24,7 @@ pnpm --filter @cal/ui-smoke smoke -- --skip-build            # reuse the last ex
 pnpm --filter @cal/ui-smoke smoke -- --only=diary            # scenarios whose name or path contain "diary"
 pnpm --filter @cal/ui-smoke smoke -- --out=/tmp/my-run --viewports=phone,phone-dark   # dark mode is opt-in
 pnpm --filter @cal/ui-smoke smoke -- --chrome="/Applications/Chromium.app/Contents/MacOS/Chromium"
+pnpm --filter @cal/ui-smoke smoke -- --theme=dracula          # start the app with another palette (see below)
 pnpm --filter @cal/ui-smoke smoke -- --list                  # print scenarios + route coverage (no Chrome needed)
 pnpm --filter @cal/ui-smoke smoke -- --headed --workers=1    # watch it
 ```
@@ -31,6 +32,13 @@ pnpm --filter @cal/ui-smoke smoke -- --headed --workers=1    # watch it
 Other flags: `--dist=<dir>` (export directory, default `/tmp/cal-ui-smoke-dist`), `--console-errors=warn`
 (downgrade `console.error` to WARN), `--timeout=<s>` (per run, default 120), `--workers=<n>` (parallel runs,
 default 2), `--keep-cache` (do not pass `--clear` to `expo export`). Run `smoke -- --help` for the list.
+
+`--theme=<paletteId>` seeds the app's saved theme choice (`localStorage['cal-track.theme.v1']`, the same init-script mechanism as
+the session) before the app loads, so every scenario runs in that palette, for example `--theme=kanagawa-wave` or
+`--theme=paper`. The choice is pinned to the palette's own side (mode `light` or `dark`), so `--viewports` and the browser's colour
+scheme do not matter; the other side stays at its default. Without the flag nothing is seeded and the app starts with its default
+(Match system, Kanagawa Lotus / Kanagawa Wave). Ids are listed by `--help`; an unknown id is an error. The scenario `settings:
+appearance (theme picker)` starts by pressing *Reset to default*, so it also passes under `--theme`.
 
 Chrome is looked up in this order: `--chrome`, `$CHROME_PATH`, `/Applications/Google Chrome.app/...`, Playwright's
 own cache (`npx playwright-core install chromium`). The tool never downloads anything.
@@ -73,6 +81,7 @@ unhandled backend endpoints, edge functions that were called, blocked external r
 | `src/fixtures.ts` | seed data (user, ~30 foods, 8 days of diary, 30 days of weight, ...) |
 | `src/scenarios.ts` | **the list of scenarios** |
 | `src/browser-scripts.ts` | JavaScript source strings run in the page (date shift, session seeding, inspection) |
+| `src/theme-seed.ts`, `src/scenarios-theme.ts` | `--theme` seeding and the checks of the theme picker scenario (palettes come from `apps/app/src/theme`) |
 
 Design notes:
 

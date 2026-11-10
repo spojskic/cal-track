@@ -64,7 +64,7 @@ export function WarningHint({ children }: { children: string }) {
   return (
     <View style={styles.warningRow}>
       <View accessible={false} style={[styles.warningBadge, { backgroundColor: colors.warning }]}>
-        <Text style={styles.warningBadgeText}>?</Text>
+        <Text style={[styles.warningBadgeText, { color: colors.onWarning }]}>?</Text>
       </View>
       <AppText variant="small" style={styles.warningText}>{children}</AppText>
     </View>
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   inputWarning: { borderWidth: 2 },
   warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   warningBadge: { width: 18, height: 18, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  warningBadgeText: { color: '#1A1A1A', fontSize: 12, fontWeight: '800', lineHeight: 15 },
+  warningBadgeText: { fontSize: 12, fontWeight: '800', lineHeight: 15 },
   warningText: { flex: 1 },
   segmented: {
     flexDirection: 'row',

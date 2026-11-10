@@ -77,6 +77,31 @@ All in `packages/core`, tested with golden values.
    fallback) honouring the food's carb convention. Day totals sum entries; unknown stays unknown.
 4. **Nutrient targets** come from intake tables by age, sex and pregnancy/lactation, plus macro-driven targets, plus your overrides.
 
+## Themes
+
+The colours of every screen come from `useTheme()` in `apps/app/src/theme/`, which returns `{ colors, isDark, paletteId }`.
+
+- **Palette data is pure TypeScript** (no React Native import, so the Node tests can load it): `colors.ts` (the `ThemeColors` tokens,
+  `withAlpha`, the original Cal Track look), `contrast.ts` (WCAG maths), `define-colors.ts` (derives each `on*` text colour, and the
+  scrim, from the palette's own darkest and lightest inks), `palettes-light.ts` / `palettes-dark.ts` (22 palettes, all plain `#RRGGBB`
+  because components append a 2-digit alpha to tokens) and `palettes.ts` (the registry, the defaults, the saved-choice rules and
+  `resolvePalette`). `tools/ui-smoke/src/theme.test.ts` checks every palette for completeness and for contrast floors.
+- **The choice is device-local**: `theme-store.ts` is a small zustand store (`{ mode: 'system' | 'light' | 'dark', light, dark }`)
+  saved under `cal-track.theme.v1` in AsyncStorage (localStorage on the web), like the AI preferences. An unknown or removed id falls
+  back to the default of its side. No profile column and no migration. On the web the stored value is read synchronously when the
+  module loads, so the first paint already has the right palette; on native the splash screen waits for the read (1.5 s at most).
+- **`useTheme()` resolves** the palette from the store and, for *Match system*, from `useColorScheme()`. `isDark` is the palette's own
+  appearance. The `colors` object is the same instance for a given palette, so it is safe in dependency lists.
+- **Outside React** (`chrome.ts`): on the web, `react-native-web` has no `Appearance.setColorScheme`, so the page gets the palette
+  directly: CSS `color-scheme`, the body background, `<meta name="theme-color">` and the `--ct-primary` variable that the input focus
+  ring in `lib/web-styles.ts` reads. On native, a pinned Light or Dark mode calls `Appearance.setColorScheme` (system dialogs and
+  keyboards follow); Match system removes the override (`'unspecified'`), otherwise `useColorScheme()` would stop reporting the device.
+  The status bar, the navigation theme and the native window background in `app/_layout.tsx` already derive from `useTheme()`.
+- **Components use tokens, never raw brand colours.** Text on a coloured fill uses `onPrimary` / `onDanger` / `onWarning` / `onSuccess`;
+  sheets dim the page with `withAlpha(colors.scrim, 0.45)`. The barcode scanner keeps fixed black and white over the camera.
+- **Known limits:** the native splash screen and the app icon are static (`app.json` uses the Kanagawa Wave page colour); icons are not
+  regenerated per palette. Real-device appearance is not verified.
+
 ## Search and the free-tier budget
 
 - Search runs in Postgres: unaccented full-text plus trigram matching, ranked by your history, then source quality, then text

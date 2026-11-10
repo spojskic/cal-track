@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui';
-import { WIDE_BREAKPOINT, radius, spacing, useTheme } from '@/theme';
+import { WIDE_BREAKPOINT, radius, spacing, useTheme, withAlpha } from '@/theme';
 
 import { IconButton } from './IconButton';
 
@@ -23,6 +23,9 @@ import { IconButton } from './IconButton';
 export function runAfterModal(fn: () => void): void {
   setTimeout(fn, Platform.OS === 'ios' ? 380 : 60);
 }
+
+/** How strongly the sheet dims the screen behind it (the colour is the palette's `scrim`). */
+const SCRIM_OPACITY = 0.45;
 
 /** Bottom sheet on phones, centred dialog on wide screens. */
 export function Sheet({
@@ -57,7 +60,7 @@ export function Sheet({
           accessibilityRole="button"
           accessibilityLabel="Close"
           onPress={onClose}
-          style={[StyleSheet.absoluteFill, styles.scrim]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(colors.scrim, SCRIM_OPACITY) }]}
         />
         <View
           accessibilityViewIsModal
@@ -141,7 +144,6 @@ const styles = StyleSheet.create({
   overlay: { flex: 1 },
   overlayCenter: { justifyContent: 'center', alignItems: 'center' },
   overlayBottom: { justifyContent: 'flex-end' },
-  scrim: { backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: { borderWidth: StyleSheet.hairlineWidth },
   sheetPhone: {
     borderTopLeftRadius: radius.lg,

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { rememberSummaries } from '@/ai/search-adapter';
+import { Glyph } from '@/components/Glyph';
 import { FoodRow } from '@/components/food/food-row';
 import { useDebouncedValue } from '@/components/food/use-debounced-value';
 import { AppText } from '@/components/ui';
@@ -43,7 +44,7 @@ export function FoodPicker({
       <View style={styles.header}>
         <AppText variant="body" style={styles.title}>{title}</AppText>
         <Pressable accessibilityRole="button" accessibilityLabel="Close food search" onPress={onClose} hitSlop={8}>
-          <Text style={{ color: colors.textMuted, fontSize: 18 }}>{'\u2715'}</Text>
+          <Glyph name="close" size={18} color={colors.textMuted} />
         </Pressable>
       </View>
       <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>

@@ -20,6 +20,8 @@ import type { Page } from 'playwright-core';
 import { choose, clickButton, clickTab, clickText, closeSheet, fill, scrollToText } from './actions';
 import { truncatedTextScript } from './browser-scripts';
 import { BARCODES, IDS, USER, addDays } from './fixtures';
+import { THEME_SCENARIOS } from './scenarios-theme';
+import { WORKOUT_SCENARIOS } from './scenarios-workouts';
 import { SIGNUP_EXPIRED_CODE, SIGNUP_VALID_CODE } from './signup-function';
 import type { Scenario, ScenarioContext } from './types';
 
@@ -34,6 +36,50 @@ async function stepThen(ctx: ScenarioContext, label: string, act: () => Promise<
 
 async function openRow(page: Page, name: RegExp): Promise<void> {
   await page.getByRole('button', { name }).first().click({ timeout: 6000 });
+}
+
+// ------------------------------------------------------------------------------------------ more helpers
+
+/** The headings of the More screen, in list order (apps/app/src/components/settings/more-sections.ts). */
+const MORE_SECTIONS = ['Training', 'Coach', 'Profile', 'Connections', 'App', 'Account'] as const;
+
+/**
+ * Every section heading is there and they are laid out as designed: one column in the list order on a phone; on a desktop two
+ * columns, Training / Coach / Connections at the left and Profile / App / Account at the right. The headings are found by their
+ * whole text: "App" and "Coach" would otherwise also match "Connected apps & devices" and "AI Coach & keys".
+ */
+async function checkMoreSections(page: Page, ctx: ScenarioContext): Promise<void> {
+  const boxes = new Map<string, { x: number; y: number }>();
+  for (const label of MORE_SECTIONS) {
+    if (!(await ctx.expectText(label, { exact: true }))) continue;
+    const box = await page.getByText(label, { exact: true }).first().boundingBox();
+    if (box) boxes.set(label, box);
+  }
+  if (boxes.size !== MORE_SECTIONS.length) return; // a missing heading is already a FAIL above
+  const box = (label: string) => boxes.get(label) as { x: number; y: number };
+  const inOrder = (labels: readonly string[]) => {
+    for (let i = 1; i < labels.length; i++) {
+      const [above, below] = [labels[i - 1] as string, labels[i] as string];
+      if (!(box(above).y < box(below).y)) throw new Error(`"${above}" (y ${box(above).y}) is not above "${below}" (y ${box(below).y})`);
+    }
+  };
+  if (ctx.isPhone) {
+    await ctx.check('phone: one column, Training, Coach, Profile, Connections, App, Account from top to bottom', () => {
+      inOrder(MORE_SECTIONS);
+      for (const label of MORE_SECTIONS) if (Math.abs(box(label).x - box('Training').x) > 8) throw new Error(`"${label}" is not in the same column as "Training"`);
+    });
+  } else {
+    await ctx.check('desktop: Training, Coach and Connections in the left column', () => {
+      inOrder(['Training', 'Coach', 'Connections']);
+      for (const label of ['Coach', 'Connections']) if (Math.abs(box(label).x - box('Training').x) > 8) throw new Error(`"${label}" is not in the column of "Training"`);
+    });
+    await ctx.check('desktop: Profile, App and Account in the right column, beside the left one', () => {
+      inOrder(['Profile', 'App', 'Account']);
+      for (const label of ['App', 'Account']) if (Math.abs(box(label).x - box('Profile').x) > 8) throw new Error(`"${label}" is not in the column of "Profile"`);
+      if (!(box('Profile').x > box('Training').x + 200)) throw new Error(`the right column starts at x ${box('Profile').x}, the left one at ${box('Training').x}`);
+      if (Math.abs(box('Profile').y - box('Training').y) > 8) throw new Error('the two columns do not start at the same height');
+    });
+  }
 }
 
 // ------------------------------------------------------------------------------------------ create account helpers
@@ -1264,7 +1310,25 @@ export const SCENARIOS: Scenario[] = [
     route: '/more',
     path: '/more',
     auth: 'signed-in',
-    expect: ['More', 'Profile & targets', 'Nutrient targets', 'Display & units', 'About', 'Sign out', USER.email],
+    expect: [
+      'More',
+      'Profile & targets',
+      'Personal details',
+      'Nutrient targets',
+      'Display & units',
+      'Connected apps & devices',
+      'Workouts',
+      'AI (optional)',
+      'About',
+      'Sign out',
+      USER.email,
+    ],
+    async after(page, ctx) {
+      await checkMoreSections(page, ctx);
+      // The Coach row needs a working AI key; the AI row says it is off. The short texts are matched exactly.
+      await ctx.expectNoText('Chat about your nutrition', { timeout: 1500 });
+      await ctx.expectText('Off', { exact: true });
+    },
   },
   {
     name: 'more: sign out',
@@ -2114,6 +2178,21 @@ export const SCENARIOS: Scenario[] = [
     expect: [/The coach needs OpenRouter|Checking your AI connection/],
   },
   {
+    // /coach?topicKind=workout&topicId=<exercise_entries id> opens a chat ABOUT a workout (the Workouts screens link to it)
+    name: 'coach: a chat about a workout (topic params) is gated like any other chat',
+    route: '/coach',
+    path: `/coach?topicKind=workout&topicId=${IDS.workout.strength}`,
+    auth: 'signed-in',
+    expect: [/The coach needs OpenRouter|Checking your AI connection/],
+    async after(_page, ctx) {
+      await ctx.expectText('The coach needs OpenRouter');
+      await ctx.check('no coach data was loaded behind the closed gate', () => {
+        const touched = ctx.backend.calls.filter((c) => c.target === 'coach_threads' || c.target === 'coach_messages');
+        if (touched.length > 0) throw new Error(`the coach queried ${touched.map((c) => c.target).join(', ')}`);
+      });
+    },
+  },
+  {
     name: 'coach: thread (gated)',
     route: '/coach/[threadId]',
     path: `/coach/${IDS.thread['1']}`,
@@ -2215,4 +2294,10 @@ export const SCENARIOS: Scenario[] = [
       });
     },
   },
+
+  // ------------------------------------------------------------------------------------------ workouts (More > Workouts)
+  ...WORKOUT_SCENARIOS,
+
+  // ------------------------------------------------------------------------------------------ themes (Settings > Display)
+  ...THEME_SCENARIOS,
 ];

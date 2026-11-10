@@ -74,6 +74,42 @@ The **+** button opens one sheet for everything you can add: search food, scan b
 - **Water** quick buttons, **notes**, and a **dashboard** with today's summary, a 7-day average, your logging streak and a
   30-day weight trend.
 
+## More (the menu tab)
+
+Everything that is not a daily screen, in small labelled groups (a muted label above a card of rows, each row with an icon, its name
+and a one-line description, and a chevron):
+
+| Group | Rows |
+|---|---|
+| **Training** | Workouts |
+| **Coach** | Coach (only with a working AI key), AI Coach & keys / AI (optional), with a small *On* / *Off* at the right |
+| **Profile** | Profile & targets, Personal details, Nutrient targets |
+| **Connections** | Connected apps & devices |
+| **App** | Display & units (colour theme, light or dark mode, units), About |
+| **Account** | The e-mail you are signed in with and **Sign out** |
+
+On a phone the groups follow one another in that order. On a wide screen (a window of about 1000 px or more, beside the sidebar)
+they sit in two columns: Training, Coach and Connections on the left; Profile, App and Account on the right. Rows light up when you
+point at them. The paths in this documentation (for example **More > Profile & targets**) name the row, not the group.
+
+## Workouts (More > Workouts)
+
+Every exercise entry in one list, newest first, grouped by this week, last week and month; manual or imported from Garmin, Apple Health
+or Health Connect. Rows show type, date and time, duration, calories, source and (when a device recorded it) the average heart rate;
+filter by source and type, 50 load at a time, pull to refresh. The More entry needs no AI key.
+
+Open one for the details, only what exists: distance, pace or speed, climb, average / max / lowest heart rate, **time in each heart-rate
+zone** (a bar with minutes per zone), Garmin's training effect and, for strength sessions, the **sets** per exercise ("Bench press: 4 x 8
+@ 60 kg, 4 x 6 @ 70 kg"; Garmin guesses the exercise, a weight shows only if you typed it into Garmin Connect). Device workouts are
+read-only; a manual one can be deleted. With an AI key, **Discuss with coach** opens the coach on that workout, together with these
+details, your previous workouts of the same type and what is not known.
+
+The details are saved on the workout (`exercise_entries.details`), so they open instantly and offline: a Garmin sync stores the heart
+rate, zones and training effect the activity list already carries; opening a Garmin workout reads the rest (zone limits, sets, laps)
+when it has none yet or they are over a day old on a workout under a week old; after a sync the 3 newest are read quietly. Garmin is
+only read with GET, one request at a time, never together with a sync, and "slow down" pauses everything. **Copy sync report** lists
+these detail calls too (no values).
+
 ## Apple Health and Health Connect (needs a device)
 
 Imports daily active and resting calories, steps, workouts, weight, body fat, resting heart rate, HRV, SpO2, respiration, blood
@@ -96,6 +132,27 @@ and saves it to your account. Nothing is written to Garmin.
   an expired session asks you to sign in again.
 - **Copy sync report** (on the Garmin card): plain text of the last sync (which requests worked, how many days came back, which fields
   were found or missing; no values, no tokens) to paste back when a number is missing. **Sign out** keeps or deletes the imported data.
+
+## Themes (Settings > Display & units > Appearance)
+
+Colour themes you switch in the app, like the Garmin Companion app.
+
+- **Mode**: *Match system* follows the light or dark setting of your device (it switches by itself when the device does), *Light*
+  and *Dark* pin the app to that side.
+- **Light palette** and **Dark palette**: one pick for each side, shown as small previews (the card with the check mark is the one in
+  use). Mode decides which side is on screen; both picks are remembered. **Reset to default** shows up when your choice differs from the
+  defaults and brings back Match system with Kanagawa Lotus (light) and Kanagawa Wave (dark).
+- **Light:** Kanagawa Lotus (default), Catppuccin Latte, Solarized Light, Gruvbox Light, GitHub Light, Rosé Pine Dawn, Tokyo Night Day,
+  One Light, Paper, Cal Track Day.
+  **Dark:** Kanagawa Wave (default), Kanagawa Dragon, Tokyo Night, Catppuccin Mocha, Dracula, Nord, Gruvbox Dark, Rosé Pine, One Dark,
+  GitHub Dark, Solarized Dark, Cal Track Night. *Cal Track Day* and *Night* are the original navy and orange look.
+- **Saved on this device only**, not in your account, so your phone and your browser can use different themes. Nothing to set up in
+  Supabase.
+- **Readable by construction:** every palette is checked in the tests for text, muted text, button labels and the red, green and amber
+  status colours against the page, cards and sidebar (WCAG contrast). A few theme colours were nudged a little darker or lighter to pass;
+  they are marked `nudged` in `apps/app/src/theme/palettes-light.ts` and `palettes-dark.ts`.
+- **Limits:** the splash screen and the app icon background are drawn by the phone before the app starts, so they stay the Kanagawa
+  Wave page colour whatever you pick. Needs a device: how the themes look on real iOS and Android screens has not been checked.
 
 ## AI (optional, your own key)
 

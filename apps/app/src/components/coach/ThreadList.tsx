@@ -33,7 +33,11 @@ function DangerButton({ label, onPress, loading }: { label: string; onPress: () 
       disabled={loading}
       onPress={onPress}
       style={({ pressed }) => [styles.danger, { backgroundColor: colors.danger, opacity: loading ? 0.5 : pressed ? 0.85 : 1 }]}>
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.dangerLabel}>{label}</Text>}
+      {loading ? (
+        <ActivityIndicator color={colors.onDanger} />
+      ) : (
+        <Text style={[styles.dangerLabel, { color: colors.onDanger }]}>{label}</Text>
+      )}
     </Pressable>
   );
 }
@@ -301,5 +305,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dangerLabel: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  dangerLabel: { fontSize: 15, fontWeight: '700' },
 });

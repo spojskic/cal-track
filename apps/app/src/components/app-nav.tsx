@@ -15,7 +15,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { WIDE_BREAKPOINT, palette, radius, spacing, useTheme } from '@/theme';
+import { Glyph } from '@/components/Glyph';
+import { WIDE_BREAKPOINT, radius, spacing, useTheme } from '@/theme';
 
 interface NavItem {
   name: string;
@@ -71,7 +72,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
                 accessibilityRole="button"
                 onPress={openAddSheet}
                 style={[styles.sidebarAdd, { backgroundColor: colors.primary }]}>
-                <Text style={styles.sidebarAddLabel}>+  Add to diary</Text>
+                <Text style={[styles.sidebarAddLabel, { color: colors.onPrimary }]}>+  Add to diary</Text>
               </Pressable>
               {ITEMS.map((item) => (
                 <TabTrigger key={item.name} name={item.name} href={item.href} asChild>
@@ -102,8 +103,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
                 accessibilityLabel="Add to diary"
                 onPress={openAddSheet}
                 style={styles.fabWrap}>
-                <View style={[styles.fab, { backgroundColor: palette.orange }]}>
-                  <Text style={styles.fabPlus}>+</Text>
+                <View style={[styles.fab, { backgroundColor: colors.primary }]}>
+                  <Glyph name="plus" size={30} color={colors.onPrimary} strokeWidth={2.4} />
                 </View>
               </Pressable>
               {right.map((item) => (
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
   },
   brand: { fontSize: 22, fontWeight: '800', marginBottom: spacing.md },
   sidebarAdd: { borderRadius: radius.pill, paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.md },
-  sidebarAddLabel: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  sidebarAddLabel: { fontWeight: '700', fontSize: 15 },
   sidebarButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.sm },
   sidebarLabel: { fontSize: 16, fontWeight: '600' },
   bottomBar: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', paddingTop: spacing.sm },
@@ -183,5 +184,4 @@ const styles = StyleSheet.create({
       default: { elevation: 6, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
     }),
   },
-  fabPlus: { color: '#fff', fontSize: 32, lineHeight: 36, fontWeight: '400' },
 });

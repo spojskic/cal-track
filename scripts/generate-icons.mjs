@@ -11,8 +11,9 @@ import { deflateSync } from 'node:zlib';
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'apps', 'app', 'assets', 'images');
 
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-const NAVY = hex('#262A3B');
-const COLORS = [hex('#EF7B54'), hex('#85D49C'), hex('#6ECBD9'), hex('#B57FC9')]; // energy, protein, carbs, fat
+// Kanagawa Wave, the same values as the default dark palette (apps/app/src/theme/palettes-dark.ts).
+const PAGE = hex('#1F1F28'); // sumiInk3, the page colour (also the splash / adaptive-icon background in app.json)
+const COLORS = [hex('#FFA066'), hex('#98BB6C'), hex('#7FB4CA'), hex('#957FB8')]; // energy surimiOrange, protein springGreen, carbs springBlue, fat oniViolet
 
 // Geometry on a 1024 grid (angles in degrees, counter-clockwise from 3 o'clock; the opening is centred on 0 degrees).
 const R = 318; // radius of the ring's centre line
@@ -160,14 +161,14 @@ function write(name, size, options, withAlpha = true) {
   console.log(`wrote ${name} (${size}x${size}${withAlpha ? ', alpha' : ', opaque'})`);
 }
 
-// iOS / default icon: full-bleed navy square (the OS rounds the corners), no transparency.
-write('icon.png', 1024, { background: NAVY }, false);
+// iOS / default icon: full-bleed Kanagawa Wave square (the OS rounds the corners), no transparency.
+write('icon.png', 1024, { background: PAGE }, false);
 // Android adaptive icon: the OS crops to the central 66 %, so the ring (outer diameter 2*(R+W/2)*scale) must stay inside ~676 px.
 const ANDROID_SCALE = 0.86;
 write('android-icon-foreground.png', 1024, { scale: ANDROID_SCALE });
-write('android-icon-background.png', 1024, { background: NAVY }, false);
+write('android-icon-background.png', 1024, { background: PAGE }, false);
 write('android-icon-monochrome.png', 1024, { scale: ANDROID_SCALE, mono: [255, 255, 255] });
-// Splash: the ring only (the splash background colour is the same navy, see app.json).
+// Splash: the ring only (the splash background colour is the same page colour, see app.json).
 write('splash-icon.png', 512, {});
-// Favicon: a bigger ring on a rounded navy tile so it stays readable at 48 px.
-write('favicon.png', 48, { scale: 1.12, background: NAVY, backgroundRadius: 200, ss: 6 });
+// Favicon: a bigger ring on a rounded dark tile so it stays readable at 48 px.
+write('favicon.png', 48, { scale: 1.12, background: PAGE, backgroundRadius: 200, ss: 6 });

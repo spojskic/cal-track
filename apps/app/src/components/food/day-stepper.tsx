@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Glyph } from '@/components/Glyph';
 import { useSelectedDate } from '@/state/selected-date';
 import { radius, spacing, useTheme } from '@/theme';
 
@@ -20,7 +21,7 @@ export function DayStepper() {
         accessibilityLabel="Previous day"
         onPress={() => shift(-1)}
         style={[styles.arrow, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-        <Text style={[styles.arrowText, { color: colors.text }]}>{'\u2039'}</Text>
+        <Glyph name="chevron-left" size={22} color={colors.text} />
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -35,7 +36,7 @@ export function DayStepper() {
         accessibilityLabel="Next day"
         onPress={() => shift(1)}
         style={[styles.arrow, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-        <Text style={[styles.arrowText, { color: colors.text }]}>{'\u203A'}</Text>
+        <Glyph name="chevron-right" size={22} color={colors.text} />
       </Pressable>
     </View>
   );
@@ -52,5 +53,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  arrowText: { fontSize: 26, lineHeight: 30, fontWeight: '600' },
 });

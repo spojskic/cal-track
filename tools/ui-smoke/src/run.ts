@@ -137,7 +137,7 @@ async function main(): Promise<number> {
       const job = jobs[cursor++];
       if (!job) return;
       const run = await runScenario(
-        { browser, files, outDir, consoleErrors: options.consoleErrors, timeoutMs: options.timeoutMs },
+        { browser, files, outDir, consoleErrors: options.consoleErrors, timeoutMs: options.timeoutMs, ...(options.theme ? { theme: options.theme } : {}) },
         job.scenario,
         job.index,
         job.vp,

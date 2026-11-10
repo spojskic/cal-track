@@ -2,18 +2,19 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { palette, radius, spacing, useTheme } from '@/theme';
+import { radius, spacing, useTheme } from '@/theme';
 
 import { confidenceLevel } from './review-model';
 
-/** Purple pill that marks numbers guessed by the AI. Shown wherever an AI-estimated food appears. */
+/** Pill in the fat (purple) colour that marks numbers guessed by the AI. Shown wherever an AI-estimated food appears. */
 export function AiEstimateBadge({ compact }: { compact?: boolean }) {
+  const { colors } = useTheme();
   return (
     <View
       accessible
       accessibilityLabel="AI estimate. Not verified nutrition data."
-      style={[styles.pill, { backgroundColor: `${palette.purple}22`, borderColor: `${palette.purple}88` }]}>
-      <Text style={[styles.pillText, { color: palette.purple }]}>{compact ? 'AI' : 'AI estimate'}</Text>
+      style={[styles.pill, { backgroundColor: `${colors.fat}22`, borderColor: `${colors.fat}88` }]}>
+      <Text style={[styles.pillText, { color: colors.fat }]}>{compact ? 'AI' : 'AI estimate'}</Text>
     </View>
   );
 }

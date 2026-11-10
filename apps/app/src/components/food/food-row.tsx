@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Glyph } from '@/components/Glyph';
 import type { FoodKind, FoodSource } from '@/data/foods';
 import { spacing, useTheme } from '@/theme';
 
@@ -93,9 +94,7 @@ export function FoodRow({
           {quickAddState === 'pending' ? (
             <ActivityIndicator color={colors.onPrimary} size="small" />
           ) : (
-            <Text style={[styles.addText, { color: colors.onPrimary }]}>
-              {quickAddState === 'done' ? '\u2713' : '+'}
-            </Text>
+            <Glyph name={quickAddState === 'done' ? 'check' : 'plus'} size={20} color={colors.onPrimary} />
           )}
         </Pressable>
       ) : null}
@@ -125,5 +124,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addText: { fontSize: 24, lineHeight: 28, fontWeight: '600' },
 });

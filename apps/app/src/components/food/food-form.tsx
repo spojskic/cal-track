@@ -10,6 +10,7 @@ import {
   type NutrientMap,
 } from '@cal/core';
 
+import { Glyph } from '@/components/Glyph';
 import type { FoodInput } from '@/data/foods';
 import { validateBarcode } from '@/data/foods';
 import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
@@ -365,7 +366,7 @@ export function FoodForm({
               clearFlag('field:name');
               if (errors.name) setErrors((e) => ({ ...e, name: undefined }));
             }}
-            placeholder="e.g. Domaći hljeb"
+            placeholder="e.g. Homemade bread"
             autoCapitalize="sentences"
             maxLength={120}
             error={errors.name ?? null}
@@ -379,7 +380,7 @@ export function FoodForm({
               setBrand(t);
               clearFlag('field:brand');
             }}
-            placeholder="e.g. Klas"
+            placeholder="e.g. Sunny Farms"
             autoCapitalize="words"
             maxLength={80}
             warning={flags.has('field:brand') ? 'Check the brand against the package.' : null}
@@ -440,7 +441,7 @@ export function FoodForm({
                   accessibilityLabel={`Remove serving ${i + 1}`}
                   onPress={() => setServings((s) => s.filter((_, j) => j !== i))}
                   style={[styles.remove, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
-                  <AppText style={{ fontWeight: '700' }}>{'\u2715'}</AppText>
+                  <Glyph name="close" size={18} color={colors.text} />
                 </Pressable>
               ) : null}
             </View>

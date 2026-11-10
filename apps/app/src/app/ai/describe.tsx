@@ -16,8 +16,8 @@ import { AppText, Button, Card, Screen } from '@/components/ui';
 import { radius, spacing, useTheme } from '@/theme';
 
 const EXAMPLES = [
-  '200g piletina, 1 šolja riže, 1 tbsp olive oil',
-  '2 jaja, 2 šnite hljeba, kafa sa mlijekom',
+  '200 g chicken breast, 1 cup of rice, 1 tbsp olive oil',
+  '2 eggs, 2 slices of toast, coffee with milk',
   'A bowl of oatmeal with a banana and a spoon of peanut butter',
 ];
 
@@ -82,7 +82,7 @@ export default function DescribeMealScreen() {
               label="Describe your meal"
               value={text}
               onChangeText={setText}
-              placeholder="e.g. 200g piletina, 1 šolja riže, 1 tbsp olive oil"
+              placeholder="e.g. 200 g chicken breast, 1 cup of rice, 1 tbsp olive oil"
               multiline
               maxLength={2000}
               autoCapitalize="sentences"

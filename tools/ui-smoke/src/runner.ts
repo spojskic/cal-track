@@ -13,7 +13,7 @@ import type { Browser, BrowserContext, Page } from 'playwright-core';
 import type { AppFiles } from './app-files';
 import { waitForInputValue } from './actions';
 import { backendIssues, dedupeIssues, functionCalls } from './analysis';
-import { buttonLayoutScript, dateShiftScript, inspectPageScript, scrollMetricsScript, seedSessionScript } from './browser-scripts';
+import { buttonLayoutScript, dateShiftScript, inspectPageScript, scrollMetricsScript, seedSessionScript, seedThemeScript } from './browser-scripts';
 import { APP_ORIGIN, FIXED_NOW_MS, STORAGE_KEY, TIMEZONE } from './constants';
 import { classifyConsole } from './known-noise';
 import { buildFixtures } from './fixtures';
@@ -22,6 +22,7 @@ import type { Issue, IssueKind, ScenarioResult } from './report';
 import { statusOf } from './report';
 import { installRouting, type BlockedRequest, type RequestLog } from './routing';
 import { SEED_SESSION_TTL_SECONDS, buildSession } from './session';
+import { THEME_STORAGE_KEY, themePrefsFor } from './theme-seed';
 import { VIEWPORTS, resolvePath, type Scenario, type ScenarioContext, type TextOptions, type ViewportName } from './types';
 
 export interface RunDeps {
@@ -30,6 +31,8 @@ export interface RunDeps {
   outDir: string;
   consoleErrors: 'fail' | 'warn';
   timeoutMs: number;
+  /** `--theme=<paletteId>`: the app starts with this palette (the saved theme choice is seeded before it loads). */
+  theme?: string;
 }
 
 export interface ScenarioRun {
@@ -237,6 +240,8 @@ export async function runScenario(deps: RunDeps, scenario: Scenario, index: numb
       const session = buildSession(fixtures.user, { nowMs: FIXED_NOW_MS, ttlSeconds: SEED_SESSION_TTL_SECONDS });
       await context.addInitScript({ content: seedSessionScript({ origin: APP_ORIGIN, storageKey: STORAGE_KEY, session }) });
     }
+    const themePrefs = deps.theme ? themePrefsFor(deps.theme) : null;
+    if (themePrefs) await context.addInitScript({ content: seedThemeScript({ origin: APP_ORIGIN, storageKey: THEME_STORAGE_KEY, prefs: themePrefs }) });
     await installRouting(context, { files: deps.files, getBackend: () => backend, log });
 
     page = await context.newPage();

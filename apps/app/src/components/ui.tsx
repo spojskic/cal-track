@@ -66,17 +66,20 @@ export function Screen({
   title,
   scroll = true,
   safeTop = false,
+  maxWidth,
 }: {
   children: ReactNode;
   title?: string;
   scroll?: boolean;
   /** Keep the content below the status bar / notch. Only for screens WITHOUT a native header (a header does this itself). */
   safeTop?: boolean;
+  /** Widest the content may get on a large screen (default: MAX_CONTENT_WIDTH). For pages that lay out columns. */
+  maxWidth?: number;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const content = (
-    <View style={styles.content}>
+    <View style={maxWidth === undefined ? styles.content : [styles.content, { maxWidth }]}>
       {title ? <AppText variant="title" style={styles.pageTitle}>{title}</AppText> : null}
       {children}
     </View>
