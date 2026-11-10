@@ -1,7 +1,8 @@
 /**
- * The More screen's section model (apps/app/src/components/settings/more-sections.ts): which sections there are, in which order and
- * column, which rows each holds and that every row leads to a real screen. Pure Node: the screen itself (icons, hover, columns) is
- * covered by the browser smoke scenarios `more`, `more: sign out` and the Workouts ones.
+ * The More screen's section model (apps/app/src/components/settings/more-sections.ts): which sections there are, in which order,
+ * which rows each holds and that every row leads to a real screen. The More screen is a phone's fourth tab; a desktop window lists
+ * the same rows in its sidebar (see desktop-shell.test.ts). Pure Node: the screens themselves are covered by the browser smoke
+ * scenarios `more`, `more: sign out`, `shell: ...` and the Workouts ones.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -9,13 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  MORE_TWO_COLUMNS_FROM,
-  MORE_WIDE_WIDTH,
-  buildMoreSections,
-  sectionsInColumn,
-  type MoreRow,
-} from '../../../apps/app/src/components/settings/more-sections';
+import { buildMoreSections, type MoreRow } from '../../../apps/app/src/components/settings/more-sections';
 import { scanRoutes } from './routes-scan';
 
 const APP_SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'apps', 'app', 'src');
@@ -101,21 +96,5 @@ describe('More sections', () => {
   it('leads every row to a screen that exists', () => {
     const routes = new Set(scanRoutes(APP_DIR).map((r) => r.pattern));
     for (const row of rowsOf(true)) expect(routes.has(row.href), `${row.label} -> ${row.href}`).toBe(true);
-  });
-
-  it('splits the wide layout into Training / Coach / Connections and Profile / App / Account', () => {
-    for (const aiEnabled of [true, false]) {
-      const sections = buildMoreSections({ aiEnabled });
-      expect(sectionsInColumn(sections, 'left').map((s) => s.label)).toEqual(['Training', 'Coach', 'Connections']);
-      expect(sectionsInColumn(sections, 'right').map((s) => s.label)).toEqual(['Profile', 'App', 'Account']);
-    }
-  });
-
-  it('starts the two columns where the sidebar still leaves each column enough room', () => {
-    // Content width = window - 232 (sidebar), capped at MORE_WIDE_WIDTH; minus 2 x 16 page padding and the 20 px gap, shared by two.
-    const column = (window: number) => (Math.min(window - 232, MORE_WIDE_WIDTH) - 32 - 20) / 2;
-    expect(MORE_TWO_COLUMNS_FROM).toBeGreaterThanOrEqual(900);
-    expect(column(MORE_TWO_COLUMNS_FROM)).toBeGreaterThanOrEqual(340);
-    expect(column(1280)).toBeGreaterThan(480);
   });
 });

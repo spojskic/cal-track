@@ -1,10 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { useAiGate } from '@/ai/use-ai-gate';
 import { EnergySummary } from '@/components/charts/EnergySummary';
 import { AverageCard, CoachCard, QuickAddRow, StreakCard, WeightCard } from '@/components/diary/DashboardCards';
+import { DesktopDashboard } from '@/components/diary/DashboardPanels';
 import { ResponsiveGrid } from '@/components/diary/layout';
 import { go } from '@/components/diary/nav';
 import { energySummaryProps } from '@/components/diary/energy-view';
@@ -18,7 +19,7 @@ import { useProfile } from '@/data/profile';
 import { useTargets } from '@/data/targets';
 import { useWeightHistory, type WeightPoint } from '@/data/weight';
 import { todayISO } from '@/state/selected-date';
-import { spacing, useTheme } from '@/theme';
+import { WIDE_BREAKPOINT, spacing, useTheme } from '@/theme';
 
 type Range = '7' | '14' | '30';
 
@@ -26,6 +27,7 @@ const EMPTY_POINTS: WeightPoint[] = [];
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
+  const wide = useWindowDimensions().width >= WIDE_BREAKPOINT;
   const today = todayISO();
 
   const day = useDayNutrients(today);
@@ -70,6 +72,31 @@ export default function DashboardScreen() {
       void refetchWeight();
     }, [refetchRecent, refetchWeight]),
   );
+
+  // Wide windows (beside the sidebar) get panels and a KPI strip; the phone keeps the cards below.
+  if (wide) {
+    return (
+      <DesktopDashboard
+        today={today}
+        energy={energy}
+        energyProps={{
+          ...energySummaryProps(energy, summary.toggle),
+          split: { target: targetSplit(targets), consumed: consumedSplit(day.totals) },
+        }}
+        day={day}
+        targets={targets}
+        needsOnboarding={targetsQ.needsOnboarding}
+        netCarbs={netCarbs}
+        rows={rows}
+        recent={{ days: recent.days, streak: recent.streak, isLoading: recent.isLoading }}
+        weight={{ points: weightPoints, isLoading: weight.isLoading }}
+        unitSystem={unitSystem}
+        range={range}
+        onRangeChange={setRange}
+        aiEnabled={gate.enabled}
+      />
+    );
+  }
 
   return (
     <Screen title="Dashboard">

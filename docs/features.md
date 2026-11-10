@@ -21,8 +21,8 @@ style. It ends with a live breakdown of your numbers.
   The tables were written from memory and have not been cross-checked against the official sources yet.
 - **Thermic effect of food** (10% of intake) can be switched on or off. It counts in the Expenditure circle and in the Balance
   view, but is never added to your Target budget.
-- **Energy mode** (Profile & targets): *Static* (baseline activity only, ignores your watch), *Device-adjusted (like
-  Cronometer)* (your watch activity replaces the baseline during the day and workouts are added) and *Device total* (your
+- **Energy mode** (Profile & targets): *Static* (baseline activity only, ignores your watch), *Device-adjusted*
+  (your watch activity replaces the baseline during the day and workouts are added) and *Device total* (your
   watch's active + resting calories only). The baseline is your starting allowance for the day: tracker activity replaces it
   one for one, and every hour of exercise, logged by hand or recorded by a watch, takes one sixteenth of it. Connecting a
   watch or health app moves a Static profile to Device-adjusted once.
@@ -40,7 +40,7 @@ One page per day with prev/next navigation.
   Tap its label to switch; the choice is remembered. Tap the Expenditure circle to see its parts: BMR, adjusted baseline
   activity, tracker activity (with a watch), exercise and thermic effect of food.
 - **Nutrient targets** section: a nutrition score, highlighted nutrients (fibre, iron, calcium, vitamins A/C/B12, folate,
-  potassium) and every nutrient grouped as in Cronometer. Bars are grey below target, green in range and red above an upper
+  potassium) and every nutrient grouped by type (vitamins, minerals, amino acids, ...). Bars are grey below target, green in range and red above an upper
   limit. A dash means "unknown", never zero.
 - **Also on the page**: exercise, water, notes, and a *Devices* group for data imported from your watch.
 
@@ -49,7 +49,15 @@ The **+** button opens one sheet for everything you can add: search food, scan b
 
 ## Foods
 
-- **Search** is accent-insensitive and typo-tolerant, so "cevapi" finds "Ćevapi". Tabs: All, Recent, Favorites, My foods.
+- **Search** is accent-insensitive and typo-tolerant, so "cevapi" finds "Ćevapi". It works **in place on the Foods tab**: the search
+  field at the top of the tab is a real input (phone and desktop). Type two characters or more and the results appear right below
+  it, in the place of the library list (the Favorites / Recent / ... chips step aside); clear the field with its **x** (or Escape on
+  a keyboard) and the library comes back. Tap a result to open the food, or its **+** to add one serving to the default meal of the
+  selected day (a line above the results says which). *Search online (branded products)* and *Create custom food* are under the
+  results. On an empty Favorites or Recent list the *Search foods* button puts the cursor in the field.
+  The **Add food** screen (the *Add to diary* button, the **+** buttons, the dashboard quick actions) is the dedicated flow for
+  adding: the same search, plus the meal chips ("Adding to Snacks · Today"), the tabs All, Recent, Favorites, My foods and the **...**
+  menu for the other ways to add.
   Results are a flat list: name, brand and kcal per 100 g, with the source (Custom Food, Custom Recipe, USDA, ...) at the right.
   Results are ranked by your own history first, then by data quality (USDA Foundation and SR Legacy first, then survey foods,
   then branded products).
@@ -74,6 +82,56 @@ The **+** button opens one sheet for everything you can add: search food, scan b
 - **Water** quick buttons, **notes**, and a **dashboard** with today's summary, a 7-day average, your logging streak and a
   30-day weight trend.
 
+## Desktop navigation (the sidebar and the status bar)
+
+On a window of 900 px or more the bottom tab bar is replaced by a **sidebar** at the left and a thin **status bar** at the bottom. They stay
+on every screen (settings, workouts, the coach, search, a food or recipe page, the add sheet), so you never have to go back to a menu. The
+sign-in screen, the first-run wizard and the barcode camera are drawn without them. Phones are unchanged: bottom tab bar, the raised **+**
+button and the More tab.
+
+- **Sidebar**, top to bottom: the **Cal Track** mark; the **Add to diary** button (opens the add sheet); then small labelled groups, each
+  with a chevron that collapses it (the groups you close stay closed the next time you open the app on this device):
+  **Daily** (Dashboard, Diary, Foods), **Training** (Workouts), **Coach** (Coach when AI is on; AI Coach & keys, or AI (optional),
+  with a small *On* / *Off* at the right), **Profile** (Profile & targets, Personal details, Nutrient targets), **Connections** (Connected
+  apps & devices) and **App** (Display & units, About). These are the rows of the phone's More tab; there is no *More* item. The row of
+  the page you are on is highlighted (for a workout's page that is Workouts; for a food's page, Foods).
+- **Calendar** (last group, closed at first): a month with Monday first, today ringed and the diary date filled in. The arrows page between
+  months, **Today** jumps back, and a day makes it the diary date and opens the diary.
+- **Account** (pinned at the bottom of the sidebar, always visible): the e-mail you are signed in with and **Sign out**.
+- **Status bar**: at the left when your data last synced (*Syncing...*, *Synced 12 min ago*, *Synced today at 14:32*, *Synced on Oct 20*,
+  or *Not synced* when no connected app or watch has synced); at the right *AI: on* or *AI: off*, the name of the colour theme and
+  the app version.
+- **Page header**: a page that is not a tab (settings, workouts, ...) shows a slim strip with the title, the name of its parent in
+  muted type ("Settings > Display & units"), a small back button when there is somewhere to go back to, and its actions at the right.
+
+## Desktop layouts (Dashboard, Diary, Foods on a window of 900 px or more)
+
+Beside the sidebar the three tab pages use the whole window instead of a narrow centred column (content up to 1440 px wide, 20 px
+around it, 12 px between panels). Each page starts with a slim header strip (title, a muted subtitle or date, actions at the right) and
+fills the rest with bordered **panels**: a small title strip (title at the left, a muted note or a link at the right) over the content.
+Phones keep their single column; nothing on the phone changes.
+
+- **Dashboard**: the header shows today's date and the quick-add buttons *Food*, *Exercise*, *Biometric* and *Note* (same names as the
+  phone tiles: "Add food", ...). A **KPI strip** of six cells follows: *Consumed* (with a 14-day sparkline), *Remaining* / *Over* /
+  *Deficit* / *Surplus* (follows the Target / Balance switch), *Protein*, *Carbs* (or *Net Carbs*), *Fat* (each with "of target" and
+  a thin progress strip) and *Logging streak* (the last seven days as markers). Under it the panels sit in 3 columns from a content
+  width of ~1120 px (a 1440 px window), 2 from ~760 px, 1 below: **Today** (the three energy rings, the macro bars as label / bar /
+  value columns, *Open diary*), **Consumed average** (7d / 14d / 30d, the daily bars and the protein / carbs / fat shares), **Weight
+  trend** (latest weight, the 30-day change, the chart and start / lowest / highest / weigh-ins, *Log weight*), **Recent workouts**
+  (the latest five, *All workouts*), **Nutrition score** and **Highlighted nutrients**. With a working AI key a slim **Coach** panel
+  with *Open coach* closes the page. Panels of one row have the same height and the last row always fills the width.
+- **Diary**: the header carries the date controls (previous / next day, the date with *Today*, **+** and **...**). Two panes: the
+  **Entries** panel at the left (about 58 %, at least 520 px) with the Food / Exercise / Biometric / Note tabs, the device activity
+  group, the meals and water, rows exactly as on the phone; at the right **Targets** (macro bars, *Edit* opens the target settings),
+  **Energy summary** (rings, the Target / Balance label, macro split) and **Nutrient targets** (score and highlighted nutrients).
+  Below both panes the nutrient tables (General, Carbohydrates, Lipids, Protein, Vitamins, Minerals) are panels in a grid; click a
+  title strip to collapse a group. Under 900 px of content the panes stack.
+- **Foods**: the **Food library** panel (search field, scan button, the chips Favorites / Recent / My foods / Recipes / Saved meals and
+  the list, which scrolls inside the panel) with a narrow column at the right: **Create** (*Create food*, *Create recipe*, *New saved
+  meal*) and a few lines of help. On a narrower window the create actions move to the page header. Typing two characters or more in the
+  search field puts the results in the same list area (the chips step aside, the panel says "N results"); clearing the field brings
+  the library back.
+
 ## More (the menu tab)
 
 Everything that is not a daily screen, in small labelled groups (a muted label above a card of rows, each row with an icon, its name
@@ -88,9 +146,10 @@ and a one-line description, and a chevron):
 | **App** | Display & units (colour theme, light or dark mode, rounded or boxy corners, units), About |
 | **Account** | The e-mail you are signed in with and **Sign out** |
 
-On a phone the groups follow one another in that order. On a wide screen (a window of about 1000 px or more, beside the sidebar)
-they sit in two columns: Training, Coach and Connections on the left; Profile, App and Account on the right. Rows light up when you
-point at them. The paths in this documentation (for example **More > Profile & targets**) name the row, not the group.
+On a phone the groups follow one another in that order. A desktop window (900 px or more) has **no More page**: the same groups
+(Training, Coach, Profile, Connections, App) are in the sidebar and the account sits at its bottom (see [Desktop navigation](#desktop-navigation-the-sidebar-and-the-status-bar)),
+so an old link to `/more` just opens the dashboard. The paths in this documentation (for example **More > Profile & targets**) name the
+row, not the group; on a desktop it is the row of that name in the sidebar.
 
 ## Workouts (More > Workouts)
 
@@ -135,25 +194,25 @@ and saves it to your account. Nothing is written to Garmin.
 
 ## Themes (Settings > Display & units > Appearance)
 
-Colour themes you switch in the app, like the Garmin Companion app.
+Colour themes you switch in the app.
 
 - **Mode**: *Match system* follows the light or dark setting of your device (it switches by itself when the device does), *Light*
   and *Dark* pin the app to that side.
-- **Corners**: *Rounded* (the original look) or *Boxy*. Boxy gives the whole app sharp, small corners like the Garmin Companion app:
+- **Corners**: *Boxy* (the default) or *Rounded* (the original look). Boxy gives the whole app sharp, small corners:
   cards and sheets 6 px, buttons, fields, chips and segmented controls 4 px, small badges and highlights 3 px, bars 2 px, and the round
   buttons (back, "+", the tab bar button) become rounded squares. Nothing is pill-shaped. Tiny status dots (the legend dots of the
   charts) and radio buttons stay round, because a square one would read as a checkbox. It applies at once to every screen, and the
   palette previews below follow it.
 - **Light palette** and **Dark palette**: one pick for each side, shown as small previews (the card with the check mark is the one in
   use). Mode decides which side is on screen; both picks are remembered. **Reset to default** shows up when your choice differs from the
-  defaults (also when only the corners differ) and brings back Match system, Kanagawa Lotus (light), Kanagawa Wave (dark) and Rounded
+  defaults (also when only the corners differ) and brings back Match system, Kanagawa Lotus (light), Kanagawa Wave (dark) and Boxy
   corners.
 - **Light:** Kanagawa Lotus (default), Catppuccin Latte, Solarized Light, Gruvbox Light, GitHub Light, Rosé Pine Dawn, Tokyo Night Day,
   One Light, Paper, Cal Track Day.
   **Dark:** Kanagawa Wave (default), Kanagawa Dragon, Tokyo Night, Catppuccin Mocha, Dracula, Nord, Gruvbox Dark, Rosé Pine, One Dark,
   GitHub Dark, Solarized Dark, Cal Track Night. *Cal Track Day* and *Night* are the original navy and orange look.
 - **Saved on this device only**, not in your account, so your phone and your browser can use different themes (and corners). Nothing to
-  set up in Supabase. A theme saved before the Boxy switch existed simply opens with Rounded corners.
+  set up in Supabase. A theme saved before the Boxy switch existed simply opens with the default (Boxy) corners; pick Rounded to keep the old look.
 - **Readable by construction:** every palette is checked in the tests for text, muted text, button labels and the red, green and amber
   status colours against the page, cards and sidebar (WCAG contrast). A few theme colours were nudged a little darker or lighter to pass;
   they are marked `nudged` in `apps/app/src/theme/palettes-light.ts` and `palettes-dark.ts`.

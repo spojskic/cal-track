@@ -1,49 +1,43 @@
-import { router, type Href } from 'expo-router';
+import { Redirect, router, type Href } from 'expo-router';
 import { Fragment, useMemo } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAiGate } from '@/ai/use-ai-gate';
-import {
-  MORE_TWO_COLUMNS_FROM,
-  MORE_WIDE_WIDTH,
-  buildMoreSections,
-  sectionsInColumn,
-  type MoreSection,
-} from '@/components/settings/more-sections';
+import { useDesktopShell } from '@/components/desktop/shell-context';
+import { buildMoreSections, type MoreSection } from '@/components/settings/more-sections';
 import { Divider, LIST_CARD_PADDING, LIST_DIVIDER_INSET, NavRow } from '@/components/settings/rows';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { spacing } from '@/theme';
 
-/** Space between the sections of a column, and between the two columns of the wide layout. */
+/** Space between the sections. */
 const SECTION_GAP = 20;
 
 /**
- * The More screen: grouped lists (Training, Coach, Profile, Connections, App, Account), each a small heading above a card of rows.
- * What is listed, in which section and column lives in components/settings/more-sections.ts. One column on a phone; two columns
- * (Training / Coach / Connections, then Profile / App / Account) when the window is wide enough for the columns to fit their labels.
+ * The More screen (phone): grouped lists (Training, Coach, Profile, Connections, App, Account), each a small heading above a card of
+ * rows. What is listed and in which section lives in components/settings/more-sections.ts.
+ *
+ * A desktop window has no More page: the sidebar (components/desktop/Sidebar.tsx) lists all of these rows, and the account with Sign
+ * out sits at its bottom. So an old link or bookmark to /more just opens the dashboard there.
  */
 export default function MoreScreen() {
+  const desktop = useDesktopShell();
+  if (desktop) return <Redirect href="/" />;
+  return <MoreContent />;
+}
+
+function MoreContent() {
   const { session, signOut } = useAuth();
   const ai = useAiGate();
-  const { width } = useWindowDimensions();
-  const twoColumns = width >= MORE_TWO_COLUMNS_FROM;
   const sections = useMemo(() => buildMoreSections({ aiEnabled: ai.enabled }), [ai.enabled]);
 
-  const renderSection = (section: MoreSection) => (
-    <Section key={section.id} section={section} email={session?.user.email} onSignOut={signOut} />
-  );
-
   return (
-    <Screen title="More" maxWidth={twoColumns ? MORE_WIDE_WIDTH : undefined}>
-      {twoColumns ? (
-        <View style={styles.columns}>
-          <View style={styles.column}>{sectionsInColumn(sections, 'left').map(renderSection)}</View>
-          <View style={styles.column}>{sectionsInColumn(sections, 'right').map(renderSection)}</View>
-        </View>
-      ) : (
-        <View style={styles.stack}>{sections.map(renderSection)}</View>
-      )}
+    <Screen title="More">
+      <View style={styles.stack}>
+        {sections.map((section) => (
+          <Section key={section.id} section={section} email={session?.user.email} onSignOut={signOut} />
+        ))}
+      </View>
     </Screen>
   );
 }
@@ -85,8 +79,6 @@ function Section({ section, email, onSignOut }: { section: MoreSection; email: s
 
 const styles = StyleSheet.create({
   stack: { gap: SECTION_GAP },
-  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: SECTION_GAP },
-  column: { flex: 1, minWidth: 0, gap: SECTION_GAP },
   section: { gap: spacing.sm },
   // A heading above its card (not inside it): small, semibold and muted.
   sectionLabel: { fontWeight: '600', letterSpacing: 0.3, paddingHorizontal: spacing.xs },

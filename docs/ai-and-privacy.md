@@ -13,7 +13,7 @@ to the app.
 
 ## Connecting
 
-Open **More > AI (optional)**.
+Open **More > AI (optional)** (in a desktop window: the **AI (optional)** row in the sidebar).
 
 - **Connect with OpenRouter**: on the web this opens OpenRouter's sign-in and returns a key for this app. On phones it shows a
   code that you copy and paste back. OpenRouter documents redirects only for `https` addresses on specific ports, so the

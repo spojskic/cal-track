@@ -1,11 +1,12 @@
 import { router, Stack, type Href } from 'expo-router';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAiBootstrap } from '@/ai/use-ai-bootstrap';
 import { useAiClient } from '@/ai/use-ai-client';
 import { useAiGate } from '@/ai/use-ai-gate';
 import type { CoachTopic } from '@/ai/coach-topic';
 import { useCoachChat } from '@/ai/use-coach-chat';
+import { useContentWidth } from '@/components/desktop/shell-context';
 import { WIDE_BREAKPOINT, spacing, useTheme } from '@/theme';
 
 import { ChatView } from './ChatView';
@@ -59,7 +60,8 @@ export function CoachScreen({
 
 function CoachWorkspace({ initialThreadId, topic = null }: { initialThreadId: string | null; topic?: CoachTopic | null }) {
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
+  // Two panes (the chat list and the chat) need room: the width of the area next to the sidebar, not the whole window.
+  const width = useContentWidth();
   const wide = width >= WIDE_BREAKPOINT;
   const chat = useCoachChat({ initialThreadId, topic });
 
@@ -110,7 +112,7 @@ function CoachWorkspace({ initialThreadId, topic = null }: { initialThreadId: st
 export function CoachHistoryScreen() {
   const access = useCoachAccess();
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   if (!access.open) return <CoachUnavailable reason={access.reason} title="Chat history" />;
   if (width >= WIDE_BREAKPOINT) return <CoachWorkspace initialThreadId={null} />;
   return (

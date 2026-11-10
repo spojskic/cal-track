@@ -1,9 +1,10 @@
 import { Stack, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deriveNutrients, scaleNutrients, sumNutrients } from '@cal/core';
 
+import { useContentWidth } from '@/components/desktop/shell-context';
 import { DayStepper } from '@/components/food/day-stepper';
 import { hapticSuccess } from '@/components/food/feedback';
 import { formatDayLabel } from '@/components/food/format';
@@ -52,7 +53,8 @@ function leaveAfterAdd() {
 export function SavedMealEditor({ initial, mealGroupParam }: { initial?: SavedMeal; mealGroupParam?: string }) {
   const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  // The width of the area next to the sidebar (the window's, on a phone), so the two columns only start when they fit.
+  const width = useContentWidth();
   const wide = width >= WIDE_LAYOUT;
   const imperial = useUnitSystem() === 'imperial';
   const date = useSelectedDate((s) => s.date);

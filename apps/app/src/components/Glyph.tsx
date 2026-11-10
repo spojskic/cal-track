@@ -5,7 +5,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
  * middle of their button on every platform. Text characters such as "+" or the single angle quote cannot do that: each font
  * puts them at a different height and width, which is what made the icons look off-centre in the web build.
  */
-export type GlyphName = 'plus' | 'minus' | 'chevron-left' | 'chevron-right' | 'dots' | 'close' | 'check';
+export type GlyphName = 'plus' | 'minus' | 'chevron-left' | 'chevron-right' | 'chevron-down' | 'dots' | 'close' | 'check';
 
 /** Characters callers pass around today (IconButton `glyph`) and the drawn icon that replaces each of them. */
 const BY_CHAR: Record<string, GlyphName> = {
@@ -44,6 +44,7 @@ export function Glyph({
       {name === 'minus' ? <Path d="M5 12h14" {...stroke} /> : null}
       {name === 'chevron-left' ? <Path d="M14.5 5.5 8 12l6.5 6.5" {...stroke} /> : null}
       {name === 'chevron-right' ? <Path d="M9.5 5.5 16 12l-6.5 6.5" {...stroke} /> : null}
+      {name === 'chevron-down' ? <Path d="M5.5 9.5 12 16l6.5-6.5" {...stroke} /> : null}
       {name === 'close' ? <Path d="M6 6l12 12M18 6 6 18" {...stroke} /> : null}
       {name === 'check' ? <Path d="M5 12.5l4.5 4.5L19 7.5" {...stroke} /> : null}
       {name === 'dots' ? (

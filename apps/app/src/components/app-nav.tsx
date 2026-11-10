@@ -8,15 +8,16 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
   type PressableProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DASHBOARD_ROW, DIARY_ROW, FOODS_ROW } from '@/components/desktop/sidebar-model';
+import { useDesktopShell } from '@/components/desktop/shell-context';
 import { Glyph } from '@/components/Glyph';
-import { WIDE_BREAKPOINT, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 interface NavItem {
   name: string;
@@ -25,10 +26,11 @@ interface NavItem {
   symbol: SymbolViewProps['name'];
 }
 
+// The phone's tabs. The icons of the first three are shared with the desktop sidebar (components/desktop/sidebar-model.ts).
 const ITEMS: NavItem[] = [
-  { name: 'index', href: '/', label: 'Dashboard', symbol: { ios: 'chart.bar.fill', android: 'bar_chart', web: 'bar_chart' } },
-  { name: 'diary', href: '/diary', label: 'Diary', symbol: { ios: 'book.fill', android: 'menu_book', web: 'menu_book' } },
-  { name: 'foods', href: '/foods', label: 'Foods', symbol: { ios: 'fork.knife', android: 'restaurant', web: 'restaurant' } },
+  { name: 'index', href: '/', label: DASHBOARD_ROW.label, symbol: DASHBOARD_ROW.symbol },
+  { name: 'diary', href: '/diary', label: DIARY_ROW.label, symbol: DIARY_ROW.symbol },
+  { name: 'foods', href: '/foods', label: FOODS_ROW.label, symbol: FOODS_ROW.symbol },
   { name: 'more', href: '/more', label: 'More', symbol: { ios: 'ellipsis.circle.fill', android: 'more_horiz', web: 'more_horiz' } },
 ];
 
@@ -46,13 +48,18 @@ function openAddSheet() {
 }
 
 /**
- * Responsive shell: left sidebar on wide screens (web/tablet, like Cronometer web),
- * bottom tab bar with a centre "+" button on phones.
+ * The shell of the three tab pages (Dashboard, Diary, Foods) and More.
+ *
+ * Phone: the page above a bottom tab bar with a raised "+" button in the middle.
+ *
+ * Desktop (the desktop shell is on, see components/desktop/DesktopFrame.tsx): the sidebar and status bar are drawn once, above the
+ * whole navigator, by the root layout, so this layout only renders the routed page. The tab triggers are still registered, in a
+ * hidden list, because expo-router/ui builds the tab screens from them: without a trigger a route is not a screen of the Tabs.
+ * The More tab is registered too (its screen redirects to the dashboard on a desktop: the sidebar has everything More lists).
  */
 export function AppShell({ children }: { children?: ReactNode }) {
-  const { width } = useWindowDimensions();
-  const wide = width >= WIDE_BREAKPOINT;
-  const { colors, radius, shape } = useTheme();
+  const desktop = useDesktopShell();
+  const { colors, shape } = useTheme();
   const insets = useSafeAreaInsets();
   const left = ITEMS.slice(0, 2);
   const right = ITEMS.slice(2);
@@ -63,30 +70,24 @@ export function AppShell({ children }: { children?: ReactNode }) {
   // So `Tabs`/`TabList` are used with `asChild`, and the triggers are written inline as direct children.
   return (
     <Tabs asChild>
-      <View style={flat(styles.root, { flexDirection: wide ? 'row' : 'column', backgroundColor: colors.background })}>
-        {wide ? (
+      <View style={flat(styles.root, { flexDirection: 'column', backgroundColor: colors.background })}>
+        {desktop ? (
           <TabList asChild>
-            <View style={flat(styles.sidebar, { backgroundColor: colors.sidebar, paddingTop: spacing.xl + insets.top })}>
-              <Text style={[styles.brand, { color: colors.onSidebar }]}>Cal Track</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={openAddSheet}
-                style={[styles.sidebarAdd, { backgroundColor: colors.primary, borderRadius: radius.pill }]}>
-                <Text style={[styles.sidebarAddLabel, { color: colors.onPrimary }]}>+  Add to diary</Text>
-              </Pressable>
+            <View style={flat(styles.hiddenList)}>
               {ITEMS.map((item) => (
                 <TabTrigger key={item.name} name={item.name} href={item.href} asChild>
-                  <SidebarButton item={item} />
+                  <HiddenTrigger />
                 </TabTrigger>
               ))}
             </View>
           </TabList>
         ) : null}
-        {/* The tab screens have no native header, so keep them below the status bar / notch (0 on the web). */}
-        <View style={[styles.slot, { paddingTop: insets.top }]}>
+        {/* The tab screens have no native header, so keep them below the status bar / notch (0 on the web). The desktop shell keeps
+            that room free around the whole navigator already. */}
+        <View style={[styles.slot, { paddingTop: desktop ? 0 : insets.top }]}>
           <TabSlot style={styles.slotInner} />
         </View>
-        {!wide ? (
+        {!desktop ? (
           <TabList asChild>
             <View
               style={flat(styles.bottomBar, {
@@ -121,19 +122,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
   );
 }
 
-function SidebarButton({ item, isFocused, ...rest }: TabTriggerSlotProps & { item: NavItem }) {
-  const { colors } = useTheme();
-  const color = isFocused ? colors.primary : colors.onSidebar;
-  return (
-    <Pressable
-      {...(rest as PressableProps)}
-      accessibilityRole="link"
-      accessibilityLabel={item.label}
-      style={({ pressed }) => [styles.sidebarButton, pressed && { opacity: 0.7 }]}>
-      <SymbolView name={item.symbol} size={20} tintColor={color} />
-      <Text style={[styles.sidebarLabel, { color }]}>{item.label}</Text>
-    </Pressable>
-  );
+/** What a desktop trigger renders: nothing. The trigger only has to exist so that the route is a screen of the tabs. */
+function HiddenTrigger(): null {
+  return null;
 }
 
 function BottomButton({ item, isFocused, ...rest }: TabTriggerSlotProps & { item: NavItem }) {
@@ -158,20 +149,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   slot: { flex: 1 },
   slotInner: { flex: 1 },
-  sidebar: {
-    width: 232,
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    justifyContent: 'flex-start',
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
-  },
-  brand: { fontSize: 22, fontWeight: '800', marginBottom: spacing.md },
-  sidebarAdd: { paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.md },
-  sidebarAddLabel: { fontWeight: '700', fontSize: 15 },
-  sidebarButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.sm },
-  sidebarLabel: { fontSize: 16, fontWeight: '600' },
+  hiddenList: { display: 'none' },
   bottomBar: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', paddingTop: spacing.sm },
   bottomButton: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: spacing.xs },
   bottomLabel: { fontSize: 11, fontWeight: '600' },

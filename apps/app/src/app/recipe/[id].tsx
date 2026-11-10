@@ -6,11 +6,11 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deriveNutrients, scaleNutrients } from '@cal/core';
 
+import { useContentWidth } from '@/components/desktop/shell-context';
 import { CompletenessLabel } from '@/components/food/completeness';
 import { formatKcal, firstParam, trimNumber } from '@/components/food/format';
 import { MacroSummary } from '@/components/food/macro-summary';
@@ -89,7 +89,8 @@ function RecipeDetailView({
 }) {
   const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  // The width of the area next to the sidebar (the window's, on a phone), so the two columns only start when they fit.
+  const width = useContentWidth();
   const wide = width >= WIDE_LAYOUT;
   const userId = useAuth().session?.user.id;
   const targets = useTargets().data?.nutrients;

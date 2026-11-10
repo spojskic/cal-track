@@ -10,16 +10,24 @@ export function Sparkline({
   height = 72,
   color,
   accessibilityLabel,
+  strokeWidth = 2.5,
+  dotRadius = 4,
+  pad = 6,
 }: {
   values: number[];
   height?: number;
   color?: string;
   accessibilityLabel?: string;
+  /** Line weight (default 2.5; the desktop KPI strip draws a thinner 1.5). */
+  strokeWidth?: number;
+  /** Radius of the dot on the latest value (default 4). */
+  dotRadius?: number;
+  /** Space between the line and the edges (default 6). */
+  pad?: number;
 }) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const stroke = color ?? colors.primary;
-  const pad = 6;
 
   const onLayout = (e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width));
 
@@ -51,9 +59,9 @@ export function Sparkline({
         <Svg width={width} height={height}>
           {area ? <Path d={area} fill={stroke} opacity={0.12} /> : null}
           {values.length > 1 ? (
-            <Path d={line} stroke={stroke} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d={line} stroke={stroke} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           ) : null}
-          {last ? <Circle cx={last.x} cy={last.y} r={4} fill={stroke} /> : null}
+          {last ? <Circle cx={last.x} cy={last.y} r={dotRadius} fill={stroke} /> : null}
         </Svg>
       ) : null}
     </View>

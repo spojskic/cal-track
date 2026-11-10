@@ -126,7 +126,7 @@ Sign in with a user you created, finish the onboarding wizard (body details, act
 | Want | Do |
 | --- | --- |
 | Barcode scanning and "Search online" | Deploy the edge functions: [supabase/functions/README.md](../supabase/functions/README.md) |
-| AI features | Connect an OpenRouter key under **More > AI**: [AI and privacy](ai-and-privacy.md) |
+| AI features | Connect an OpenRouter key under **More > AI** (the AI row in the sidebar on a computer): [AI and privacy](ai-and-privacy.md) |
 | Phone apps and Apple Health / Health Connect | [Install on devices](install-on-devices.md) |
 | Backups and keep-alive | Add the repository secrets listed at the top of `.github/workflows/db-backup.yml` and `keep-alive.yml` |
 

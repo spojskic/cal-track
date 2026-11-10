@@ -1,14 +1,13 @@
-// Pure (no React Native / expo-router imports at runtime): what the More screen lists, in which section and in which column on a
-// wide screen. The screen (app/(app)/more.tsx) only draws this; the unit test (tools/ui-smoke/src/more-sections.test.ts) checks it.
+// Pure (no React Native / expo-router imports at runtime): what the More screen lists and in which section. The screen
+// (app/(app)/more.tsx, a phone's fourth tab) only draws this; the desktop sidebar (components/desktop/sidebar-model.ts) lists the same
+// rows in its own groups, so labels, routes and icons are defined once, here. The unit test (tools/ui-smoke/src/more-sections.test.ts)
+// checks it.
 import type { SymbolViewProps } from 'expo-symbols';
 
 /** A symbol for every platform: SF Symbols on iOS, Material Symbols on Android and the web build (same style as components/app-nav.tsx). */
 export type MoreSymbol = Required<Extract<SymbolViewProps['name'], object>>;
 
 export type MoreSectionId = 'training' | 'coach' | 'profile' | 'connections' | 'app' | 'account';
-
-/** The two columns of the wide layout. On a phone the sections just follow one another in the order of the list. */
-export type MoreColumn = 'left' | 'right';
 
 export interface MoreRow {
   /** Stable key, not shown. */
@@ -27,19 +26,9 @@ export interface MoreSection {
   id: MoreSectionId;
   /** The small heading above the section card. */
   label: string;
-  column: MoreColumn;
-  /** The "account" section has no rows: the screen draws the signed-in email and the Sign out button. */
+  /** The "account" section has no rows: the screen draws the signed-in email and the Sign out button (the sidebar's footer on a desktop). */
   rows: MoreRow[];
 }
-
-/**
- * Below this window width the More screen is one column; from here on it is two columns in a content area of `MORE_WIDE_WIDTH`.
- * The shell switches to the sidebar at WIDE_BREAKPOINT (900), but that sidebar takes 232 px: at 900 each column would get only ~310 px
- * (a row's text then has ~210 px) and "Connected apps & devices" could wrap, so the columns start a little later, at ~360 px each.
- */
-export const MORE_TWO_COLUMNS_FROM = 1000;
-/** Widest the content gets in the two-column layout (the other screens stop at MAX_CONTENT_WIDTH, 880). */
-export const MORE_WIDE_WIDTH = 1040;
 
 export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSection[] {
   const coachRows: MoreRow[] = [];
@@ -65,7 +54,6 @@ export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSe
     {
       id: 'training',
       label: 'Training',
-      column: 'left',
       rows: [
         {
           id: 'workouts',
@@ -77,11 +65,10 @@ export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSe
         },
       ],
     },
-    { id: 'coach', label: 'Coach', column: 'left', rows: coachRows },
+    { id: 'coach', label: 'Coach', rows: coachRows },
     {
       id: 'profile',
       label: 'Profile',
-      column: 'right',
       rows: [
         {
           id: 'targets',
@@ -109,7 +96,6 @@ export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSe
     {
       id: 'connections',
       label: 'Connections',
-      column: 'left',
       rows: [
         {
           id: 'integrations',
@@ -123,7 +109,6 @@ export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSe
     {
       id: 'app',
       label: 'App',
-      column: 'right',
       rows: [
         {
           id: 'display',
@@ -141,11 +126,6 @@ export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSe
         },
       ],
     },
-    { id: 'account', label: 'Account', column: 'right', rows: [] },
+    { id: 'account', label: 'Account', rows: [] },
   ];
-}
-
-/** The sections of one column of the wide layout, in their order. */
-export function sectionsInColumn(sections: readonly MoreSection[], column: MoreColumn): MoreSection[] {
-  return sections.filter((section) => section.column === column);
 }

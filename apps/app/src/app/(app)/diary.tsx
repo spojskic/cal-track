@@ -14,12 +14,12 @@ import { AddRow, BiometricList, DiaryTabs, ExerciseList, NotesList, type DiaryTa
 import { ConfirmSheet } from '@/components/diary/ConfirmSheet';
 import { dateMenuItems, groupMenuItems, type DateMenuKey, type GroupMenuKey } from '@/components/diary/copy-menus';
 import { CopyDiarySheet } from '@/components/diary/CopyDiarySheet';
-import { DateBar } from '@/components/diary/DateBar';
+import { DateBar, DateControls } from '@/components/diary/DateBar';
 import { buildDeviceRows, DevicesGroup } from '@/components/diary/DevicesGroup';
+import { DesktopDiaryBody } from '@/components/diary/DiaryDesktop';
 import { EntryActionSheet } from '@/components/diary/EntryActionSheet';
 import { formatDayLabel } from '@/components/diary/dates';
 import { haptic } from '@/components/diary/haptics';
-import { useMeasuredWidth } from '@/components/diary/layout';
 import { MealGroupSection } from '@/components/diary/MealGroupSection';
 import { go } from '@/components/diary/nav';
 import { NutrientTargetsPanel } from '@/components/diary/NutrientTargetsPanel';
@@ -27,10 +27,11 @@ import { NutritionSummarySheet } from '@/components/diary/NutritionSummarySheet'
 import { ActionMenu, type MenuAction } from '@/components/diary/Sheet';
 import { energySummaryProps } from '@/components/diary/energy-view';
 import { buildHighlights, buildMacroRows, consumedSplit, targetSplit } from '@/components/diary/targets-view';
-import { MacroBars, TargetsHeader, TargetsPager } from '@/components/diary/TargetsPager';
+import { TargetsHeader, TargetsPager } from '@/components/diary/TargetsPager';
 import { ToastHost } from '@/components/diary/ToastHost';
 import { useCopyActions } from '@/components/diary/use-copy-actions';
 import { DEFAULT_WATER_TARGET_ML, QUICK_WATER_ML, WaterRow } from '@/components/diary/WaterRow';
+import { DesktopPage } from '@/components/panel';
 import { AddSavedMealSheet, SaveMealSheet } from '@/components/recipes/SavedMealControls';
 import { AppText, Button, Card } from '@/components/ui';
 import { useBiometrics, useNotes, useWaterMl } from '@/data/activity';
@@ -70,8 +71,6 @@ export default function DiaryScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_BREAKPOINT;
   const qc = useQueryClient();
-  const [bodyWidth, onBodyLayout] = useMeasuredWidth();
-  const twoColumns = wide && bodyWidth >= 780;
 
   const date = useSelectedDate((s) => s.date);
   const shift = useSelectedDate((s) => s.shift);
@@ -378,12 +377,6 @@ export default function DiaryScreen() {
     </View>
   );
 
-  const targetsCard = (
-    <Card>
-      <AppText variant="heading">Targets</AppText>
-      <MacroBars rows={rows} />
-    </Card>
-  );
   const energyCard = (
     <Card>
       <AppText variant="heading">Energy Summary</AppText>
@@ -391,55 +384,72 @@ export default function DiaryScreen() {
     </Card>
   );
 
+  // Wide windows (beside the sidebar): the page header carries the date controls, the body is the panels of DiaryDesktop.tsx.
+  // Phones: the sticky date bar and the single column below.
+  const body = wide ? (
+    <DesktopPage
+      title="Diary"
+      right={
+        <DateControls
+          date={date}
+          onPrev={() => shift(-1)}
+          onNext={() => shift(1)}
+          onToday={goToday}
+          onAdd={() => go('/add')}
+          onMenu={() => openMenu({ kind: 'date' })}
+        />
+      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <DesktopDiaryBody
+        list={diaryList}
+        rows={rows}
+        energyProps={energyProps}
+        day={day}
+        targets={targets}
+        netCarbs={netCarbs}
+        needsOnboarding={targetsQ.needsOnboarding}
+      />
+    </DesktopPage>
+  ) : (
+    <ScrollView
+      stickyHeaderIndices={[0]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled">
+      <View style={[styles.stickyOuter, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <View style={[styles.inner, styles.pad]}>
+          <DateBar
+            date={date}
+            onPrev={() => shift(-1)}
+            onNext={() => shift(1)}
+            onToday={goToday}
+            onAdd={() => go('/add')}
+            onMenu={() => openMenu({ kind: 'date' })}
+          />
+        </View>
+      </View>
+
+      <View style={[styles.inner, styles.body]}>
+        {onboardingPrompt ? <View style={styles.pad}>{onboardingPrompt}</View> : null}
+        {phoneTargets}
+        {diaryList}
+        <View style={styles.pad}>{energyCard}</View>
+        <View style={styles.pad}>
+          <NutrientTargetsPanel
+            totals={day.totals}
+            hasEntries={day.hasEntries}
+            incompleteNutrients={day.incompleteNutrients}
+            targets={targets}
+            netCarbs={netCarbs}
+          />
+        </View>
+      </View>
+    </ScrollView>
+  );
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ScrollView
-        stickyHeaderIndices={[0]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled">
-        <View style={[styles.stickyOuter, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-          <View style={[styles.inner, styles.pad]}>
-            <DateBar
-              date={date}
-              onPrev={() => shift(-1)}
-              onNext={() => shift(1)}
-              onToday={goToday}
-              onAdd={() => go('/add')}
-              onMenu={() => openMenu({ kind: 'date' })}
-            />
-          </View>
-        </View>
-
-        <View style={[styles.inner, styles.body]} onLayout={onBodyLayout}>
-          {onboardingPrompt ? <View style={styles.pad}>{onboardingPrompt}</View> : null}
-          {twoColumns ? (
-            <View style={[styles.columns, styles.pad]}>
-              <View style={styles.mainColumn}>{diaryList}</View>
-              <View style={styles.sideColumn}>
-                {targetsCard}
-                {energyCard}
-              </View>
-            </View>
-          ) : (
-            <>
-              {!wide ? phoneTargets : null}
-              {diaryList}
-              {wide ? <View style={styles.pad}>{targetsCard}</View> : null}
-              <View style={styles.pad}>{energyCard}</View>
-            </>
-          )}
-          <View style={styles.pad}>
-            <NutrientTargetsPanel
-              totals={day.totals}
-              hasEntries={day.hasEntries}
-              incompleteNutrients={day.incompleteNutrients}
-              targets={targets}
-              netCarbs={netCarbs}
-            />
-          </View>
-        </View>
-      </ScrollView>
+      {body}
 
       <EntryActionSheet
         entryId={editingId}
@@ -515,7 +525,4 @@ const styles = StyleSheet.create({
   phoneTargets: { gap: spacing.xs },
   centered: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
   hint: { textAlign: 'center', paddingVertical: spacing.md },
-  columns: { flexDirection: 'row', gap: spacing.lg, alignItems: 'flex-start' },
-  mainColumn: { flex: 3 },
-  sideColumn: { flex: 2, gap: spacing.lg },
 });

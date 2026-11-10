@@ -15,9 +15,12 @@
  * assertions through `ctx.expect*` / `ctx.check` (a failure is a FAIL). Use `stepThen` to assert only when the
  * interaction itself worked, so a bad selector is reported once.
  */
-import type { Page } from 'playwright-core';
+import type { Locator, Page } from 'playwright-core';
 
-import { choose, clickButton, clickTab, clickText, closeSheet, fill, scrollToText } from './actions';
+import { dayLabel } from '../../../apps/app/src/components/desktop/month-grid';
+import { DESKTOP_CONTENT_MAX_WIDTH, SIDEBAR_WIDTH } from '../../../apps/app/src/theme/desktop';
+import { PALETTES } from '../../../apps/app/src/theme/palettes';
+import { choose, clickButton, clickTab, clickText, closeSheet, fill, findField, scrollToText } from './actions';
 import { truncatedTextScript } from './browser-scripts';
 import { BARCODES, IDS, USER, addDays } from './fixtures';
 import { THEME_SCENARIOS } from './scenarios-theme';
@@ -38,15 +41,33 @@ async function openRow(page: Page, name: RegExp): Promise<void> {
   await page.getByRole('button', { name }).first().click({ timeout: 6000 });
 }
 
+
+/** The dashboard must exist ONCE in the page: a second (hidden) copy of a tab screen would run every query twice. */
+async function checkOneStreakLabel(page: Page, ctx: ScenarioContext): Promise<void> {
+  const info = await page.evaluate(`(() => {
+    const out = [];
+    for (const e of document.querySelectorAll('div, span')) {
+      if (e.children.length > 0 || (e.textContent || '').trim() !== 'Logging streak') continue;
+      let hidden = false;
+      for (let n = e; n; n = n.parentElement) if (getComputedStyle(n).display === 'none') hidden = true;
+      const r = e.getBoundingClientRect();
+      out.push((hidden ? 'hidden ' : 'shown ') + Math.round(r.width) + 'x' + Math.round(r.height));
+    }
+    return out;
+  })()`);
+  if (!Array.isArray(info)) return;
+  if (info.length !== 1 || !String(info[0]).startsWith('shown')) ctx.fail(`"Logging streak" is in the page ${info.length} time(s): ${info.join(', ')}`);
+}
+
 // ------------------------------------------------------------------------------------------ more helpers
 
-/** The headings of the More screen, in list order (apps/app/src/components/settings/more-sections.ts). */
+/** The headings of the More screen (a phone's fourth tab), in list order (apps/app/src/components/settings/more-sections.ts). */
 const MORE_SECTIONS = ['Training', 'Coach', 'Profile', 'Connections', 'App', 'Account'] as const;
 
 /**
- * Every section heading is there and they are laid out as designed: one column in the list order on a phone; on a desktop two
- * columns, Training / Coach / Connections at the left and Profile / App / Account at the right. The headings are found by their
- * whole text: "App" and "Coach" would otherwise also match "Connected apps & devices" and "AI Coach & keys".
+ * Every section heading of the phone's More screen is there and they follow one another in ONE column, in list order. The headings are
+ * found by their whole text: "App" and "Coach" would otherwise also match "Connected apps & devices" and "AI Coach & keys".
+ * (A desktop window has no More screen: its sidebar lists the same rows, see the `shell: ...` scenarios.)
  */
 async function checkMoreSections(page: Page, ctx: ScenarioContext): Promise<void> {
   const boxes = new Map<string, { x: number; y: number }>();
@@ -57,30 +78,46 @@ async function checkMoreSections(page: Page, ctx: ScenarioContext): Promise<void
   }
   if (boxes.size !== MORE_SECTIONS.length) return; // a missing heading is already a FAIL above
   const box = (label: string) => boxes.get(label) as { x: number; y: number };
-  const inOrder = (labels: readonly string[]) => {
-    for (let i = 1; i < labels.length; i++) {
-      const [above, below] = [labels[i - 1] as string, labels[i] as string];
+  await ctx.check('one column: Training, Coach, Profile, Connections, App, Account from top to bottom', () => {
+    for (let i = 1; i < MORE_SECTIONS.length; i++) {
+      const [above, below] = [MORE_SECTIONS[i - 1] as string, MORE_SECTIONS[i] as string];
       if (!(box(above).y < box(below).y)) throw new Error(`"${above}" (y ${box(above).y}) is not above "${below}" (y ${box(below).y})`);
     }
-  };
-  if (ctx.isPhone) {
-    await ctx.check('phone: one column, Training, Coach, Profile, Connections, App, Account from top to bottom', () => {
-      inOrder(MORE_SECTIONS);
-      for (const label of MORE_SECTIONS) if (Math.abs(box(label).x - box('Training').x) > 8) throw new Error(`"${label}" is not in the same column as "Training"`);
-    });
-  } else {
-    await ctx.check('desktop: Training, Coach and Connections in the left column', () => {
-      inOrder(['Training', 'Coach', 'Connections']);
-      for (const label of ['Coach', 'Connections']) if (Math.abs(box(label).x - box('Training').x) > 8) throw new Error(`"${label}" is not in the column of "Training"`);
-    });
-    await ctx.check('desktop: Profile, App and Account in the right column, beside the left one', () => {
-      inOrder(['Profile', 'App', 'Account']);
-      for (const label of ['App', 'Account']) if (Math.abs(box(label).x - box('Profile').x) > 8) throw new Error(`"${label}" is not in the column of "Profile"`);
-      if (!(box('Profile').x > box('Training').x + 200)) throw new Error(`the right column starts at x ${box('Profile').x}, the left one at ${box('Training').x}`);
-      if (Math.abs(box('Profile').y - box('Training').y) > 8) throw new Error('the two columns do not start at the same height');
-    });
-  }
+    for (const label of MORE_SECTIONS) if (Math.abs(box(label).x - box('Training').x) > 8) throw new Error(`"${label}" is not in the same column as "Training"`);
+  });
 }
+
+// ------------------------------------------------------------------------------------------ desktop shell helpers
+
+/** The headings of the desktop sidebar, top to bottom (apps/app/src/components/desktop/sidebar-model.ts). Each collapses its rows. */
+const SIDEBAR_GROUPS = ['Daily', 'Training', 'Coach', 'Profile', 'Connections', 'App'] as const;
+
+/** A row of the sidebar (a link; `string` = the whole name). */
+const sidebarLink = (page: Page, name: string | RegExp) => page.getByRole('link', { name, exact: typeof name === 'string' }).first();
+
+/** Number of sidebar rows with this name. */
+const sidebarLinks = (page: Page, name: string | RegExp): Promise<number> => page.getByRole('link', { name, exact: typeof name === 'string' }).count();
+
+/**
+ * The row of the sidebar that is the open page: the link with this name that carries `aria-current="page"`. (Playwright's `selected`
+ * option only knows tabs, options and grid cells, so it cannot be used for links.)
+ */
+const litLink = (page: Page, name: string) => page.locator('[aria-current="page"]').and(page.getByRole('link', { name, exact: true })).first();
+
+/** The heading button of a sidebar group (named exactly like the group; `expanded` says whether its rows are shown). */
+const groupButton = (page: Page, label: string, expanded?: boolean) =>
+  page.getByRole('button', { name: label, exact: true, ...(expanded === undefined ? {} : { expanded }) }).first();
+
+/**
+ * Clicks the LAST button with this name. A desktop window has the sidebar's "Add to diary" button before everything else in the page;
+ * the button a screen draws for itself comes after it. (On a phone there is no sidebar and the last one is the only one.)
+ */
+async function clickPageButton(page: Page, name: string | RegExp, opts: { exact?: boolean; timeout?: number } = {}): Promise<void> {
+  await page.getByRole('button', { name, exact: opts.exact ?? false }).last().click({ timeout: opts.timeout ?? 6000 });
+}
+
+/** The names of the colour themes, for matching the status bar without depending on which one the run uses. */
+const PALETTE_NAME = new RegExp(`^(${PALETTES.map((p) => p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`);
 
 // ------------------------------------------------------------------------------------------ create account helpers
 
@@ -137,6 +174,87 @@ async function waitUntil(page: Page, label: string, condition: () => boolean, ti
     if (Date.now() > deadline) throw new Error(`Not true after ${timeoutMs} ms: ${label}`);
     await page.waitForTimeout(100);
   }
+}
+
+// ------------------------------------------------------------------------------------------ desktop layout helpers
+
+/** The title strip of a desktop panel (and the page header): a heading with exactly this text. */
+const panelTitle = (page: Page, title: string) => page.getByRole('heading', { name: title, exact: true }).first();
+
+/** Box of an element; throws when it is not on screen (the message names it). */
+async function boxOf(locator: Locator, what: string): Promise<{ x: number; y: number; width: number; height: number }> {
+  const box = await locator.boundingBox({ timeout: 6000 });
+  if (!box) throw new Error(`${what} is not visible`);
+  return box;
+}
+
+/** What a desktop window gives its pages: the width right of the sidebar, up to the widest content. */
+function desktopContentWidth(page: Page): number {
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error('the page has no viewport');
+  return Math.min(viewport.width - SIDEBAR_WIDTH, DESKTOP_CONTENT_MAX_WIDTH);
+}
+
+/**
+ * The desktop dashboard (a window of 900 px or more): the KPI strip and the panels use the width of the content instead of a narrow
+ * centred column. Panel titles are headings; the panels of a row share a top edge, and the last KPI cell starts in the right part
+ * of the content area.
+ */
+async function checkDesktopDashboard(page: Page, ctx: ScenarioContext): Promise<void> {
+  for (const title of ['Today', 'Consumed average', 'Weight trend', 'Recent workouts', 'Nutrition score']) {
+    await ctx.check(`desktop: the "${title}" panel is on the dashboard`, () => panelTitle(page, title).waitFor({ state: 'visible', timeout: 8000 }));
+  }
+  await ctx.expectText('Logging streak', { exact: true });
+  await ctx.check('desktop: the panels are laid out in columns across the content, not in one narrow column', async () => {
+    const today = await boxOf(panelTitle(page, 'Today'), '"Today"');
+    const average = await boxOf(panelTitle(page, 'Consumed average'), '"Consumed average"');
+    if (Math.abs(today.y - average.y) > 8) throw new Error(`"Today" (y ${today.y}) and "Consumed average" (y ${average.y}) are not in the same row`);
+    if (!(average.x > today.x + 150)) throw new Error(`"Consumed average" (x ${average.x}) is not beside "Today" (x ${today.x})`);
+    const viewport = page.viewportSize();
+    const content = desktopContentWidth(page);
+    const streak = await boxOf(page.getByText('Logging streak', { exact: true }).first(), '"Logging streak"');
+    const fromRight = (viewport?.width ?? 0) - streak.x;
+    if (!(fromRight < content * 0.3)) throw new Error(`the last KPI cell starts ${fromRight}px from the right edge, the content is ${content}px wide`);
+  });
+  await ctx.snapshot('desktop-panels');
+}
+
+/**
+ * The desktop diary: the entry list is one panel, Targets / Energy summary / Nutrient targets are panels beside it (to the right of
+ * the list), and together they use the width of the content area.
+ */
+async function checkDesktopDiary(page: Page, ctx: ScenarioContext): Promise<void> {
+  for (const title of ['Entries', 'Targets', 'Energy summary', 'Nutrient targets']) {
+    await ctx.check(`desktop: the "${title}" panel is on the diary`, () => panelTitle(page, title).waitFor({ state: 'visible', timeout: 8000 }));
+  }
+  await ctx.check('desktop: the targets sit beside the entry list and both use the width of the content', async () => {
+    const first = await boxOf(page.getByRole('tab', { name: /^food/i }).first(), 'the Food tab');
+    const last = await boxOf(page.getByRole('tab', { name: /^note/i }).first(), 'the Note tab');
+    const targets = await boxOf(panelTitle(page, 'Targets'), '"Targets"');
+    const edit = await boxOf(page.getByRole('button', { name: 'Open target settings', exact: true }).first(), 'the link to the target settings');
+    const listRight = last.x + last.width;
+    if (!(targets.x > listRight)) throw new Error(`"Targets" starts at x ${targets.x}, the entry list ends at x ${listRight}`);
+    // The link sits at the right end of the Targets panel: its edge plus the padding and the border is the edge of the panel.
+    const span = edit.x + edit.width + 15 - (first.x - 1);
+    const content = desktopContentWidth(page);
+    if (!(span >= content * 0.8)) throw new Error(`the list and the targets span ${Math.round(span)}px of the ${content}px content area (less than 80 %)`);
+  });
+}
+
+/** The desktop foods screen: the library panel at the left and the create actions in a column at the right. */
+async function checkDesktopFoods(page: Page, ctx: ScenarioContext): Promise<void> {
+  for (const title of ['Food library', 'Create']) {
+    await ctx.check(`desktop: the "${title}" panel is on the foods screen`, () => panelTitle(page, title).waitFor({ state: 'visible', timeout: 8000 }));
+  }
+  await ctx.check('desktop: the create actions are in a column to the right of the list', async () => {
+    const chip = await boxOf(page.getByRole('tab', { name: 'Saved meals', exact: true }).first(), 'the Saved meals chip');
+    const create = await boxOf(page.getByRole('button', { name: 'Create food', exact: true }).first(), 'the Create food button');
+    const scan = await boxOf(page.getByRole('button', { name: 'Scan barcode', exact: true }).first(), 'the Scan barcode button');
+    if (!(create.x > scan.x + scan.width)) throw new Error(`"Create food" (x ${create.x}) is not to the right of the library (its scan button ends at ${scan.x + scan.width})`);
+    if (!(create.x > chip.x + chip.width)) throw new Error('the create actions are not beside the filter chips');
+    const viewport = page.viewportSize();
+    if (viewport && !(create.x + create.width > viewport.width * 0.75)) throw new Error(`the create column ends at x ${create.x + create.width}: the screen does not use the width`);
+  });
 }
 
 // ------------------------------------------------------------------------------------------ energy summary helpers
@@ -447,8 +565,10 @@ export const SCENARIOS: Scenario[] = [
     auth: 'signed-in',
     fixtures: 'not-onboarded',
     expect: ['About you', 'Step 1 of 6'],
-    async after(_page, ctx) {
+    async after(page, ctx) {
       await ctx.expectUrl(/\/onboarding/);
+      // The wizard is a full-screen flow: a desktop window draws it without the sidebar and status bar.
+      if (!ctx.isPhone) await ctx.check('desktop: no sidebar around the onboarding wizard', () => sidebarLink(page, 'Diary').waitFor({ state: 'hidden', timeout: 6000 }));
     },
   },
   {
@@ -509,6 +629,7 @@ export const SCENARIOS: Scenario[] = [
     auth: 'signed-in',
     expect: ['Dashboard', 'Today'],
     async after(page, ctx) {
+      if (!ctx.isPhone) await checkDesktopDashboard(page, ctx);
       await stepThen(ctx, 'open the diary from the dashboard', () => clickButton(page, 'Open diary'), () => ctx.expectUrl(/\/diary/));
     },
   },
@@ -571,7 +692,7 @@ export const SCENARIOS: Scenario[] = [
   { name: 'dashboard: imperial units', route: '/', path: '/', auth: 'signed-in', fixtures: 'imperial', expect: ['Dashboard'] },
   { name: 'dashboard: empty diary', route: '/', path: '/', auth: 'signed-in', fixtures: 'empty-diary', expect: ['Dashboard'] },
   {
-    // The same rings in the diary (the Energy page of the targets on phones, the Energy Summary card on wide screens).
+    // The same rings in the diary (the Energy page of the targets on phones, the Energy summary panel on wide screens).
     name: 'diary: the energy summary switches between Target and Balance',
     route: '/diary',
     path: '/diary',
@@ -710,6 +831,7 @@ export const SCENARIOS: Scenario[] = [
     auth: 'signed-in',
     expect: ['Breakfast', 'Oats, rolled, dry'],
     async after(page, ctx) {
+      if (!ctx.isPhone) await checkDesktopDiary(page, ctx);
       await ctx.check('every meal header has exactly one "+" and one "..." button', async () => {
         for (const group of ['Breakfast', 'Lunch', 'Dinner', 'Snacks']) {
           const adds = await buttonCount(page, `Add food to ${group}`);
@@ -735,6 +857,13 @@ export const SCENARIOS: Scenario[] = [
         await ctx.expectNoText('Oats, rolled, dry');
         await ctx.expectText('Lunch');
         await stepThen(ctx, 'expand Breakfast again', () => clickButton(page, /^Breakfast, .*Expand/), () => ctx.expectText('Oats, rolled, dry'));
+      });
+      // The watch / Health group starts closed (a dozen rows a day) and opens and closes with its header; meals are unchanged.
+      await ctx.expectText('Apple Health activity');
+      await ctx.expectNoText('Daily Activity', { timeout: 500 });
+      await stepThen(ctx, 'open the device activity group', () => clickButton(page, /activity, .*Expand/), async () => {
+        await ctx.expectText('Daily Activity');
+        await stepThen(ctx, 'close it again', () => clickButton(page, /activity, .*Collapse/), () => ctx.expectNoText('Daily Activity', { timeout: 1500 }));
       });
     },
   },
@@ -1255,6 +1384,7 @@ export const SCENARIOS: Scenario[] = [
     auth: 'signed-in',
     expect: ['Foods', 'Favorites'],
     async after(page, ctx) {
+      if (!ctx.isPhone) await checkDesktopFoods(page, ctx);
       const tabs: [string, string][] = [
         ['Favorites', 'Chicken breast, skinless, boneless, raw'],
         ['Recent', 'Oats, rolled, dry'],
@@ -1284,6 +1414,86 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    // The field on the Foods tab is a real input: the results come up right below it and the page stays the Foods tab (Add food is for adding).
+    name: 'foods tab: typing in the search field searches in place',
+    route: '/foods',
+    path: '/foods',
+    auth: 'signed-in',
+    expect: ['Foods', 'Favorites'],
+    async after(page, ctx) {
+      const onFoodsTab = () => {
+        if (!/\/foods\/?(\?.*)?$/.test(page.url())) throw new Error(`left the Foods tab: ${page.url()}`);
+      };
+      const savedMealsChip = page.getByRole('tab', { name: 'Saved meals', exact: true });
+      await stepThen(ctx, 'type chicken into the search field', () => fill(page, 'Search foods', 'chicken'), async () => {
+        // The roasted chicken is not a favourite (the list behind the chips): it can only come from the search.
+        await ctx.expectText('Chicken breast, roasted, skinless');
+        await ctx.expectText('Chicken breast, skinless, boneless, raw');
+        await ctx.check('the results are in place: still the Foods tab, not the Add food screen', onFoodsTab);
+        await ctx.check('the filter chips step aside while searching', async () => {
+          if ((await savedMealsChip.count()) > 0) throw new Error('the chips are still shown next to the results');
+        });
+        await ctx.snapshot('chicken', { tall: false });
+      });
+      await stepThen(ctx, 'search for cevapi (without the accent)', () => fill(page, 'Search foods', 'cevapi'), async () => {
+        await ctx.expectText('Ćevapi');
+        await ctx.expectNoText('Chicken breast, roasted, skinless'); // the new results replace the old ones
+        await ctx.check('the search RPC was called', () => {
+          if (!ctx.backend.calls.some((c) => c.kind === 'rpc' && c.target === 'search_foods' && c.status === 200)) throw new Error('no search_foods call');
+        });
+        await ctx.check('still the Foods tab', onFoodsTab);
+      });
+      await stepThen(ctx, 'clear the field with the X', () => clickButton(page, 'Clear search', { exact: true }), async () => {
+        await ctx.expectInputValue('Search foods', '');
+        await ctx.check('the library and its chips are back', () => savedMealsChip.first().waitFor({ state: 'visible', timeout: 6000 }));
+        await ctx.expectText('Banana, raw'); // a favourite, and not a result of "cevapi"
+        await ctx.check('still the Foods tab', onFoodsTab);
+        await ctx.snapshot('cleared', { tall: false });
+      });
+      await stepThen(
+        ctx,
+        'type banana, then press Escape in the field',
+        async () => {
+          await fill(page, 'Search foods', 'banana');
+          await (await findField(page, 'Search foods')).press('Escape');
+        },
+        async () => {
+          await ctx.expectInputValue('Search foods', '');
+          await ctx.check('the chips are back after Escape', () => savedMealsChip.first().waitFor({ state: 'visible', timeout: 6000 }));
+        },
+      );
+    },
+  },
+  {
+    // A result is a normal food row: tap it to open the food, or the + to add one serving to the default meal of the selected day, here.
+    name: 'foods tab: a search result opens the food and the + adds a serving without leaving',
+    route: '/foods',
+    path: '/foods',
+    auth: 'signed-in',
+    expect: ['Foods', 'Favorites'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'search for cevapi', () => fill(page, 'Search foods', 'cevapi'), async () => {
+        await ctx.expectText('Ćevapi');
+        await stepThen(
+          ctx,
+          'quick add Ćevapi with its +',
+          () => page.getByRole('button', { name: /Quick add one serving of Ćevapi/ }).first().click({ timeout: 6000 }),
+          async () => {
+            await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.cevapi);
+            await ctx.expectText(/Added .* of Ćevapi to /);
+            await ctx.check('still the Foods tab', () => {
+              if (!/\/foods\/?(\?.*)?$/.test(page.url())) throw new Error(`left the Foods tab: ${page.url()}`);
+            });
+            await ctx.snapshot('quick-added', { tall: false });
+          },
+        );
+        await stepThen(ctx, 'open Ćevapi from its row', () => page.getByRole('button', { name: /^Ćevapi.*Open details$/ }).first().click({ timeout: 6000 }), async () => {
+          await ctx.expectUrl(new RegExp(`/food/${F.cevapi}`));
+        });
+      });
+    },
+  },
+  {
     name: 'foods tab: empty states of a new account',
     route: '/foods',
     path: '/foods',
@@ -1291,6 +1501,14 @@ export const SCENARIOS: Scenario[] = [
     fixtures: 'fresh-account',
     expect: ['Foods', 'No favorites yet'],
     async after(page, ctx) {
+      // "Search foods" in an empty list puts the cursor in the search field of this page (it does not open another screen).
+      await stepThen(ctx, 'tap Search foods in the empty Favorites list', () => clickButton(page, 'Search foods', { exact: true }), async () => {
+        await ctx.check('the search field has the focus and the page is still the Foods tab', async () => {
+          const label = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '');
+          if (label !== 'Search foods') throw new Error(`the focus is on "${label}"`);
+          if (!/\/foods\/?(\?.*)?$/.test(page.url())) throw new Error(`left the Foods tab: ${page.url()}`);
+        });
+      });
       const tabs: [string, string][] = [
         ['Recent', 'Foods you log will show up here'],
         ['My foods', 'You have not created any foods yet'],
@@ -1306,10 +1524,12 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    // A phone's fourth tab. A desktop window has no More page: its sidebar lists everything More lists (see the next scenarios).
     name: 'more',
     route: '/more',
     path: '/more',
     auth: 'signed-in',
+    viewports: ['phone', 'phone-dark'],
     expect: [
       'More',
       'Profile & targets',
@@ -1335,11 +1555,51 @@ export const SCENARIOS: Scenario[] = [
     route: '/more',
     path: '/more',
     auth: 'signed-in',
+    viewports: ['phone', 'phone-dark'],
     expect: ['Sign out'],
     async after(page, ctx) {
       await stepThen(ctx, 'tap Sign out', () => clickButton(page, 'Sign out', { exact: true }), async () => {
         await ctx.expectUrl(/\/sign-in/, 15_000);
         await ctx.expectText('Sign in');
+      });
+    },
+  },
+  {
+    // The sidebar has all of More, so an old link or bookmark to /more must not show a second copy of it.
+    name: 'more: a desktop window has no More page (it opens the dashboard)',
+    route: '/more',
+    path: '/more',
+    auth: 'signed-in',
+    viewports: ['desktop', 'desktop-dark'],
+    expect: ['Dashboard'],
+    async after(page, ctx) {
+      await ctx.expectUrl(/^https?:\/\/[^/]+\/?(\?.*)?$/);
+      await ctx.check('the sidebar has no "More" link', async () => {
+        if ((await sidebarLinks(page, 'More')) > 0) throw new Error('a "More" link is shown');
+      });
+      await ctx.check('the Dashboard row is the open one', async () => {
+        await litLink(page, 'Dashboard').waitFor({ state: 'visible', timeout: 6000 });
+      });
+    },
+  },
+  {
+    // The account of the More screen is the footer of the sidebar on a desktop.
+    name: 'shell: Sign out in the footer of the sidebar',
+    route: '/',
+    path: '/',
+    auth: 'signed-in',
+    viewports: ['desktop', 'desktop-dark'],
+    expect: ['Sign out', USER.email],
+    async after(page, ctx) {
+      await ctx.check('the footer says who is signed in', async () => {
+        await page.getByText(USER.email, { exact: true }).first().waitFor({ state: 'visible', timeout: 6000 });
+      });
+      await stepThen(ctx, 'tap Sign out', () => clickButton(page, 'Sign out', { exact: true }), async () => {
+        await ctx.expectUrl(/\/sign-in/, 15_000);
+        await ctx.expectText('Sign in');
+        await ctx.check('the sidebar is gone on the sign-in screen', async () => {
+          await sidebarLink(page, 'Diary').waitFor({ state: 'hidden', timeout: 6000 });
+        });
       });
     },
   },
@@ -1373,6 +1633,8 @@ export const SCENARIOS: Scenario[] = [
         await ctx.expectUrl(/\/scan/);
         // The harness browser has no camera: the scanner shows why, and the typed entry is right there.
         await ctx.expectText('Enter barcode');
+        // The camera is a full-screen flow: a desktop window draws it without the sidebar.
+        if (!ctx.isPhone) await ctx.check('desktop: the scanner has no sidebar', () => sidebarLink(page, 'Diary').waitFor({ state: 'hidden', timeout: 6000 }));
       });
     },
   },
@@ -1483,7 +1745,7 @@ export const SCENARIOS: Scenario[] = [
           await ctx.snapshot('amount-200g');
         },
       );
-      await stepThen(ctx, 'add to the diary', () => clickButton(page, /^Add to diary/), async () => {
+      await stepThen(ctx, 'add to the diary', () => clickPageButton(page, /^Add to diary/), async () => {
         // The confirmation only appears after the insert succeeded; it stays for under a second, so wait for it first.
         await ctx.expectText(/Added to /);
         await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.chickenRaw && payloadOf(m).grams === 200 && payloadOf(m).entry_date === ctx.fixtures.today);
@@ -1503,12 +1765,12 @@ export const SCENARIOS: Scenario[] = [
         await ctx.expectText('That is 34.8 kg - did you mean grams?');
         await ctx.snapshot('warning');
         await ctx.check('the warning does not block adding', async () => {
-          if (!(await page.getByRole('button', { name: /^Add to diary/ }).first().isEnabled({ timeout: 3000 }))) throw new Error('"Add to diary" is disabled');
+          if (!(await page.getByRole('button', { name: /^Add to diary/ }).last().isEnabled({ timeout: 3000 }))) throw new Error('"Add to diary" is disabled');
         });
         await stepThen(ctx, 'tap "Use 200 g"', () => clickButton(page, 'Use 200 g', { exact: true }), async () => {
           await ctx.expectText('= 200 g');
           await ctx.expectNoText('did you mean grams');
-          await stepThen(ctx, 'add to the diary', () => clickButton(page, /^Add to diary/), async () => {
+          await stepThen(ctx, 'add to the diary', () => clickPageButton(page, /^Add to diary/), async () => {
             await ctx.expectText(/Added to /);
             await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.chickenRaw && payloadOf(m).grams === 200);
           });
@@ -1852,7 +2114,7 @@ export const SCENARIOS: Scenario[] = [
         await ctx.expectUrl(new RegExp(`/food/${F.recipeChickenRice}`));
         // Exact: the recipe screen below this one stays mounted (hidden) and also contains "Servings" / "Serving size".
         await ctx.expectText('Serving', { exact: true });
-        await stepThen(ctx, 'confirm on the food screen', () => clickButton(page, /^Add to diary/), async () => {
+        await stepThen(ctx, 'confirm on the food screen', () => clickPageButton(page, /^Add to diary/), async () => {
           await ctx.expectText(/Added to /);
           await ctx.expectMutation('diary_entries', 'insert', (m) => payloadOf(m).food_id === F.recipeChickenRice && payloadOf(m).grams === 450);
         });
@@ -2014,7 +2276,7 @@ export const SCENARIOS: Scenario[] = [
       await stepThen(ctx, 'open the energy modes', () => clickButton(page, /Energy mode: Static/), async () => {
         for (const text of [
           'Baseline activity only. Ignores your watch.',
-          'Device-adjusted (like Cronometer)',
+          'Device-adjusted',
           'Your watch activity replaces the baseline during the day; workouts are added.',
           'Device total',
           "Uses your watch's active + resting calories only.",
@@ -2022,7 +2284,7 @@ export const SCENARIOS: Scenario[] = [
           await ctx.expectText(text);
         }
         await ctx.snapshot('modes', { tall: false });
-        await choose(page, 'Device-adjusted (like Cronometer)', { exact: true });
+        await choose(page, 'Device-adjusted', { exact: true });
       });
       await stepThen(ctx, 'show Balance in the third circle and save', async () => {
         await choose(page, 'Balance', { exact: true });
@@ -2237,7 +2499,8 @@ export const SCENARIOS: Scenario[] = [
   {
     // Regression: the sidebar (wide) and the bottom bar (phone) rendered but did nothing when pressed, because the
     // expo-router/ui <TabTrigger>s were hidden inside custom components and never registered. Every other scenario
-    // opens its page by URL, so this is the one place that clicks the real navigation.
+    // opens its page by URL, so this is the one place that clicks the real navigation. On a desktop it also clicks rows
+    // of the sidebar that lead OUT of the tab pages (Workouts, Profile & targets, About): the sidebar must stay.
     name: 'shell: main navigation (sidebar on desktop, tab bar on phone)',
     route: '/',
     path: '/',
@@ -2247,19 +2510,233 @@ export const SCENARIOS: Scenario[] = [
       const navLink = (name: string) => page.getByRole('link', { name, exact: true }).first();
       // Each entry: the nav item, the URL it must lead to and a text that only that screen shows (so the screen
       // really switched, not just the address bar).
-      const pages: { name: string; url: RegExp; text: string | RegExp }[] = [
+      const tabs: { name: string; url: RegExp; text: string | RegExp }[] = [
         { name: 'Diary', url: /\/diary/, text: 'Breakfast' },
         { name: 'Foods', url: /\/foods/, text: 'Favorites' },
-        { name: 'More', url: /\/more/, text: 'Sign out' },
-        { name: 'Dashboard', url: /^https?:\/\/[^/]+\/?(\?.*)?$/, text: 'Logging streak' },
       ];
-      for (const target of pages) {
+      // A phone has More as its fourth tab; a desktop sidebar has no such item (its rows are the sidebar's groups).
+      if (ctx.isPhone) tabs.push({ name: 'More', url: /\/more/, text: 'Sign out' });
+      tabs.push({ name: 'Dashboard', url: /^https?:\/\/[^/]+\/?(\?.*)?$/, text: 'Logging streak' });
+      for (const target of tabs) {
         await stepThen(ctx, `open ${target.name} from the navigation`, () => navLink(target.name).click({ timeout: 6000 }), async () => {
+          await ctx.snapshot(`open-${target.name.toLowerCase()}`, { tall: false });
           await ctx.expectUrl(target.url);
+          if (target.name === 'Dashboard') await checkOneStreakLabel(page, ctx);
           await ctx.expectText(target.text);
         });
       }
+
+      if (!ctx.isPhone) {
+        // Pages that are NOT tabs open inside the shell: the sidebar is still there, and the row of the open page is lit.
+        const rows: { name: string; url: RegExp; text: string }[] = [
+          { name: 'Workouts', url: /\/workouts\/?(\?.*)?$/, text: 'This week' },
+          { name: 'Profile & targets', url: /\/settings\/targets/, text: 'Weight Goal' },
+          { name: 'About', url: /\/settings\/about/, text: 'Food data sources' },
+        ];
+        for (const target of rows) {
+          await stepThen(ctx, `open ${target.name} from the sidebar`, () => navLink(target.name).click({ timeout: 6000 }), async () => {
+            await ctx.expectUrl(target.url);
+            await ctx.expectText(target.text);
+            await ctx.check(`the sidebar stays and lights ${target.name}`, async () => {
+              await litLink(page, target.name).waitFor({ state: 'visible', timeout: 6000 });
+              await navLink('Dashboard').waitFor({ state: 'visible', timeout: 6000 });
+            });
+          });
+        }
+        // ...and a tab page can be reached again from there.
+        await stepThen(ctx, 'back to the Dashboard from a page that is not a tab', () => navLink('Dashboard').click({ timeout: 6000 }), async () => {
+          await ctx.snapshot('back-to-dashboard', { tall: false });
+          await ctx.expectUrl(/^https?:\/\/[^/]+\/?(\?.*)?$/);
+          await checkOneStreakLabel(page, ctx);
+          await ctx.expectText('Logging streak');
+        });
+      }
       await stepThen(ctx, 'open the add sheet from the navigation', () => clickButton(page, 'Add to diary'), () => ctx.expectUrl(/\/add/));
+      if (!ctx.isPhone) {
+        await ctx.check('the sidebar is still there beside the add sheet', () => navLink('Dashboard').waitFor({ state: 'visible', timeout: 6000 }));
+      }
+    },
+  },
+  {
+    // The desktop sidebar: the groups of the More screen (without a "More" item), the account at the bottom, a status bar below.
+    name: 'shell: the desktop sidebar has the groups of the More screen and a status bar',
+    route: '/',
+    path: '/',
+    auth: 'signed-in',
+    viewports: ['desktop', 'desktop-dark'],
+    expect: ['Dashboard'],
+    async after(page, ctx) {
+      await ctx.check('the group headings are there, top to bottom: Daily, Training, Coach, Profile, Connections, App', async () => {
+        const ys: number[] = [];
+        for (const label of SIDEBAR_GROUPS) {
+          const box = await groupButton(page, label).boundingBox({ timeout: 6000 });
+          if (!box) throw new Error(`the "${label}" heading is not visible`);
+          ys.push(box.y);
+        }
+        for (let i = 1; i < ys.length; i++) if (!((ys[i - 1] as number) < (ys[i] as number))) throw new Error(`"${SIDEBAR_GROUPS[i - 1]}" is not above "${SIDEBAR_GROUPS[i]}"`);
+      });
+      await ctx.check('every row of the More screen is a link of the sidebar, and there is no "More" link', async () => {
+        const missing: string[] = [];
+        for (const name of ['Dashboard', 'Diary', 'Foods', 'Workouts', 'Profile & targets', 'Personal details', 'Nutrient targets', 'Connected apps & devices', 'Display & units', 'About']) {
+          if ((await sidebarLinks(page, name)) < 1) missing.push(name);
+        }
+        // Without an AI key the Coach row is hidden and the AI row says Off (its name includes the status, like the More row).
+        if ((await sidebarLinks(page, /^AI \(optional\)/)) < 1) missing.push('AI (optional)');
+        if (missing.length > 0) throw new Error(`no sidebar link named: ${missing.join(', ')}`);
+        if ((await sidebarLinks(page, 'More')) > 0) throw new Error('the sidebar has a "More" link');
+        if ((await sidebarLinks(page, 'Coach')) > 0) throw new Error('a Coach row is shown without an AI key');
+      });
+      await ctx.expectText('Off', { exact: true }); // the AI row's status
+      await ctx.check('the open page is lit: the Dashboard row', async () => {
+        await litLink(page, 'Dashboard').waitFor({ state: 'visible', timeout: 6000 });
+      });
+      await ctx.check('the "Add to diary" button is in the sidebar', () =>
+        page.getByRole('button', { name: 'Add to diary', exact: true }).first().waitFor({ state: 'visible', timeout: 6000 }),
+      );
+      await ctx.check('the sidebar is as wide as the shared measurement, at the left edge', async () => {
+        const box = await sidebarLink(page, 'Diary').boundingBox({ timeout: 6000 });
+        if (!box) throw new Error('the Diary row is not visible');
+        if (!(box.x >= 0 && box.x < SIDEBAR_WIDTH / 2 && box.x + box.width <= SIDEBAR_WIDTH)) throw new Error(`the Diary row is at x ${box.x}, ${box.width} wide (the sidebar is ${SIDEBAR_WIDTH})`);
+      });
+      // The status bar: sync state at the left; AI status, colour theme and version at the right. There is no connected source
+      // in the default fixtures, so nothing has synced.
+      await ctx.expectText('Not synced', { exact: true });
+      await ctx.expectText('AI: off', { exact: true });
+      await ctx.expectText(PALETTE_NAME);
+      await ctx.expectText(/^v\d+\.\d+/);
+      await ctx.check('the status bar is a thin strip along the bottom edge of the window', async () => {
+        const box = await page.getByText('AI: off', { exact: true }).first().boundingBox({ timeout: 6000 });
+        const viewport = page.viewportSize();
+        if (!box || !viewport) throw new Error('no box');
+        if (!(viewport.height - (box.y + box.height) < 20)) throw new Error(`the status text ends ${viewport.height - (box.y + box.height)}px above the bottom edge`);
+      });
+      await ctx.snapshot('sidebar');
+    },
+  },
+  {
+    name: 'shell: the sidebar groups collapse and expand, and the choice is remembered',
+    route: '/',
+    path: '/',
+    auth: 'signed-in',
+    viewports: ['desktop', 'desktop-dark'],
+    expect: ['Dashboard'],
+    async after(page, ctx) {
+      const profileRows = ['Profile & targets', 'Personal details', 'Nutrient targets'];
+      const waitLinks = (names: string[], state: 'visible' | 'hidden') => Promise.all(names.map((name) => sidebarLink(page, name).waitFor({ state, timeout: 6000 })));
+      await ctx.check('every group starts open: its heading says expanded and its rows are shown', async () => {
+        await groupButton(page, 'Profile', true).waitFor({ state: 'visible', timeout: 6000 });
+        await waitLinks(profileRows, 'visible');
+      });
+      await stepThen(ctx, 'collapse Profile', () => groupButton(page, 'Profile').click({ timeout: 6000 }), async () => {
+        await ctx.check('its rows are gone, the heading stays (collapsed) and the other groups keep their rows', async () => {
+          await waitLinks(profileRows, 'hidden');
+          await groupButton(page, 'Profile', false).waitFor({ state: 'visible', timeout: 6000 });
+          await waitLinks(['Display & units', 'Diary', 'Workouts'], 'visible');
+        });
+        await ctx.snapshot('profile-collapsed', { tall: false });
+        await stepThen(ctx, 'collapse Training too, then reload the page', async () => {
+          await groupButton(page, 'Training').click({ timeout: 6000 });
+          await page.reload();
+          await sidebarLink(page, 'Diary').waitFor({ state: 'visible', timeout: 15_000 });
+        }, async () => {
+          await ctx.check('after the reload the two groups are still collapsed (the choice is saved on this device)', async () => {
+            await groupButton(page, 'Profile', false).waitFor({ state: 'visible', timeout: 6000 });
+            await groupButton(page, 'Training', false).waitFor({ state: 'visible', timeout: 6000 });
+            await waitLinks([...profileRows, 'Workouts'], 'hidden');
+            await waitLinks(['Display & units', 'Diary'], 'visible');
+          });
+        });
+        await stepThen(ctx, 'expand Profile again', () => groupButton(page, 'Profile').click({ timeout: 6000 }), () => ctx.check('its rows are back', () => waitLinks(profileRows, 'visible')));
+      });
+    },
+  },
+  {
+    // Calendar group: closed at first; a month grid (Monday first) with today ringed and the diary date filled; a day opens the diary.
+    name: 'shell: the sidebar calendar opens, pages between months and a day opens the diary',
+    route: '/',
+    path: '/',
+    auth: 'signed-in',
+    viewports: ['desktop', 'desktop-dark'],
+    expect: ['Dashboard'],
+    async after(page, ctx) {
+      const today = ctx.fixtures.today;
+      const [year, month] = today.split('-') as [string, string];
+      const pick = today.endsWith('-04') ? `${year}-${month}-05` : `${year}-${month}-04`;
+      const dayButton = (iso: string, selected?: boolean) =>
+        page.getByRole('button', { name: dayLabel(iso), exact: true, ...(selected === undefined ? {} : { pressed: selected }) }).first();
+
+      await ctx.check('the calendar starts closed: no day buttons, the heading says collapsed', async () => {
+        await groupButton(page, 'Calendar', false).waitFor({ state: 'visible', timeout: 6000 });
+        if ((await page.getByRole('button', { name: dayLabel(pick), exact: true }).count()) > 0) throw new Error('a day is shown while the calendar is closed');
+      });
+      await stepThen(ctx, 'open the calendar', () => groupButton(page, 'Calendar').click({ timeout: 6000 }), async () => {
+        await ctx.check('the month of today is shown, with the day buttons, "Today", and the month arrows', async () => {
+          await groupButton(page, 'Calendar', true).waitFor({ state: 'visible', timeout: 6000 });
+          await dayButton(pick).waitFor({ state: 'visible', timeout: 6000 });
+          await dayButton(today, true).waitFor({ state: 'visible', timeout: 6000 });
+          for (const name of ['Jump to today', 'Previous month', 'Next month']) await page.getByRole('button', { name, exact: true }).first().waitFor({ state: 'visible', timeout: 6000 });
+        });
+        await ctx.snapshot('calendar-open', { tall: false });
+        await stepThen(ctx, 'page to the next month and back', () => clickButton(page, 'Next month', { exact: true }), async () => {
+          await ctx.check('the days of today\'s month are gone while another month is shown', () => dayButton(pick).waitFor({ state: 'hidden', timeout: 6000 }));
+          await stepThen(ctx, 'previous month', () => clickButton(page, 'Previous month', { exact: true }), () => dayButton(pick).waitFor({ state: 'visible', timeout: 6000 }));
+        });
+        await stepThen(ctx, `pick ${pick}`, () => dayButton(pick).click({ timeout: 6000 }), async () => {
+          await ctx.expectUrl(/\/diary/);
+          await ctx.check('that day is the selected one in the calendar (the diary date)', () => dayButton(pick, true).waitFor({ state: 'visible', timeout: 6000 }));
+          await ctx.check('the diary asked the database for that day', async () => {
+            const asked = () => ctx.backend.calls.some((c) => c.kind === 'rest' && decodeURIComponent(c.query).includes(`entry_date=eq.${pick}`));
+            // The diary screen mounts and queries a moment after the address changed: wait for the request instead of looking once.
+            for (let waited = 0; !asked() && waited < 6000; waited += 100) await page.waitForTimeout(100);
+            if (!asked()) throw new Error(`no request asked for the entries of ${pick}`);
+          });
+          await ctx.check('the sidebar lights the Diary row', () => litLink(page, 'Diary').waitFor({ state: 'visible', timeout: 6000 }));
+          await stepThen(ctx, 'jump back to today', () => clickButton(page, 'Jump to today', { exact: true }), () =>
+            ctx.check('today is the selected day again', () => dayButton(today, true).waitFor({ state: 'visible', timeout: 6000 })),
+          );
+        });
+      });
+    },
+  },
+  {
+    // The shell wraps every screen that is not a full-screen flow: the sidebar is still there on settings, workouts, search, ...
+    // and not on the barcode camera. Dynamic routes keep their row lit. Slim header: back button and "Parent > Title".
+    name: 'shell: the sidebar stays on settings, workouts and detail pages, with a slim page header',
+    route: '/settings/display',
+    path: '/settings/display',
+    auth: 'signed-in',
+    viewports: ['desktop', 'desktop-dark'],
+    expect: ['Units', 'Appearance'],
+    async after(page, ctx) {
+      await ctx.check('the sidebar is on the page and lights Display & units', async () => {
+        await litLink(page, 'Display & units').waitFor({ state: 'visible', timeout: 6000 });
+        await sidebarLink(page, 'Dashboard').waitFor({ state: 'visible', timeout: 6000 });
+      });
+      await ctx.check('the header is one slim strip: the parent "Settings", then the title; below the top of the window', async () => {
+        const title = await page.getByRole('heading', { name: 'Display & units', exact: true }).first().boundingBox({ timeout: 6000 });
+        if (!title) throw new Error('the page title is not a visible heading');
+        if (!(title.y >= 0 && title.y + title.height <= 56)) throw new Error(`the title is at y ${title.y}, ${title.height} high (the strip is 44 px)`);
+        await page.getByText('Settings', { exact: true }).first().waitFor({ state: 'visible', timeout: 6000 });
+      });
+      await stepThen(ctx, 'open Workouts from the sidebar', () => sidebarLink(page, 'Workouts').click({ timeout: 6000 }), async () => {
+        await ctx.expectUrl(/\/workouts\/?(\?.*)?$/);
+        await ctx.expectText('This week');
+        await stepThen(ctx, 'open the Garmin strength session', () => clickButton(page, /^Strength training, /), async () => {
+          await ctx.expectUrl(/\/workouts\/[0-9a-f-]{36}/);
+          await ctx.expectText('Time in heart-rate zones');
+          await ctx.check('the detail page keeps the Workouts row lit, with the sidebar and a back button', async () => {
+            await litLink(page, 'Workouts').waitFor({ state: 'visible', timeout: 6000 });
+            await page.getByRole('button', { name: 'Go back', exact: true }).first().waitFor({ state: 'visible', timeout: 6000 });
+          });
+        });
+      });
+      await stepThen(ctx, 'open the food search from the add button', () => clickButton(page, 'Add to diary', { exact: true }), async () => {
+        await ctx.expectUrl(/\/add/);
+        await stepThen(ctx, 'choose Search food', () => clickButton(page, /Search food/), async () => {
+          await ctx.expectUrl(/\/search/);
+          await ctx.check('the sidebar is on the search screen too', () => sidebarLink(page, 'Foods').waitFor({ state: 'visible', timeout: 6000 }));
+        });
+      });
     },
   },
   {

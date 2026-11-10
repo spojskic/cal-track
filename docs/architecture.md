@@ -46,11 +46,11 @@ All in `packages/core`, tested with golden values.
 
 1. **Energy target** = BMR + baseline activity (a fraction of BMR, not a multiplier on top of exercise) + weight-goal delta,
    never below a floor. Resolved in one pure function (`resolveTargets`) from profile, weight, goal and overrides.
-2. **Expenditure for a day** ("Burned") is assembled the way Cronometer does it, and depends on the *energy mode*:
+2. **Expenditure for a day** ("Burned") is assembled from the parts below, and depends on the *energy mode*:
    `Burned = BMR + adjusted baseline activity + tracker activity + exercise (+ TEF)`. The baseline activity is a fraction of
    BMR chosen by the activity level; it is the allowance for everything that is not exercise and not measured, so at the
    start of the day `Burned = BMR + baseline` and meals can be planned before the watch recorded anything. It is then used up:
-   - *static* and *device-adjusted* (Cronometer's model; `AWAKE_HOURS = 16`):
+   - *static* and *device-adjusted* (`AWAKE_HOURS = 16`):
      `trackerActivity = max(0, deviceActive - deviceWorkoutKcal)` (watch movement outside workouts; 0 in static),
      `exercise = deviceWorkoutKcal + manualExerciseKcal` (manual only in static; net MET calories, because BMR already
      includes resting burn),
@@ -60,7 +60,7 @@ All in `packages/core`, tested with golden values.
      adjusted baseline is 0 and disappears from the breakdown.
    - *device total*: watch active + resting calories (+ TEF); no baseline.
 
-   Example (Cronometer's): BMR 1394, baseline 279, a 60 minute ride of 500 kcal -> adjusted baseline `279 - 279/16 = 261.5625`,
+   Example: BMR 1394, baseline 279, a 60 minute ride of 500 kcal -> adjusted baseline `279 - 279/16 = 261.5625`,
    `Burned = 1394 + 261.5625 + 500 = 2155.5625`.
 
    Watch workouts are stored with `counts_toward_energy = false` because they are already inside the watch's daily active
@@ -88,7 +88,7 @@ The colours of every screen come from `useTheme()` in `apps/app/src/theme/`, whi
   `resolvePalette`). `tools/ui-smoke/src/theme.test.ts` checks every palette for completeness and for contrast floors.
 - **The choice is device-local**: `theme-store.ts` is a small zustand store
   (`{ mode: 'system' | 'light' | 'dark', light, dark, corners: 'rounded' | 'boxy' }`) saved under `cal-track.theme.v1` in AsyncStorage (localStorage on the web), like the AI preferences. An unknown or removed id falls
-  back to the default of its side, a missing or unknown `corners` (a choice saved before the Boxy look existed) to `rounded`, so the key
+  back to the default of its side, a missing or unknown `corners` (a choice saved before the Boxy look existed) to the default, `boxy`, so the key
   was not bumped. No profile column and no migration. On the web the stored value is read synchronously when the
   module loads, so the first paint already has the right palette; on native the splash screen waits for the read (1.5 s at most).
 - **`useTheme()` resolves** the palette from the store and, for *Match system*, from `useColorScheme()`. `isDark` is the palette's own
@@ -123,11 +123,108 @@ The colours of every screen come from `useTheme()` in `apps/app/src/theme/`, whi
 - **Known limits:** the native splash screen and the app icon are static (`app.json` uses the Kanagawa Wave page colour); icons are not
   regenerated per palette. Real-device appearance is not verified.
 
+## Desktop shell (sidebar and status bar)
+
+On a window of `WIDE_BREAKPOINT` (900 px) or more the app draws a **sidebar** at the left (248 px, `SIDEBAR_WIDTH`) and a thin **status
+bar** along the bottom (`STATUS_BAR_HEIGHT`), around whatever screen is open. A phone never gets either: its bottom tab bar with the raised
+**+** button and its More tab are unchanged.
+
+- **Where it mounts, and why there.** `components/desktop/DesktopFrame.tsx` wraps the root `Stack` in `app/_layout.tsx`
+  (`RootNavigator`). Only `index`, `diary`, `foods` and `more` live in the `(app)` tab layout; settings, workouts, coach, search, the
+  food, recipe and saved meal pages, `add` and the rest are siblings in the root `Stack`. A sidebar inside `(app)` would disappear
+  on all of those, so the frame sits above the navigator and is drawn once. It does not remount when the page changes. The navigator is
+  always the same element in the same place (`sidebar | column(content, status bar)`, the other two are `null` when off), so crossing the
+  breakpoint or opening a full-screen route never remounts it and loses its state; on a phone the three wrapper views are plain
+  `flex: 1` containers.
+- **When it is drawn** (`shouldShowDesktopShell` in `components/desktop/shell-routes.ts`, pure and unit tested): the window is wide, the
+  user is signed in and has finished onboarding, and the path is not **`/sign-in`, `/onboarding` or `/scan`** (the barcode camera, which
+  wants the whole window). The path comes from `usePathname()`, with groups stripped (`(auth)/sign-in` is `/sign-in`); matching is by whole
+  segments. Everything else, `/add` included, is a screen of the shell. The result is also a React context
+  (`useDesktopShell()` in `components/desktop/shell-context.tsx`): `StackHeader` and the `(app)` layout read it, so a wide window on a
+  full-screen route looks as it does on a phone. `useContentWidth()` is the window width less the sidebar while the shell is on: screens
+  that choose a layout by width (the coach's two panes, the food, recipe and saved meal pages' two columns) use it.
+- **The `(app)` layout on a desktop** (`components/app-nav.tsx`) draws no sidebar of its own: it renders the routed page only. expo-router/ui
+  builds the tab screens from the `TabTrigger` elements it finds in the `TabList`, so the four triggers (`index`, `diary`, `foods`,
+  `more`) are still registered, in a `TabList` inside a `display: 'none'` view, each rendering `null`. Without them the routes would not be
+  screens of the tabs. The rules in the file's comments still hold: the triggers are direct, inline children of `TabList`, and styles
+  passed through `asChild` are flat objects. The `more` screen redirects to `/` on a desktop (`<Redirect href="/" />`), so an old link does
+  not show a second copy of the menu; the phone's More page is untouched.
+- **What the sidebar lists** (`components/desktop/sidebar-model.ts`, pure): **Daily** (Dashboard, Diary, Foods) and then the sections of
+  the More screen, taken from `buildMoreSections` in `components/settings/more-sections.ts` so that labels, routes, icons and the AI row's
+  On / Off badge are defined once: **Training**, **Coach**, **Profile**, **Connections**, **App**. The Account section is the pinned footer
+  (the signed-in e-mail and **Sign out**), not a group. There is no More item. Below the groups is the collapsible **Calendar**
+  (`SidebarCalendar.tsx`, date maths in `month-grid.ts`: six weeks, Monday first, dates built at noon from year / month / day so a time zone
+  or a daylight-saving change cannot move a cell). A day sets `useSelectedDate` and opens `/diary`.
+- **Active row.** `resolveActiveRowId(groups, pathname)` takes the row whose path (or `alsoActiveOn` prefix) is the longest match, by
+  segments, so `/workouts/<id>` keeps Workouts lit, `/settings/targets` lights Profile & targets, `/settings/garmin-sign-in` lights
+  Connected apps & devices, and `/food`, `/recipe` and `/saved-meal` pages light Foods. The add flows (`/add`, `/search`, `/scan`,
+  `/ai/*`, `/exercise`, `/biometric`, `/note`, `/water`) belong to no page and light nothing. The lit row carries `aria-current="page"`.
+- **Navigation.** A row is one `accessibilityRole="link"` named exactly like its label (the AI row adds its status: "AI (optional). Off"),
+  its icon hidden from screen readers. `sidebarNavigation(current, target)` decides the call: the same page does nothing; from a tab to another
+  tab or to a page that is not a tab it is `router.navigate` (switches the tab, or pushes the page); from a page that is not a tab back to
+  a tab it is `router.dismissTo` (the `(app)` screen already in the stack is shown again: `navigate` would mount a second, hidden copy of
+  the tabs and every query of the dashboard or diary would run twice); and from one page that is not a tab to another it is
+  `router.replace`, so clicking through the sidebar swaps pages instead of piling them up (Back still leads to the tab below).
+- **Collapsing.** Each group heading is a button named like the group with `aria-expanded`; the choice is kept in a zustand store
+  (`sidebar-store.ts`, same pattern as `theme/theme-store.ts`) under the versioned key `cal-track.sidebar.v1` (read synchronously on the web,
+  hydrated on native). `sidebar-state.ts` is the pure part: only known groups with a true / false value are kept, so an old, newer or
+  garbage payload gives the defaults (every group open, the calendar closed).
+- **Status bar** (`ShellStatusBar.tsx`, texts in `status-text.ts`). Left: "Syncing..." while the Apple Health / Health Connect or Garmin
+  sync store says so, else "Synced just now / 12 min ago / today at 14:32 / yesterday at ... / on Oct 20" from the newest
+  `integrations.last_sync_at` of a connected source, else "Not synced". The rows come from the same `useIntegration` hooks (query keys)
+  the Connected apps & devices screen uses; nothing polls and nothing starts a sync. Right: "AI: on / off" (`useAiGate`), the colour theme's
+  name and the app version (`expo-constants`).
+- **Page header.** Inside the shell `StackHeader` is a slim strip of `PAGE_HEADER_HEIGHT` with a hairline underneath: a small back button
+  when there is a page to go back to, the muted parent ("Settings", "Workouts", "Foods", from the route name) before the title, and
+  `headerRight` at the right. The dashboard, diary and foods pages draw the same strip themselves (`PageHeader` in `components/panel.tsx`).
+  The window's top inset is kept free once, by the frame, and not added again by the header or the tab slot.
+- **Tests.** `tools/ui-smoke/src/desktop-shell.test.ts` covers the model, the active-row rules, the excluded routes, the navigation rule,
+  the month grid, the collapse state and the status texts. The browser scenarios named `shell: ...` (and `more: a desktop window has no More
+  page`, `sidebar: Workouts ...`) cover the real navigation. Not verified on a real device: the iPad / tablet case (safe-area insets).
+
+## Desktop page layouts
+
+The three tab pages have a second layout for a window of `WIDE_BREAKPOINT` (900 px) or more, beside the desktop sidebar. Each page
+decides in its own file (`const wide = useWindowDimensions().width >= WIDE_BREAKPOINT`, the same switch as the app shell) and renders
+either its phone code, untouched, or the desktop body; the desktop body is a separate component, so a phone never mounts it (and
+`WorkoutsPanel`'s `useWorkouts` query only runs on the desktop dashboard).
+
+- **Measurements** are shared with the shell in `theme/desktop.ts` (`SIDEBAR_WIDTH`, `PAGE_HEADER_HEIGHT`, `STATUS_BAR_HEIGHT`,
+  `DESKTOP_CONTENT_MAX_WIDTH` 1440, `DESKTOP_CONTENT_PADDING` 20, `PANEL_GAP` 12, `PANEL_HEADER_HEIGHT` 34).
+- **Pure rules** in `components/desktop-layout.ts` (no React Native, unit tested in `tools/ui-smoke/src/desktop-layout.test.ts`):
+  `columnsFor` / `planGrid` (1 column below 760 px of content, 2 below 1120, 3 from 1120; a `columns` override), `packRows` (deals
+  panels with their `span` into rows of at most `columns`), `kpiColumns` (cells per KPI row, balanced: six cells are 3 + 3, five 3 + 2),
+  `planDiary` (stacked below 900 px, else a 58 : 42 split with the list at least 520 px), `estimateContentWidth` (first guess from the
+  window so the first frame already has the right number of columns), `formatLongDate` and `textColumnWidth`. The numbers and texts of
+  the dashboard (`macroBarRows`, `macroKpi`, `remainingKpi`, `streakMessage`, `weightStats`, `entriesMeta`) are in
+  `components/diary/dashboard-view.ts`, tested in `dashboard-view.test.ts`.
+- **Building blocks** in `components/panel.tsx`: `DesktopPage` (the `PageHeader` strip plus a scrolling, centred content column, or a
+  fixed one for a page whose panes scroll on their own), `Panel` (1 px border, `radius.lg`, a title strip with title, `meta`, `action`
+  or `headerRight` and a hairline; `flush` for lists, `tone="page"` for lists whose rows are drawn in the page colour, `collapsible`
+  turns the title strip into a button), `PanelGrid` (rows of `flex: span` cells with `alignItems: stretch`, so panels of a row are
+  equally tall and a short last row still fills the width; the columns come from its own measured width), `SplitPanes` (the diary's
+  two panes), `KpiStrip` / `KpiCell` / `MiniProgress` (one bordered strip with hairline dividers that wraps by `kpiColumns`),
+  `BarList` (label | bar | value | percentage, with the value columns as wide as their widest text so the bars line up),
+  `PanelTabs` and `ToolbarButton`. Colours come from `useTheme().colors`, corners from `radius` / `shape` only (the shape guard
+  applies), borders are 1 px, figures use `tabular-nums`.
+- **Pages**: `components/diary/DashboardPanels.tsx` (`DesktopDashboard`), `components/diary/DiaryDesktop.tsx` +
+  `NutrientPanels.tsx` (`DesktopDiaryBody`; `use-nutrient-model.ts` computes the score, highlights and nutrient groups once for the phone's
+  `NutrientTargetsPanel` and the desktop panels), `components/food/FoodsDesktop.tsx`. The phone's cards (`DashboardCards.tsx`), pager
+  and `DateBar` are unchanged; `DateControls` in `DateBar.tsx` is the same set of buttons in one row for the page header, with the same
+  accessible names.
+- **Smoke test**: on a desktop viewport the `dashboard`, `diary: flat layout` and `foods tab` scenarios check the panel headings and that
+  the panels sit in columns across at least 80 % of the content area.
+
 ## Search and the free-tier budget
 
 - Search runs in Postgres: unaccented full-text plus trigram matching, ranked by your history, then source quality, then text
   similarity. A private `SECURITY DEFINER` function does the indexed work and the public function re-checks row-level security
   (otherwise Postgres would scan the whole table on every keystroke).
+- On the client one search serves two screens: the Foods tab (results in place) and the Add food screen (`app/search.tsx`). The rules
+  (two-character threshold, what the results area shows, when the online card is offered) are pure functions in
+  `components/food/food-search.ts` (unit tested in `tools/ui-smoke`); `use-food-search-results.ts` debounces and asks the server,
+  `use-food-row-actions.ts` is what a row does (open, quick add, pick, import an online result), and `search-field.tsx` and
+  `FoodSearchResults.tsx` draw the field and the answer.
 - Only **generic** foods are bulk-imported. Branded and Open Food Facts products are fetched on demand and cached, which keeps
   the database near 50 MB instead of several GB.
 - Meal photos are never stored. A weekly size check warns at 400 MB; a nightly workflow keeps 30 days of encrypted backups

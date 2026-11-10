@@ -1,9 +1,10 @@
 import { Stack } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseNumber } from '@cal/core';
 
+import { useContentWidth } from '@/components/desktop/shell-context';
 import { formatKcal } from '@/components/food/format';
 import { NumberField, TextField } from '@/components/forms';
 import { AppText, Button, Card } from '@/components/ui';
@@ -66,7 +67,8 @@ export function RecipeEditor({
 }) {
   const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  // The width of the area next to the sidebar (the window's, on a phone), so the two columns only start when they fit.
+  const width = useContentWidth();
   const wide = width >= WIDE_LAYOUT;
   const imperial = useUnitSystem() === 'imperial';
 

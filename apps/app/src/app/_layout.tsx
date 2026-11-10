@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, type ReactNode } from 'react';
 
+import { DesktopFrame } from '@/components/desktop/DesktopFrame';
 import { GestureRoot } from '@/components/gesture-root';
 import { SetupRequired } from '@/components/setup-required';
 import { StackHeader } from '@/components/stack-header';
@@ -52,21 +53,26 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-          // Screens that opt in with `<Stack.Screen options={{ headerShown: true }} />` get the app's own header (themed, no
-          // native liquid-glass buttons), see components/stack-header.tsx.
-          header: (props) => <StackHeader {...props} />,
-        }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(app)" />
-        <Stack.Screen
-          name="add"
-          options={{ presentation: 'modal', headerShown: true, title: 'Add to diary' }}
-        />
-      </Stack>
+      {/* On a wide window (and only for a signed-in, onboarded user, off the full-screen routes) the frame draws the desktop sidebar and
+          status bar around the Stack, so every screen below shares them: components/desktop/DesktopFrame.tsx. Otherwise it is a
+          plain container and the app looks as it always did. */}
+      <DesktopFrame signedIn={Boolean(session)} onboarded={!(profile.isSuccess && !profile.data?.onboarded)}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+            // Screens that opt in with `<Stack.Screen options={{ headerShown: true }} />` get the app's own header (themed, no
+            // native liquid-glass buttons), see components/stack-header.tsx.
+            header: (props) => <StackHeader {...props} />,
+          }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(app)" />
+          <Stack.Screen
+            name="add"
+            options={{ presentation: 'modal', headerShown: true, title: 'Add to diary' }}
+          />
+        </Stack>
+      </DesktopFrame>
     </>
   );
 }

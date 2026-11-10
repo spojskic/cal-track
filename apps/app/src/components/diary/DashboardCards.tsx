@@ -11,20 +11,21 @@ import { averageOfDays, type RecentDay } from '@/data/diary';
 import type { WeightPoint } from '@/data/weight';
 import { spacing, useTheme } from '@/theme';
 
+import { streakMessage } from './dashboard-view';
 import { weekdayInitial } from './dates';
 import { haptic } from './haptics';
 import { go } from './nav';
 
 // ------------------------------------------------------------------------------------------------ quick add
 
-interface QuickItem {
+export interface QuickItem {
   key: string;
   label: string;
   href: string;
   symbol: SymbolViewProps['name'];
 }
 
-const QUICK_ITEMS: QuickItem[] = [
+export const QUICK_ITEMS: QuickItem[] = [
   { key: 'food', label: 'Food', href: '/search', symbol: { ios: 'fork.knife', android: 'restaurant', web: 'restaurant' } },
   { key: 'exercise', label: 'Exercise', href: '/exercise/new', symbol: { ios: 'figure.run', android: 'directions_run', web: 'directions_run' } },
   { key: 'biometric', label: 'Biometric', href: '/biometric/new', symbol: { ios: 'waveform.path.ecg', android: 'monitor_heart', web: 'monitor_heart' } },
@@ -150,13 +151,7 @@ export function StreakCard({ days, streak, loading }: { days: readonly RecentDay
   const { colors, shape } = useTheme();
   const week = days.slice(-7);
   const today = days[days.length - 1];
-  const message = loading
-    ? ''
-    : streak === 0
-      ? 'Log something today to start a streak.'
-      : today?.logged
-        ? 'Logged today. Nice work.'
-        : 'Log something today to keep it going.';
+  const message = streakMessage(streak, today?.logged === true, loading);
 
   return (
     <Card>

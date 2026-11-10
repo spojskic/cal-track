@@ -7,11 +7,11 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deriveNutrients, parseNumber, scaleNutrients } from '@cal/core';
 
+import { useContentWidth } from '@/components/desktop/shell-context';
 import { CompletenessLabel } from '@/components/food/completeness';
 import { DayStepper } from '@/components/food/day-stepper';
 import { hapticSuccess } from '@/components/food/feedback';
@@ -118,7 +118,8 @@ function FoodDetailView({
 }) {
   const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  // The width of the area next to the sidebar (the window's, on a phone), so the two columns only start when they fit.
+  const width = useContentWidth();
   const wide = width >= WIDE_LAYOUT;
   const { food, portions, completeness, supersededById } = detail;
 

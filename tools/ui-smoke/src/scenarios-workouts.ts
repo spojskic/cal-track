@@ -1,5 +1,6 @@
 /**
- * Smoke scenarios of the Workouts section (More > Workouts). Appended to the main list by scenarios.ts.
+ * Smoke scenarios of the Workouts section (More > Workouts on a phone, the Workouts row of the sidebar on a desktop). Appended to the
+ * main list by scenarios.ts.
  *
  * Fixtures (src/fixtures.ts, default variant): two manual workouts, one Apple Health strength session, and three Garmin workouts -
  * a strength session with full details (heart rate, zones, training effect, sets), a run with only the list summary and a ride
@@ -39,10 +40,29 @@ export const WORKOUT_SCENARIOS: Scenario[] = [
     route: '/more',
     path: '/more',
     auth: 'signed-in',
+    viewports: ['phone', 'phone-dark'],
     expect: ['Workouts', 'Every workout with heart rate'],
     async after(page, ctx) {
       await ctx.expectNoText('Chat about your nutrition', { timeout: 1500 }); // the Coach entry stays hidden without a key
       await stepThen(ctx, 'open Workouts', () => clickButton(page, /^Workouts\./), async () => {
+        await ctx.expectUrl(/\/workouts\/?(\?.*)?$/);
+        await ctx.expectText('This week');
+      });
+    },
+  },
+  {
+    // The desktop sidebar lists Workouts whatever the AI setting; the Coach row is the one that needs a key.
+    name: 'sidebar: Workouts is always listed (no AI key needed) and opens the list',
+    route: '/',
+    path: '/',
+    auth: 'signed-in',
+    viewports: ['desktop', 'desktop-dark'],
+    expect: ['Workouts'],
+    async after(page, ctx) {
+      await ctx.check('there is no Coach row without a key', async () => {
+        if ((await page.getByRole('link', { name: 'Coach', exact: true }).count()) > 0) throw new Error('a Coach row is shown');
+      });
+      await stepThen(ctx, 'open Workouts', () => page.getByRole('link', { name: 'Workouts', exact: true }).first().click({ timeout: 6000 }), async () => {
         await ctx.expectUrl(/\/workouts\/?(\?.*)?$/);
         await ctx.expectText('This week');
       });
