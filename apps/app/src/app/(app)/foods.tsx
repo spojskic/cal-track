@@ -127,7 +127,7 @@ export default function FoodsScreen() {
             tintColor={colors.textMuted}
           />
           <AppText muted style={styles.searchText}>
-            Search foods, e.g. banana or chicken breast
+            Search foods, e.g. banana or rice
           </AppText>
         </Pressable>
         <Pressable

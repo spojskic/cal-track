@@ -339,7 +339,7 @@ export default function SearchScreen() {
                 autoFocus
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Search foods, e.g. banana or chicken breast"
+                placeholder="Search foods, e.g. banana or rice"
                 placeholderTextColor={colors.textMuted}
                 accessibilityLabel="Search foods"
                 returnKeyType="search"

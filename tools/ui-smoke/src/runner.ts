@@ -149,7 +149,8 @@ export async function runScenario(deps: RunDeps, scenario: Scenario, index: numb
     backend,
     fixtures,
     viewport: viewportName,
-    isPhone: viewportName === 'phone',
+    // phone and phone-dark (and any future phone-sized viewport): the layout depends on the width, not on the colour scheme
+    isPhone: vp.width < 600,
     async step(label, fn) {
       try {
         await fn();
