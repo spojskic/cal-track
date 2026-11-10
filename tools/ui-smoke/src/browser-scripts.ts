@@ -114,6 +114,50 @@ export function inspectPageScript(): string {
 })()`;
 }
 
+/**
+ * Layout problems of the visible buttons, found on the live page (one string per problem):
+ *  - a button-shaped (rounded) label that wraps onto several lines: in a pill that looks cramped, so shorten the label or
+ *    give the button more room;
+ *  - a label that is cut off or sticks out of its button;
+ *  - a multi-line label that is not centred in its button.
+ * Round icon buttons (no text, or one glyph) and elements that are not on screen are ignored.
+ */
+export function buttonLayoutScript(): string {
+  return `(function () {
+  var out = [];
+  var els = document.querySelectorAll('[role="button"],button');
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    var r = el.getBoundingClientRect();
+    if (r.width < 24 || r.height < 24) continue;
+    var cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+    var label = (el.textContent || '').replace(/\\s+/g, ' ').trim();
+    if (label.length < 4) continue;
+    // Count the lines of TEXT only: an icon above a label (dashboard tiles) is a design, not a wrapped label. Icon glyphs are
+    // text nodes too (a ligature in an icon font), so text set in a symbol/icon font is skipped.
+    var tops = {};
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    var node;
+    while ((node = walker.nextNode())) {
+      if (!node.textContent || !node.textContent.trim()) continue;
+      var parent = node.parentElement;
+      var family = parent ? getComputedStyle(parent).fontFamily : '';
+      if (/symbol|material|icon/i.test(family)) continue;
+      var range = document.createRange();
+      range.selectNodeContents(node);
+      var rects = range.getClientRects();
+      for (var k = 0; k < rects.length; k++) if (rects[k].width > 0 && rects[k].height > 0) tops[Math.round(rects[k].top / 4)] = 1;
+    }
+    var lines = Object.keys(tops).length;
+    var rounded = parseFloat(cs.borderTopLeftRadius) >= 16;
+    if (rounded && lines > 1) out.push('wraps onto ' + lines + ' lines: "' + label + '"');
+    if (el.scrollWidth > el.clientWidth + 1) out.push('label is cut off or sticks out: "' + label + '"');
+  }
+  return out;
+})()`;
+}
+
 /** Largest amount of content that is scrolled away inside any scroll container (or the document). */
 export function scrollMetricsScript(): string {
   return `(function () {

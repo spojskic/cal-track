@@ -7,6 +7,7 @@ import {
   FATAL_TEXT_PATTERNS,
   SUSPECT_TEXT_PATTERNS,
   dateShiftScript,
+  buttonLayoutScript,
   inspectPageScript,
   scrollMainScript,
   scrollMetricsScript,
@@ -34,13 +35,13 @@ function storage() {
 
 describe('every script is syntactically valid JavaScript', () => {
   it('compiles', () => {
-    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'https://a.test', storageKey: 'k', session: {} }), inspectPageScript(), scrollMetricsScript(), scrollMainScript(100), truncatedTextScript('[role="tab"]')]) {
+    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'https://a.test', storageKey: 'k', session: {} }), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(100), truncatedTextScript('[role="tab"]')]) {
       expect(() => new vm.Script(code)).not.toThrow();
     }
   });
 
   it('has no TypeScript artefacts (esbuild __name helper, type annotations)', () => {
-    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'o', storageKey: 'k', session: {} }), inspectPageScript(), scrollMetricsScript(), scrollMainScript(1), truncatedTextScript('x')]) {
+    for (const code of [dateShiftScript(1), seedSessionScript({ origin: 'o', storageKey: 'k', session: {} }), inspectPageScript(), buttonLayoutScript(), scrollMetricsScript(), scrollMainScript(1), truncatedTextScript('x')]) {
       expect(code).not.toMatch(/__name|: string|: number|as unknown/);
     }
   });

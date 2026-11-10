@@ -18,8 +18,8 @@ type MacroKey = 'protein' | 'carbs' | 'fat';
 
 const MODE_OPTIONS: { value: MacroEditorMode; label: string }[] = [
   { value: 'ratios', label: 'Ratios' },
-  { value: 'fixed', label: 'Fixed Targets' },
-  { value: 'keto', label: 'Keto Calculator' },
+  { value: 'fixed', label: 'Fixed' },
+  { value: 'keto', label: 'Keto' },
 ];
 
 /** Live preview of a draft: parsed mode, resulting macros and the reason it is not valid. */
@@ -54,7 +54,7 @@ function ResultLine({ macros, which }: { macros: MacroTargets | null; which: Mac
 }
 
 /**
- * Macro target editor with the Ratios | Fixed Targets | Keto Calculator tabs.
+ * Macro target editor with the Ratios | Fixed | Keto tabs (short labels: three long ones wrapped onto two lines on a phone).
  * Fully controlled; the parent owns the draft and decides when to save
  * (use {@link previewMacroDraft} to get the parsed mode).
  */

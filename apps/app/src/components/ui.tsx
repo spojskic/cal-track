@@ -146,7 +146,8 @@ const styles = StyleSheet.create({
   },
   button: {
     minHeight: 46,
-    borderRadius: radius.pill,
+    // Half of minHeight: a pill for one line, and a rounded rectangle (not an oval) when a long label wraps onto two.
+    borderRadius: 23,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     alignItems: 'center',

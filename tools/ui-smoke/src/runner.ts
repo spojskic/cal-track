@@ -13,7 +13,7 @@ import type { Browser, BrowserContext, Page } from 'playwright-core';
 import type { AppFiles } from './app-files';
 import { waitForInputValue } from './actions';
 import { backendIssues, dedupeIssues, functionCalls } from './analysis';
-import { dateShiftScript, inspectPageScript, scrollMetricsScript, seedSessionScript } from './browser-scripts';
+import { buttonLayoutScript, dateShiftScript, inspectPageScript, scrollMetricsScript, seedSessionScript } from './browser-scripts';
 import { APP_ORIGIN, FIXED_NOW_MS, STORAGE_KEY, TIMEZONE } from './constants';
 import { classifyConsole } from './known-noise';
 import { buildFixtures } from './fixtures';
@@ -134,6 +134,9 @@ export async function runScenario(deps: RunDeps, scenario: Scenario, index: numb
     const allowText = scenario.allowText ?? [];
     for (const hit of info.fatalHits) if (!allowText.some((re) => re.test(hit))) push('fail', 'overlay', `Error text on the screen: "${hit}"`);
     for (const hit of info.suspectHits) if (!allowText.some((re) => re.test(hit))) push('warn', 'text', `Suspicious text on the screen: "${hit}" (${info.sample.slice(0, 120)}...)`);
+    // Buttons: labels that wrap in a pill, are cut off or stick out (checked on every screen and every viewport).
+    const buttonIssues: unknown = await page.evaluate(buttonLayoutScript()).catch(() => []);
+    if (Array.isArray(buttonIssues)) for (const issue of buttonIssues) push('warn', 'layout', `Button ${String(issue)}`);
   };
 
   const textTimeout = (o?: TextOptions) => o?.timeout ?? 8000;

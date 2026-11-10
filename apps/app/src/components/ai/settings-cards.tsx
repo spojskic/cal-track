@@ -340,7 +340,7 @@ export function PrivacyCard() {
       </AppText>
       {apiKey ? (
         <ConfirmButton
-          label="Disconnect and remove key from this device"
+          label="Disconnect and remove key"
           confirmLabel="Yes, remove the key"
           question="This deletes the key from this device and hides all AI features. Your OpenRouter account is not affected. You can connect again at any time."
           loading={busy}

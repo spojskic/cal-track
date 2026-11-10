@@ -14,6 +14,7 @@ export type IssueKind =
   | 'timeout'
   | 'external'
   | 'text'
+  | 'layout'
   | 'harness';
 
 export interface Issue {
