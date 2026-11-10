@@ -15,12 +15,16 @@ import {
   useUpdateDiaryEntry,
   type DiaryEntry,
 } from '@/data/diary';
+import { isPastDate } from '@/data/diary-copy';
 import type { MealGroup } from '@/data/meal-groups';
 import { supabase } from '@/lib/supabase';
+import { todayISO } from '@/state/selected-date';
 import { radius, spacing, useTheme } from '@/theme';
 
+import { entryCopyActions } from './copy-menus';
 import { haptic } from './haptics';
 import { Sheet } from './Sheet';
+import type { CopyActions } from './use-copy-actions';
 
 interface PortionRow {
   label: string;
@@ -73,18 +77,22 @@ function toUnits(portions: readonly PortionRow[]): UnitOption[] {
 const trimText = (n: number) => formatNumber(n, n < 10 ? 2 : 1, true).replace(/,/g, '');
 
 /**
- * Edit sheet for one diary entry: amount (grams or a portion), move to another meal group, delete (with confirm).
+ * Edit sheet for one diary entry: amount (grams or a portion), move to another meal group, copy / paste (clipboard,
+ * today), delete (with confirm).
  * The entry is looked up live so optimistic changes (e.g. move) show up immediately.
  */
 export function EntryActionSheet({
   entryId,
   date,
   groups,
+  copyActions,
   onClose,
 }: {
   entryId: string | null;
   date: string;
   groups: MealGroup[];
+  /** Copy / paste actions of the diary (they outlive this sheet, which unmounts its body when closed). */
+  copyActions: CopyActions;
   onClose: () => void;
 }) {
   const entries = useDiaryEntries(date);
@@ -92,12 +100,22 @@ export function EntryActionSheet({
   // Keep showing the last entry while the sheet is open (it disappears from the list right after delete).
   return (
     <Sheet visible={entryId !== null && entry !== undefined} onClose={onClose} title={entry?.food.name} subtitle={entry?.food.brand ?? undefined}>
-      {entry ? <EntryEditor key={entry.id} entry={entry} groups={groups} onClose={onClose} /> : null}
+      {entry ? <EntryEditor key={entry.id} entry={entry} groups={groups} copyActions={copyActions} onClose={onClose} /> : null}
     </Sheet>
   );
 }
 
-function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: MealGroup[]; onClose: () => void }) {
+function EntryEditor({
+  entry,
+  groups,
+  copyActions,
+  onClose,
+}: {
+  entry: DiaryEntry;
+  groups: MealGroup[];
+  copyActions: CopyActions;
+  onClose: () => void;
+}) {
   const { colors } = useTheme();
   const portionsQ = useFoodPortions(entry.foodId);
   const units = useMemo(() => toUnits(portionsQ.data ?? []), [portionsQ.data]);
@@ -105,6 +123,11 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
   const update = useUpdateDiaryEntry();
   const move = useMoveDiaryEntry();
   const remove = useDeleteDiaryEntry();
+  const copyLabels = entryCopyActions({
+    isPastDate: isPastDate(entry.entryDate, todayISO()),
+    clipboard: copyActions.clipboard,
+  });
+  const groupName = groups.find((g) => g.id === entry.mealGroupId)?.name ?? 'the diary';
 
   // Edits are stored as overrides; until the user edits, values are DERIVED from the entry and the loaded
   // portions (portion entries show in their own unit once portions load) - no state syncing in effects.
@@ -166,6 +189,24 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
     haptic('warning');
     remove.mutate({ id: entry.id, entryDate: entry.entryDate });
     onClose();
+  };
+
+  const copyEntry = () => {
+    haptic('light');
+    copyActions.copyToClipboard({ kind: 'entry', label: entry.food.name, sourceGroupId: entry.mealGroupId, entries: [entry] });
+    onClose();
+  };
+
+  const pasteHere = () => {
+    haptic('light');
+    onClose();
+    void copyActions.pasteClipboard(entry.mealGroupId, groupName);
+  };
+
+  const copyToToday = () => {
+    haptic('light');
+    onClose();
+    void copyActions.copyEntryToToday(entry);
   };
 
   const stat = (label: string, value: number | undefined, suffix: string, decimals = 0) => (
@@ -240,6 +281,17 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
 
       <Button label="Save" onPress={save} disabled={!changed} />
 
+      <View style={styles.block}>
+        <AppText variant="label" muted>
+          Copy
+        </AppText>
+        <View style={styles.chipsWrap}>
+          <Chip label={copyLabels.copy} onPress={copyEntry} />
+          {copyLabels.paste ? <Chip label={copyLabels.paste} onPress={pasteHere} /> : null}
+          {copyLabels.copyToToday ? <Chip label={copyLabels.copyToToday} onPress={copyToToday} /> : null}
+        </View>
+      </View>
+
       {confirmDelete ? (
         <View style={[styles.confirm, { borderColor: colors.danger }]}>
           <AppText style={{ fontWeight: '600' }}>Delete this entry?</AppText>
@@ -271,18 +323,19 @@ function EntryEditor({ entry, groups, onClose }: { entry: DiaryEntry; groups: Me
   );
 }
 
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+/** Pill button. `selected` marks a choice; omit it for a plain action. */
+function Chip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
   const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={selected === undefined ? undefined : { selected }}
       onPress={onPress}
       style={[
         styles.chip,
-        { backgroundColor: selected ? colors.primary : colors.surfaceAlt, borderColor: selected ? colors.primary : colors.border },
+        { backgroundColor: selected === true ? colors.primary : colors.surfaceAlt, borderColor: selected === true ? colors.primary : colors.border },
       ]}>
-      <AppText style={{ fontSize: 14, fontWeight: '600', color: selected ? colors.onPrimary : colors.text }}>{label}</AppText>
+      <AppText style={{ fontSize: 14, fontWeight: '600', color: selected === true ? colors.onPrimary : colors.text }}>{label}</AppText>
     </Pressable>
   );
 }

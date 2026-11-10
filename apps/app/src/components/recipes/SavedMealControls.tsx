@@ -43,7 +43,7 @@ export function SavedMealControls({
   if (entries.length > 0) {
     actions.push({
       key: 'save-meal',
-      label: `Save ${name} as a meal...`,
+      label: 'Create Meal from Group',
       onPress: () => setPanel('save'),
     });
   }
@@ -68,13 +68,7 @@ export function SavedMealControls({
         }}
       />
       <ActionMenu visible={menuVisible} title={`${name}: saved meals`} actions={actions} onClose={() => setMenuVisible(false)} />
-      <Sheet
-        visible={panel === 'save'}
-        onClose={() => setPanel(null)}
-        title="Save as meal"
-        subtitle={`${entries.length} ${entries.length === 1 ? 'food' : 'foods'} from ${name}`}>
-        {panel === 'save' ? <SaveBody defaultName={name} entries={entries} onClose={() => setPanel(null)} /> : null}
-      </Sheet>
+      <SaveMealSheet visible={panel === 'save'} name={name} entries={entries} onClose={() => setPanel(null)} />
       <Sheet
         visible={panel === 'add'}
         onClose={() => setPanel(null)}
@@ -85,6 +79,29 @@ export function SavedMealControls({
         ) : null}
       </Sheet>
     </>
+  );
+}
+
+/** "Create Meal from Group": names the meal and saves the group's foods (in grams) as a saved meal. */
+export function SaveMealSheet({
+  visible,
+  name,
+  entries,
+  onClose,
+}: {
+  visible: boolean;
+  name: string;
+  entries: DiaryEntry[];
+  onClose: () => void;
+}) {
+  return (
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      title="Save as meal"
+      subtitle={`${entries.length} ${entries.length === 1 ? 'food' : 'foods'} from ${name}`}>
+      {visible ? <SaveBody defaultName={name} entries={entries} onClose={onClose} /> : null}
+    </Sheet>
   );
 }
 

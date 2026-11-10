@@ -11,6 +11,7 @@ import { formatDayLabel, relativeDayLabel } from './dates';
 import { haptic } from './haptics';
 import { IconButton } from './IconButton';
 import { Sheet } from './Sheet';
+import type { CopyActions } from './use-copy-actions';
 
 /**
  * Copy a meal group (or a whole day) from another date into `targetDate`.
@@ -20,12 +21,15 @@ export function CopyDiarySheet({
   visible,
   targetDate,
   group,
+  announceCopy,
   onClose,
 }: {
   visible: boolean;
   targetDate: string;
   /** Copy just this meal group (same group on the source day -> this group). Omit for the whole day. */
   group?: { id: string; name: string } | null;
+  /** Announces the finished copy with an Undo toast (from the diary's copy actions, which outlive this sheet). */
+  announceCopy: CopyActions['announceCopy'];
   onClose: () => void;
 }) {
   return (
@@ -34,7 +38,15 @@ export function CopyDiarySheet({
       onClose={onClose}
       title={group ? `Copy ${group.name} from...` : 'Copy a day from...'}
       subtitle={`Into ${formatDayLabel(targetDate)}`}>
-      {visible ? <CopyBody key={`${targetDate}-${group?.id ?? 'day'}`} targetDate={targetDate} group={group} onClose={onClose} /> : null}
+      {visible ? (
+        <CopyBody
+          key={`${targetDate}-${group?.id ?? 'day'}`}
+          targetDate={targetDate}
+          group={group}
+          announceCopy={announceCopy}
+          onClose={onClose}
+        />
+      ) : null}
     </Sheet>
   );
 }
@@ -42,10 +54,12 @@ export function CopyDiarySheet({
 function CopyBody({
   targetDate,
   group,
+  announceCopy,
   onClose,
 }: {
   targetDate: string;
   group?: { id: string; name: string } | null;
+  announceCopy: CopyActions['announceCopy'];
   onClose: () => void;
 }) {
   const { colors } = useTheme();
@@ -61,13 +75,17 @@ function CopyBody({
 
   const doCopy = async () => {
     try {
-      const count = await copy.mutateAsync({
+      const outcome = await copy.mutateAsync({
         fromDate: sourceDate,
         toDate: targetDate,
         fromMealGroupId: group?.id,
       });
-      haptic(count > 0 ? 'success' : 'warning');
-      if (count > 0) onClose();
+      if (outcome.count > 0) {
+        announceCopy(outcome, group?.name ?? relativeDayLabel(targetDate) ?? formatDayLabel(targetDate));
+        onClose();
+      } else {
+        haptic('warning');
+      }
     } catch {
       haptic('error');
     }

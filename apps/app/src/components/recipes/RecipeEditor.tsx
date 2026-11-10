@@ -9,6 +9,7 @@ import { NumberField, TextField } from '@/components/forms';
 import { AppText, Button, Card } from '@/components/ui';
 import { useUnitSystem } from '@/data/profile';
 import { useFoodsByIds, type IngredientFood, type RecipeDetail } from '@/data/recipes';
+import type { RecipeDraft } from '@/state/recipe-draft';
 import { MAX_CONTENT_WIDTH, radius, spacing, useTheme } from '@/theme';
 
 import {
@@ -42,6 +43,7 @@ export interface RecipeEditorValues {
 export function RecipeEditor({
   title,
   initial,
+  prefill,
   topSlot,
   banner,
   submitLabel,
@@ -52,6 +54,8 @@ export function RecipeEditor({
   title: string;
   /** Existing recipe (edit mode). */
   initial?: RecipeDetail;
+  /** Starting point of a NEW recipe (name + ingredients), e.g. the foods of a diary meal group. Ignored with `initial`. */
+  prefill?: RecipeDraft | null;
   /** Rendered above the form (the AI recipe button goes here on the new-recipe screen). */
   topSlot?: ReactNode;
   banner?: ReactNode;
@@ -66,7 +70,7 @@ export function RecipeEditor({
   const wide = width >= WIDE_LAYOUT;
   const imperial = useUnitSystem() === 'imperial';
 
-  const [name, setName] = useState(initial?.name ?? '');
+  const [name, setName] = useState(initial?.name ?? prefill?.name ?? '');
   const [servingsText, setServingsText] = useState(initial ? String(initial.servings) : '1');
   const [finalWeightText, setFinalWeightText] = useState(
     initial?.finalWeightG ? String(Number(initial.finalWeightG.toFixed(3))) : '',
@@ -76,9 +80,11 @@ export function RecipeEditor({
   const [pickNotice, setPickNotice] = useState<string | null>(null);
 
   const lineState = useFoodLines(() =>
-    (initial?.ingredients ?? []).map((i) =>
-      lineFromGrams(i.foodId, i.food?.name ?? 'Unknown food', i.food?.brand ?? null, i.grams, 3),
-    ),
+    initial
+      ? initial.ingredients.map((i) =>
+          lineFromGrams(i.foodId, i.food?.name ?? 'Unknown food', i.food?.brand ?? null, i.grams, 3),
+        )
+      : (prefill?.ingredients ?? []).map((i) => lineFromGrams(i.foodId, i.name, i.brand, i.grams, 3)),
   );
   const { lines } = lineState;
   const lookup = useFoodsByIds(lines.map((l) => l.foodId));

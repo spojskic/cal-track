@@ -1,16 +1,23 @@
+import { useEffect, useState } from 'react';
+
 import { AiRecipeButton } from '@/components/ai';
 import { RecipeEditor } from '@/components/recipes/RecipeEditor';
 import { replaceWith } from '@/components/recipes/nav';
 import { errorMessage } from '@/data/foods';
 import { useCreateRecipe } from '@/data/recipes';
+import { useRecipeDraft } from '@/state/recipe-draft';
 
 /** New recipe: name, servings, cooked weight, notes and ingredients with a live nutrition preview. */
 export default function NewRecipeScreen() {
   const create = useCreateRecipe();
+  // "Create Recipe from Group" on the diary leaves its foods here; read once, cleared when this screen closes.
+  const [prefill] = useState(() => useRecipeDraft.getState().draft);
+  useEffect(() => () => useRecipeDraft.getState().setDraft(null), []);
 
   return (
     <RecipeEditor
       title="New recipe"
+      prefill={prefill}
       // Renders nothing unless the AI gate is open (valid key + image-capable model).
       topSlot={<AiRecipeButton />}
       submitLabel="Save recipe"

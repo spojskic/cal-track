@@ -19,7 +19,7 @@ import type { Page } from 'playwright-core';
 
 import { choose, clickButton, clickTab, clickText, closeSheet, fill, scrollToText } from './actions';
 import { truncatedTextScript } from './browser-scripts';
-import { BARCODES, IDS, USER } from './fixtures';
+import { BARCODES, IDS, USER, addDays } from './fixtures';
 import type { Scenario, ScenarioContext } from './types';
 
 const F = IDS.food;
@@ -33,6 +33,66 @@ async function stepThen(ctx: ScenarioContext, label: string, act: () => Promise<
 
 async function openRow(page: Page, name: RegExp): Promise<void> {
   await page.getByRole('button', { name }).first().click({ timeout: 6000 });
+}
+
+// ------------------------------------------------------------------------------------------ diary copy / paste helpers
+
+const MG = IDS.mealGroup;
+
+/** Number of buttons with this accessible name (a string is an exact name). Toasts and sheets are text, menus are buttons. */
+const buttonCount = (page: Page, name: string | RegExp): Promise<number> => page.getByRole('button', { name, exact: typeof name === 'string' }).count();
+
+/** Opens a meal group's "..." menu and picks an action (the menu items are buttons named exactly like their label). */
+async function pickGroupAction(page: Page, group: string, action: string | RegExp): Promise<void> {
+  await clickButton(page, `${group} options`, { exact: true });
+  await clickButton(page, action, typeof action === 'string' ? { exact: true } : {});
+}
+
+/** Opens the date bar's "..." menu and picks an action. */
+async function pickDateAction(page: Page, action: string): Promise<void> {
+  await clickButton(page, 'More diary actions', { exact: true });
+  await clickButton(page, action, { exact: true });
+}
+
+type MockRow = Record<string, unknown>;
+
+/** diary_entries of one day (optionally one meal group), as the mock database holds them right now. */
+const entriesOn = (ctx: ScenarioContext, date: string, group?: string): MockRow[] =>
+  ctx.backend.rows('diary_entries').filter((e) => e.entry_date === date && (group === undefined || e.meal_group_id === group));
+
+/** Every diary row ordered by id, as JSON: two snapshots are equal when no entry was added, removed or changed. */
+const diarySnapshot = (ctx: ScenarioContext): string =>
+  JSON.stringify(ctx.backend.rows('diary_entries').slice().sort((a, b) => String(a.id).localeCompare(String(b.id))));
+
+/** Committed writes to diary_entries so far ("insert diary_entries", ...). */
+const diaryWrites = (ctx: ScenarioContext): string[] => ctx.backend.mutations.filter((m) => m.table === 'diary_entries').map((m) => `${m.op} ${m.table}`);
+
+/** Polls a condition on the mock backend (writes are async); throws when it does not become true. */
+async function waitUntil(page: Page, label: string, condition: () => boolean, timeoutMs = 6000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error(`Not true after ${timeoutMs} ms: ${label}`);
+    await page.waitForTimeout(100);
+  }
+}
+
+/** Top edge of the first button with this accessible name (to compare the order of rows on screen). */
+async function rowTop(page: Page, name: RegExp): Promise<number> {
+  const box = await page.getByRole('button', { name }).first().boundingBox({ timeout: 6000 });
+  if (!box) throw new Error(`${String(name)} is not visible`);
+  return box.y;
+}
+
+/** 1234 -> "1,234" (what formatNumber prints). */
+const thousands = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+/** Energy of the entries as the app computes it: kcal per 100 g of each food times the eaten grams. */
+function kcalOf(ctx: ScenarioContext, entries: MockRow[]): number {
+  const foods = ctx.backend.rows('foods');
+  return entries.reduce((sum, e) => {
+    const nutrients = (foods.find((f) => f.id === e.food_id)?.nutrients ?? {}) as Record<string, number>;
+    return sum + ((nutrients.ENERGY_KCAL ?? 0) * Number(e.grams)) / 100;
+  }, 0);
 }
 
 export const SCENARIOS: Scenario[] = [
@@ -306,6 +366,467 @@ export const SCENARIOS: Scenario[] = [
             ctx.expectMutation('diary_entries', 'insert', (m) => rowsOf(m).length === 3 && rowsOf(m).every((r) => r.source === 'copy' && r.meal_group_id === IDS.mealGroup.lunch)).then(() => undefined),
           );
         });
+      });
+    },
+  },
+  // ------------------------------------------------------------------------------------------ diary: copy / paste menus
+  {
+    name: "diary: Copy Yesterday's Group adds it to today, Undo removes it",
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Oats, rolled, dry'],
+    async after(page, ctx) {
+      const today = ctx.fixtures.today;
+      const before = diarySnapshot(ctx);
+      await stepThen(ctx, 'open the Breakfast menu', () => clickButton(page, 'Breakfast options', { exact: true }), async () => {
+        await ctx.expectText("Copy Yesterday's Group");
+        await ctx.check('today offers no "Copy to Today" and, with an empty clipboard, no "Paste"', async () => {
+          if ((await buttonCount(page, 'Copy to Today')) > 0) throw new Error('"Copy to Today" is offered on today');
+          if ((await buttonCount(page, /^Paste /)) > 0) throw new Error('"Paste" is offered with an empty clipboard');
+        });
+        await ctx.snapshot('group-menu', { tall: false });
+        await stepThen(ctx, "choose Copy Yesterday's Group", () => clickButton(page, "Copy Yesterday's Group", { exact: true }), async () => {
+          // yesterday's breakfast: egg, bread, coffee -> three NEW entries in today's Breakfast
+          await ctx.expectMutation(
+            'diary_entries',
+            'insert',
+            (m) => rowsOf(m).length === 3 && rowsOf(m).every((r) => r.entry_date === today && r.meal_group_id === MG.breakfast && r.source === 'copy' && r.user_id === USER.id),
+          );
+          await ctx.expectText('Copied 3 items to Breakfast');
+          await ctx.expectText('Egg, whole, raw');
+          await stepThen(ctx, 'tap Undo', () => clickButton(page, 'Undo', { exact: true }), async () => {
+            await ctx.expectMutation('diary_entries', 'delete');
+            await ctx.expectText('Undone');
+            await ctx.expectNoText('Egg, whole, raw');
+            await ctx.check('the diary is exactly as before', () => waitUntil(page, 'rows restored', () => diarySnapshot(ctx) === before));
+          });
+        });
+      });
+    },
+  },
+  {
+    name: 'diary: Copy Group, then Paste Group into other meals',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Chicken breast, roasted, skinless'],
+    async after(page, ctx) {
+      const today = ctx.fixtures.today;
+      const lunch = entriesOn(ctx, today, MG.lunch);
+      await stepThen(ctx, 'open the Snacks menu while the clipboard is empty', () => clickButton(page, 'Snacks options', { exact: true }), async () => {
+        await ctx.expectText('Add food to Snacks');
+        await ctx.check('there is no Paste action yet', async () => {
+          if ((await buttonCount(page, /^Paste /)) > 0) throw new Error('"Paste" is offered with an empty clipboard');
+        });
+        await ctx.step('close the menu', () => closeSheet(page, 'Add food to Snacks'));
+      });
+      await stepThen(ctx, 'Copy Group on Lunch', () => pickGroupAction(page, 'Lunch', 'Copy Group'), async () => {
+        await ctx.expectText(/Lunch copied to clipboard \(4 items\)/);
+        await ctx.check('copying to the clipboard writes no diary entries', () => {
+          if (diaryWrites(ctx).length > 0) throw new Error(`unexpected writes: ${diaryWrites(ctx).join(', ')}`);
+        });
+        await stepThen(ctx, 'Paste Group into Snacks', () => pickGroupAction(page, 'Snacks', 'Paste Group'), async () => {
+          await ctx.expectMutation(
+            'diary_entries',
+            'insert',
+            (m) => {
+              const rows = rowsOf(m);
+              return (
+                rows.length === 4 &&
+                rows.every((r) => r.entry_date === today && r.meal_group_id === MG.snacks && r.source === 'copy') &&
+                lunch.every((l) => rows.some((r) => r.food_id === l.food_id && r.grams === l.grams && r.amount === l.amount && r.portion_label === l.portion_label))
+              );
+            },
+          );
+          await ctx.expectText('Pasted 4 items to Snacks');
+          await ctx.snapshot('pasted', { tall: false });
+          await ctx.check('Lunch itself is unchanged', () => {
+            if (entriesOn(ctx, today, MG.lunch).length !== 4) throw new Error('the copied group lost entries');
+          });
+        });
+        // the clipboard stays: it can be pasted again, into another meal
+        await stepThen(ctx, 'Paste Group into Dinner', () => pickGroupAction(page, 'Dinner', 'Paste Group'), () =>
+          ctx.expectMutation('diary_entries', 'insert', (m) => rowsOf(m).length === 4 && rowsOf(m).every((r) => r.meal_group_id === MG.dinner)).then(() => undefined),
+        );
+      });
+    },
+  },
+  {
+    name: 'diary: Copy Entry, then Paste Entry from a meal menu and from the entry sheet',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Oats, rolled, dry', 'Apple, raw, with skin'],
+    async after(page, ctx) {
+      const today = ctx.fixtures.today;
+      const oatsInSnacks = () => entriesOn(ctx, today, MG.snacks).filter((e) => e.food_id === F.oats).length;
+      await stepThen(ctx, 'open the oats entry', () => openRow(page, /Oats, rolled, dry/), async () => {
+        await ctx.expectText('Delete entry');
+        await ctx.check('with an empty clipboard on today: Copy Entry only', async () => {
+          if ((await buttonCount(page, 'Copy Entry')) === 0) throw new Error('"Copy Entry" is missing');
+          if ((await buttonCount(page, /^Paste /)) > 0) throw new Error('"Paste" is offered with an empty clipboard');
+          if ((await buttonCount(page, 'Copy to Today')) > 0) throw new Error('"Copy to Today" is offered on today');
+        });
+        await ctx.snapshot('entry-sheet', { tall: false });
+        await stepThen(ctx, 'Copy Entry', () => clickButton(page, 'Copy Entry', { exact: true }), async () => {
+          await ctx.expectText(/Oats, rolled, dry copied to clipboard \(1 item\)/);
+          await stepThen(ctx, 'Paste Entry from the Snacks menu', () => pickGroupAction(page, 'Snacks', 'Paste Entry'), async () => {
+            await ctx.expectMutation(
+              'diary_entries',
+              'insert',
+              (m) =>
+                rowsOf(m).length === 1 &&
+                rowsOf(m).every((r) => r.food_id === F.oats && r.grams === 60 && r.entry_date === today && r.meal_group_id === MG.snacks && r.source === 'copy'),
+            );
+            await ctx.expectText('Pasted 1 item to Snacks');
+          });
+        });
+      });
+      // The same clipboard is offered by the entry sheet of another entry and lands in THAT entry's meal group.
+      await stepThen(ctx, 'open the apple entry', () => openRow(page, /Apple, raw, with skin/), async () => {
+        await ctx.expectText('Delete entry');
+        await stepThen(ctx, 'Paste Entry', () => clickButton(page, 'Paste Entry', { exact: true }), async () => {
+          await ctx.check('the oats were pasted into Snacks (the apple\'s meal) a second time', () => waitUntil(page, 'second paste', () => oatsInSnacks() === 2));
+        });
+      });
+    },
+  },
+  {
+    name: 'diary: Copy to Today on a past day (group and entry)',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast'],
+    async after(page, ctx) {
+      const today = ctx.fixtures.today;
+      const yesterday = addDays(today, -1);
+      const dinnerToday = () => entriesOn(ctx, today, MG.dinner).length;
+      const dinnerYesterday = entriesOn(ctx, yesterday, MG.dinner);
+      const before = dinnerToday();
+      await stepThen(ctx, 'go to yesterday', () => clickButton(page, 'Previous day', { exact: true }), async () => {
+        await ctx.expectText('Salmon, Atlantic, farmed, raw');
+        await stepThen(ctx, 'Dinner menu: Copy to Today', () => pickGroupAction(page, 'Dinner', 'Copy to Today'), async () => {
+          await ctx.expectMutation(
+            'diary_entries',
+            'insert',
+            (m) =>
+              rowsOf(m).length === dinnerYesterday.length &&
+              rowsOf(m).every((r) => r.entry_date === today && r.meal_group_id === MG.dinner && r.source === 'copy') &&
+              dinnerYesterday.every((y) => rowsOf(m).some((r) => r.food_id === y.food_id && r.grams === y.grams)),
+          );
+          await ctx.expectText('Copied 4 items to Dinner on Today');
+          await ctx.check('yesterday is untouched, today\'s Dinner has 4 more entries', () =>
+            waitUntil(page, 'dinner copied', () => dinnerToday() === before + 4 && entriesOn(ctx, yesterday, MG.dinner).length === 4),
+          );
+        });
+        await stepThen(ctx, 'open the salmon entry', () => openRow(page, /Salmon, Atlantic/), async () => {
+          await ctx.expectText('Delete entry');
+          await ctx.snapshot('entry-sheet-past-day', { tall: false });
+          await stepThen(ctx, 'Copy to Today', () => clickButton(page, 'Copy to Today', { exact: true }), async () => {
+            await ctx.expectMutation(
+              'diary_entries',
+              'insert',
+              (m) => rowsOf(m).length === 1 && rowsOf(m).every((r) => r.food_id === F.salmon && r.entry_date === today && r.meal_group_id === MG.dinner && r.grams === 178 && r.source === 'copy'),
+            );
+            await ctx.expectText('Copied 1 item to Dinner on Today');
+            await ctx.check('today\'s Dinner has one more entry', () => waitUntil(page, 'entry copied', () => dinnerToday() === before + 5));
+          });
+        });
+      });
+      await stepThen(ctx, 'back to today', () => clickButton(page, 'Next day', { exact: true }), () => ctx.expectText('Today'));
+    },
+  },
+  {
+    name: 'diary: Delete group entries asks first, Undo puts the same rows back',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Snacks', 'Almonds, raw'],
+    async after(page, ctx) {
+      const today = ctx.fixtures.today;
+      const before = diarySnapshot(ctx);
+      const snackIds = entriesOn(ctx, today, MG.snacks).map((e) => String(e.id));
+      await stepThen(ctx, 'Delete group entries on Snacks', () => pickGroupAction(page, 'Snacks', 'Delete group entries'), async () => {
+        await ctx.expectText('Delete Snacks entries?');
+        await ctx.expectText('You can undo it right after');
+        await ctx.snapshot('confirm', { tall: false });
+        await stepThen(ctx, 'Keep', () => clickButton(page, 'Keep', { exact: true }), async () => {
+          await ctx.expectNoText('Delete Snacks entries?');
+          await ctx.check('nothing was deleted', () => {
+            if (ctx.backend.mutationsOf('diary_entries', 'delete').length > 0) throw new Error('"Keep" still deleted');
+          });
+        });
+      });
+      await stepThen(
+        ctx,
+        'ask again and confirm',
+        async () => {
+          await pickGroupAction(page, 'Snacks', 'Delete group entries');
+          await clickButton(page, `Delete ${snackIds.length} items`, { exact: true });
+        },
+        async () => {
+          await ctx.expectMutation('diary_entries', 'delete', (m) => m.rows === snackIds.length);
+          await ctx.expectText('Deleted 3 items from Snacks');
+          await ctx.expectNoText('Almonds, raw');
+          await ctx.check('the Snacks rows are gone and the other meals are not', () => {
+            if (entriesOn(ctx, today, MG.snacks).length !== 0) throw new Error('Snacks still has rows');
+            if (entriesOn(ctx, today).length !== 12) throw new Error(`${entriesOn(ctx, today).length} rows left today, expected 12`);
+          });
+          await stepThen(ctx, 'tap Undo', () => clickButton(page, 'Undo', { exact: true }), async () => {
+            await ctx.expectMutation('diary_entries', 'insert', (m) => rowsOf(m).length === snackIds.length && rowsOf(m).every((r) => snackIds.includes(String(r.id))));
+            await ctx.expectText('Restored 3 items');
+            await ctx.expectText('Almonds, raw');
+            await ctx.check('the rows are back with identical values', () => waitUntil(page, 'rows restored', () => diarySnapshot(ctx) === before));
+          });
+        },
+      );
+    },
+  },
+  {
+    name: 'diary: Show Nutrition Summary of a meal',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Oats, rolled, dry'],
+    async after(page, ctx) {
+      const today = ctx.fixtures.today;
+      const breakfast = entriesOn(ctx, today, MG.breakfast);
+      const kcal = Math.round(kcalOf(ctx, breakfast));
+      const accepted = [kcal - 1, kcal, kcal + 1].map(thousands).join('|');
+      await stepThen(ctx, 'Show Nutrition Summary on Breakfast', () => pickGroupAction(page, 'Breakfast', 'Show Nutrition Summary'), async () => {
+        await ctx.expectText('Breakfast nutrition summary');
+        await ctx.expectText('4 foods');
+        // the headline stats and the rows carry their value in the accessible name ("Energy 483 kcal", "Sodium 40 mg")
+        await ctx.check(`the energy of the meal is ${kcal} kcal`, () => page.getByLabel(new RegExp(`^Energy (${accepted}) kcal`)).first().waitFor({ state: 'visible', timeout: 6000 }));
+        for (const label of ['Protein', 'Net Carbs', 'Fat']) {
+          await ctx.check(`${label} is part of the headline`, () => page.getByLabel(new RegExp(`^${label} [\\d.,]+ g`)).first().waitFor({ state: 'visible', timeout: 6000 }));
+        }
+        for (const row of ['Fiber', 'Sodium', 'Calcium', 'Vitamin C']) {
+          await ctx.check(`${row} is listed`, () => page.getByLabel(new RegExp(`^${row} [\\d.,]+ `)).first().waitFor({ state: 'visible', timeout: 6000 }));
+        }
+        await ctx.snapshot('summary', { tall: false });
+        await ctx.step('close the summary', () => closeSheet(page, 'Breakfast nutrition summary'));
+      });
+    },
+  },
+  {
+    name: "diary: copy yesterday's entire diary asks first when the day has food, Undo removes it",
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Oats, rolled, dry'],
+    async after(page, ctx) {
+      const today = ctx.fixtures.today;
+      const before = diarySnapshot(ctx);
+      await stepThen(ctx, 'diary actions: Copy yesterday\'s entire diary', () => pickDateAction(page, "Copy yesterday's entire diary"), async () => {
+        await ctx.expectText("Copy yesterday's entire diary?");
+        await ctx.expectText('already has 15 items');
+        await ctx.snapshot('confirm', { tall: false });
+        await stepThen(ctx, 'Cancel', () => clickButton(page, 'Cancel', { exact: true }), async () => {
+          await ctx.expectNoText("Copy yesterday's entire diary?");
+          await ctx.check('nothing was copied', () => {
+            if (ctx.backend.mutationsOf('diary_entries', 'insert').length > 0) throw new Error('"Cancel" still copied');
+          });
+        });
+      });
+      await stepThen(
+        ctx,
+        'ask again and confirm',
+        async () => {
+          await pickDateAction(page, "Copy yesterday's entire diary");
+          await clickButton(page, 'Copy 12 items', { exact: true });
+        },
+        async () => {
+          await ctx.expectMutation('diary_entries', 'insert', (m) => {
+            const rows = rowsOf(m);
+            const inGroup = (id: string) => rows.filter((r) => r.meal_group_id === id).length;
+            return (
+              rows.length === 12 &&
+              rows.every((r) => r.entry_date === today && r.source === 'copy' && r.user_id === USER.id) &&
+              inGroup(MG.breakfast) === 3 &&
+              inGroup(MG.lunch) === 1 &&
+              inGroup(MG.dinner) === 4 &&
+              inGroup(MG.snacks) === 4
+            );
+          });
+          await ctx.expectText('Copied 12 items to Today');
+          await ctx.expectText('Salmon, Atlantic, farmed, raw');
+          await stepThen(ctx, 'tap Undo', () => clickButton(page, 'Undo', { exact: true }), async () => {
+            await ctx.expectMutation('diary_entries', 'delete', (m) => m.rows === 12);
+            await ctx.expectText('Undone');
+            await ctx.expectNoText('Salmon, Atlantic, farmed, raw');
+            await ctx.check('the diary is exactly as before', () => waitUntil(page, 'rows restored', () => diarySnapshot(ctx) === before));
+          });
+        },
+      );
+    },
+  },
+  {
+    name: "diary: copy yesterday's entire diary into an empty day needs no confirmation",
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast'],
+    async after(page, ctx) {
+      const tomorrow = addDays(ctx.fixtures.today, 1);
+      const todayCount = entriesOn(ctx, ctx.fixtures.today).length;
+      await stepThen(ctx, 'go to tomorrow (nothing logged)', () => clickButton(page, 'Next day', { exact: true }), async () => {
+        await ctx.expectText('Nothing logged yet');
+        await stepThen(ctx, "diary actions: Copy yesterday's entire diary", () => pickDateAction(page, "Copy yesterday's entire diary"), async () => {
+          await ctx.expectMutation(
+            'diary_entries',
+            'insert',
+            (m) => rowsOf(m).length === todayCount && rowsOf(m).every((r) => r.entry_date === tomorrow && r.source === 'copy'),
+          );
+          await ctx.expectNoText("Copy yesterday's entire diary?", { timeout: 1500 });
+          await ctx.expectText(`Copied ${todayCount} items to Tomorrow`);
+          await ctx.expectText('Oats, rolled, dry');
+          await ctx.snapshot('copied', { tall: false });
+        });
+      });
+    },
+  },
+  {
+    name: 'diary: Copy a day from... announces the copy and can undo it',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast'],
+    async after(page, ctx) {
+      const before = diarySnapshot(ctx);
+      await stepThen(ctx, 'diary actions: Copy a day from...', () => pickDateAction(page, 'Copy a day from...'), async () => {
+        await ctx.expectText(/12 items, [\d,]+ kcal/);
+        await stepThen(ctx, 'copy the 12 items', () => clickButton(page, /^Copy 12 items to /), async () => {
+          await ctx.expectMutation('diary_entries', 'insert', (m) => rowsOf(m).length === 12 && rowsOf(m).every((r) => r.source === 'copy'));
+          await ctx.expectText('Copied 12 items to Today');
+          await stepThen(ctx, 'tap Undo', () => clickButton(page, 'Undo', { exact: true }), async () => {
+            await ctx.expectText('Undone');
+            await ctx.check('the diary is exactly as before', () => waitUntil(page, 'rows restored', () => diarySnapshot(ctx) === before));
+          });
+        });
+      });
+    },
+  },
+  {
+    name: 'diary: Create Recipe from Group opens the recipe editor with the foods',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Oats, rolled, dry'],
+    async after(page, ctx) {
+      const breakfast = entriesOn(ctx, ctx.fixtures.today, MG.breakfast);
+      await stepThen(ctx, 'Create Recipe from Group on Breakfast', () => pickGroupAction(page, 'Breakfast', 'Create Recipe from Group'), async () => {
+        await ctx.expectUrl(/\/recipe\/new/);
+        await ctx.expectInputValue('Recipe name', 'Breakfast recipe');
+        // every ingredient line is a button "<food>. <amount> g = <grams> g ..." (the diary rows read "<food>, <amount> g, ...")
+        for (const [name, grams] of [
+          ['Oats, rolled, dry', 60],
+          ['Banana, raw', 118],
+          ['Milk, whole, 3.25% fat', 244],
+          ['Coffee, brewed', 237],
+        ] as const) {
+          await ctx.check(`ingredient ${name} (${grams} g)`, () =>
+            page.getByRole('button', { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\. ${grams} g = ${grams} g`) }).first().waitFor({ state: 'visible', timeout: 8000 }),
+          );
+        }
+        await ctx.snapshot('prefilled');
+        await stepThen(ctx, 'save the recipe', () => page.getByRole('button', { name: /^Save recipe.*kcal per serving/ }).first().click({ timeout: 10_000 }), async () => {
+          await ctx.expectMutation('foods', 'insert', (m) => payloadOf(m).kind === 'recipe' && payloadOf(m).name === 'Breakfast recipe');
+          await ctx.expectMutation(
+            'recipe_ingredients',
+            'insert',
+            (m) => rowsOf(m).length === 4 && breakfast.every((e) => rowsOf(m).some((r) => r.ingredient_food_id === e.food_id && r.grams === e.grams)),
+          );
+        });
+      });
+    },
+  },
+  {
+    name: 'diary: Create Meal from Group saves the foods as a saved meal',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Dinner', 'Ćevapi'],
+    async after(page, ctx) {
+      const dinner = entriesOn(ctx, ctx.fixtures.today, MG.dinner);
+      await stepThen(ctx, 'Create Meal from Group on Dinner', () => pickGroupAction(page, 'Dinner', 'Create Meal from Group'), async () => {
+        await ctx.expectText('Save as meal');
+        await ctx.expectInputValue('Saved meal name', 'Dinner');
+        await ctx.snapshot('save-meal', { tall: false });
+        await stepThen(
+          ctx,
+          'name it and save',
+          async () => {
+            await fill(page, 'Saved meal name', 'Večera');
+            await clickButton(page, 'Save meal', { exact: true });
+          },
+          async () => {
+            await ctx.expectMutation('saved_meals', 'insert', (m) => payloadOf(m).name === 'Večera');
+            await ctx.expectMutation(
+              'saved_meal_items',
+              'insert',
+              (m) => rowsOf(m).length === dinner.length && dinner.every((e) => rowsOf(m).some((r) => r.food_id === e.food_id && r.grams === e.grams)),
+            );
+            await ctx.expectText('Saved as');
+          },
+        );
+      });
+    },
+  },
+  {
+    name: 'diary: Sort by Time flips the order of a meal (view only)',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Oats, rolled, dry', 'Coffee, brewed'],
+    async after(page, ctx) {
+      const oats = /^Oats, rolled, dry, /;
+      const coffee = /^Coffee, brewed, /;
+      await ctx.check('oldest first by default: oats above coffee', async () => {
+        if ((await rowTop(page, oats)) >= (await rowTop(page, coffee))) throw new Error('oats are not above the coffee');
+      });
+      await stepThen(ctx, 'Sort by Time: newest first', () => pickGroupAction(page, 'Breakfast', 'Sort by Time: newest first'), async () => {
+        await ctx.check('newest first: coffee above oats', async () => {
+          if ((await rowTop(page, coffee)) >= (await rowTop(page, oats))) throw new Error('coffee is not above the oats');
+        });
+        await ctx.snapshot('newest-first', { tall: false });
+        await ctx.check('sorting writes no diary entries', () => {
+          if (diaryWrites(ctx).length > 0) throw new Error(`unexpected writes: ${diaryWrites(ctx).join(', ')}`);
+        });
+        await stepThen(ctx, 'Sort by Time: oldest first', () => pickGroupAction(page, 'Breakfast', 'Sort by Time: oldest first'), async () => {
+          await ctx.check('oldest first again: oats above coffee', async () => {
+            if ((await rowTop(page, oats)) >= (await rowTop(page, coffee))) throw new Error('oats are not above the coffee');
+          });
+        });
+      });
+    },
+  },
+  {
+    name: 'diary: an empty day offers no copy, summary or delete actions',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    fixtures: 'empty-diary',
+    expect: ['Breakfast', 'Nothing logged yet'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'open the Breakfast menu', () => clickButton(page, 'Breakfast options', { exact: true }), async () => {
+        await ctx.expectText('Add food to Breakfast');
+        await ctx.check('only the actions that make sense for an empty meal', async () => {
+          for (const name of ["Copy Yesterday's Group", 'Copy Group', 'Copy to Today', 'Create Recipe from Group', 'Create Meal from Group', 'Show Nutrition Summary', 'Delete group entries', /^Paste /, /^Sort by Time/]) {
+            if ((await buttonCount(page, name)) > 0) throw new Error(`${String(name)} is offered for an empty meal`);
+          }
+          if ((await buttonCount(page, 'Copy Breakfast from another day...')) === 0) throw new Error('"Copy Breakfast from another day..." is missing');
+        });
+        await ctx.snapshot('empty-group-menu', { tall: false });
+        await ctx.step('close the menu', () => closeSheet(page, 'Add food to Breakfast'));
+      });
+      await stepThen(ctx, 'open the diary actions', () => clickButton(page, 'More diary actions', { exact: true }), async () => {
+        await ctx.expectText('Copy a day from');
+        await ctx.check("no 'Copy yesterday's entire diary' when yesterday is empty", async () => {
+          if ((await buttonCount(page, "Copy yesterday's entire diary")) > 0) throw new Error('offered although yesterday has nothing');
+        });
+        await ctx.step('close the diary actions', () => closeSheet(page, 'Copy a day from'));
       });
     },
   },

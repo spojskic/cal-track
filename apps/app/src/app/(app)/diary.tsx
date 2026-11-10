@@ -11,27 +11,37 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { EnergySummary, type EnergySummaryProps } from '@/components/charts/EnergySummary';
 import { AddRow, BiometricList, DiaryTabs, ExerciseList, NotesList, type DiaryTab } from '@/components/diary/ActivityTabs';
+import { ConfirmSheet } from '@/components/diary/ConfirmSheet';
+import { dateMenuItems, groupMenuItems, type DateMenuKey, type GroupMenuKey } from '@/components/diary/copy-menus';
 import { CopyDiarySheet } from '@/components/diary/CopyDiarySheet';
 import { DateBar } from '@/components/diary/DateBar';
 import { buildDeviceRows, DevicesGroup } from '@/components/diary/DevicesGroup';
 import { EntryActionSheet } from '@/components/diary/EntryActionSheet';
+import { formatDayLabel } from '@/components/diary/dates';
 import { haptic } from '@/components/diary/haptics';
 import { useMeasuredWidth } from '@/components/diary/layout';
 import { MealGroupSection } from '@/components/diary/MealGroupSection';
 import { go } from '@/components/diary/nav';
 import { NutrientTargetsPanel } from '@/components/diary/NutrientTargetsPanel';
+import { NutritionSummarySheet } from '@/components/diary/NutritionSummarySheet';
 import { ActionMenu, type MenuAction } from '@/components/diary/Sheet';
 import { buildHighlights, buildMacroRows, consumedSplit, targetSplit } from '@/components/diary/targets-view';
 import { MacroBars, TargetsPager } from '@/components/diary/TargetsPager';
+import { ToastHost } from '@/components/diary/ToastHost';
+import { useCopyActions } from '@/components/diary/use-copy-actions';
 import { DEFAULT_WATER_TARGET_ML, QUICK_WATER_ML, WaterRow } from '@/components/diary/WaterRow';
+import { SaveMealSheet } from '@/components/recipes/SavedMealControls';
 import { AppText, Button, Card } from '@/components/ui';
 import { useBiometrics, useNotes, useWaterMl } from '@/data/activity';
-import { UNGROUPED, useDayNutrients, type DiaryEntry } from '@/data/diary';
+import { UNGROUPED, useDayNutrients, useDiaryEntries, type DiaryEntry } from '@/data/diary';
+import { isPastDate, itemWord, sortEntriesByTime } from '@/data/diary-copy';
 import { useDayEnergyFrom } from '@/data/energy';
 import { useMealGroups, type MealGroup } from '@/data/meal-groups';
 import { useProfile } from '@/data/profile';
 import { useTargets } from '@/data/targets';
-import { todayISO, useSelectedDate } from '@/state/selected-date';
+import { showDiaryToast } from '@/state/diary-toast';
+import { buildRecipeDraft, useRecipeDraft } from '@/state/recipe-draft';
+import { addDays, todayISO, useSelectedDate } from '@/state/selected-date';
 import { MAX_CONTENT_WIDTH, WIDE_BREAKPOINT, spacing, useTheme } from '@/theme';
 
 interface Section {
@@ -42,7 +52,16 @@ interface Section {
   kcal: number;
 }
 
-type MenuState = { kind: 'date' } | { kind: 'group'; section: Section };
+// A group menu keeps the section id (not the section) so its actions always act on the live entries.
+type MenuState = { kind: 'date' } | { kind: 'group'; sectionId: string };
+
+type ConfirmState = { kind: 'delete-group'; sectionId: string } | { kind: 'copy-diary' };
+
+const NO_ENTRIES: DiaryEntry[] = [];
+
+/** Entries as listed: the order they were logged, or newest first. */
+const sortedEntries = (entries: DiaryEntry[], newest: boolean): DiaryEntry[] =>
+  newest ? sortEntriesByTime(entries, true) : entries;
 
 export default function DiaryScreen() {
   const { colors } = useTheme();
@@ -73,6 +92,22 @@ export default function DiaryScreen() {
   // undefined = copy sheet closed, null = copy a whole day, object = copy one meal group.
   const [copyGroup, setCopyGroup] = useState<{ id: string; name: string } | null | undefined>(undefined);
   const [refreshing, setRefreshing] = useState(false);
+  // Section ids for the sheets opened from the group menu.
+  const [summaryId, setSummaryId] = useState<string | null>(null);
+  const [mealId, setMealId] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  // Meal groups listed newest first (view only; the default order is the time the entries were logged).
+  const [newestFirst, setNewestFirst] = useState<Record<string, boolean>>({});
+
+  const copyActions = useCopyActions(date);
+  const yesterday = addDays(date, -1);
+  const yesterdayEntries = useDiaryEntries(yesterday).data;
+  const yesterdayByGroup = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of yesterdayEntries ?? []) if (e.mealGroupId) counts[e.mealGroupId] = (counts[e.mealGroupId] ?? 0) + 1;
+    return counts;
+  }, [yesterdayEntries]);
+  const yesterdayCount = yesterdayEntries?.length ?? 0;
 
   const targets = targetsQ.data;
   const netCarbs = profileQ.data?.net_carbs ?? targets?.profile.net_carbs ?? true;
@@ -124,7 +159,7 @@ export default function DiaryScreen() {
         id: g.id,
         name: g.name,
         group: g,
-        entries: byGroup.get(g.id) ?? [],
+        entries: sortedEntries(byGroup.get(g.id) ?? [], newestFirst[g.id] === true),
         kcal: day.byGroup[g.id]?.kcal ?? 0,
       }));
     if (orphans.length > 0) {
@@ -137,7 +172,7 @@ export default function DiaryScreen() {
       });
     }
     return list;
-  }, [groupsQ.data, day.entries, day.byGroup]);
+  }, [groupsQ.data, day.entries, day.byGroup, newestFirst]);
 
   const devices = useMemo(
     () => buildDeviceRows(energy.exercise, energy.deviceEnergyRows, biometricsQ.data ?? []),
@@ -151,43 +186,84 @@ export default function DiaryScreen() {
     setMenuVisible(true);
   };
   const toggleGroup = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
+  const sectionById = (id: string | null) => (id === null ? undefined : sections.find((s) => s.id === id));
+
+  const startRecipe = (section: Section) => {
+    const draft = buildRecipeDraft(`${section.name} recipe`, section.entries);
+    if (!draft) {
+      showDiaryToast({ message: 'Nothing in this meal can become a recipe.', tone: 'error' });
+      return;
+    }
+    useRecipeDraft.getState().setDraft(draft);
+    go('/recipe/new');
+  };
+
+  const groupHandlers = (section: Section): Record<GroupMenuKey, () => void> => {
+    const group = section.group;
+    return {
+      add: () => group && go('/search', { mealGroupId: group.id }),
+      'copy-yesterday': () => group && void copyActions.copyYesterdayGroup({ id: group.id, name: group.name }),
+      'copy-to-today': () => group && void copyActions.copyGroupToToday({ id: group.id, name: group.name }),
+      'copy-group': () =>
+        copyActions.copyToClipboard({ kind: 'group', label: section.name, sourceGroupId: group?.id ?? null, entries: section.entries }),
+      paste: () => group && void copyActions.pasteClipboard(group.id, section.name),
+      'copy-from-day': () => group && setCopyGroup({ id: group.id, name: group.name }),
+      'create-recipe': () => startRecipe(section),
+      'create-meal': () => setMealId(section.id),
+      'nutrition-summary': () => setSummaryId(section.id),
+      'sort-time': () => setNewestFirst((c) => ({ ...c, [section.id]: !c[section.id] })),
+      collapse: () => toggleGroup(section.id),
+      delete: () => setConfirm({ kind: 'delete-group', sectionId: section.id }),
+    };
+  };
+
+  const dateHandlers: Record<DateMenuKey, () => void> = {
+    today: goToday,
+    'copy-yesterday-diary': () => {
+      // Copying into a day that already has food adds to it: ask first.
+      if (day.hasEntries) setConfirm({ kind: 'copy-diary' });
+      else void copyActions.copyYesterdayDiary();
+    },
+    'copy-day': () => setCopyGroup(null),
+    'toggle-all': () => {
+      const allCollapsed = sections.length > 0 && sections.every((s) => collapsed[s.id]);
+      setCollapsed(Object.fromEntries(sections.map((s) => [s.id, !allCollapsed])));
+    },
+  };
 
   const menuActions: MenuAction[] = (() => {
     if (!menu) return [];
     if (menu.kind === 'date') {
-      const actions: MenuAction[] = [];
-      if (date !== todayISO()) actions.push({ key: 'today', label: 'Go to today', onPress: goToday });
-      actions.push({ key: 'copy-day', label: 'Copy a day from...', onPress: () => setCopyGroup(null) });
-      const allCollapsed = sections.length > 0 && sections.every((s) => collapsed[s.id]);
-      actions.push({
-        key: 'toggle-all',
-        label: allCollapsed ? 'Expand all meals' : 'Collapse all meals',
-        onPress: () => setCollapsed(Object.fromEntries(sections.map((s) => [s.id, !allCollapsed]))),
+      const specs = dateMenuItems({
+        isToday: date === todayISO(),
+        yesterdayCount,
+        sectionCount: sections.length,
+        allCollapsed: sections.length > 0 && sections.every((s) => collapsed[s.id]),
       });
-      return actions;
+      return specs.map((spec) => ({ ...spec, onPress: dateHandlers[spec.key] }));
     }
-    const { section } = menu;
-    const actions: MenuAction[] = [];
-    const group = section.group;
-    if (group) {
-      actions.push({
-        key: 'add',
-        label: `Add food to ${section.name}`,
-        onPress: () => go('/search', { mealGroupId: group.id }),
-      });
-      actions.push({
-        key: 'copy',
-        label: `Copy ${section.name} from another day...`,
-        onPress: () => setCopyGroup({ id: group.id, name: group.name }),
-      });
-    }
-    actions.push({
-      key: 'collapse',
-      label: collapsed[section.id] ? `Expand ${section.name}` : `Collapse ${section.name}`,
-      onPress: () => toggleGroup(section.id),
+    const section = sectionById(menu.sectionId);
+    if (!section) return [];
+    const handlers = groupHandlers(section);
+    const specs = groupMenuItems({
+      name: section.name,
+      hasGroup: section.group !== undefined,
+      entryCount: section.entries.length,
+      yesterdayCount: section.group ? (yesterdayByGroup[section.group.id] ?? 0) : 0,
+      isPastDate: isPastDate(date, todayISO()),
+      clipboard: copyActions.clipboard,
+      collapsed: collapsed[section.id] === true,
+      newestFirst: newestFirst[section.id] === true,
     });
-    return actions;
+    return specs.map((spec) => ({ ...spec, onPress: handlers[spec.key] }));
   })();
+
+  // Sheets and dialogs of the group menu actions (live sections, so they follow undo / refetch).
+  const menuSection = menu?.kind === 'group' ? sectionById(menu.sectionId) : undefined;
+  const summarySection = sectionById(summaryId);
+  const mealSection = sectionById(mealId);
+  const confirmSection = confirm?.kind === 'delete-group' ? sectionById(confirm.sectionId) : undefined;
+  const deleteCount = confirmSection?.entries.length ?? 0;
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -246,7 +322,7 @@ export default function DiaryScreen() {
           collapsed={collapsed[section.id] === true}
           onToggle={() => toggleGroup(section.id)}
           onAdd={() => go('/search', section.group ? { mealGroupId: section.group.id } : undefined)}
-          onMenu={() => openMenu({ kind: 'group', section })}
+          onMenu={() => openMenu({ kind: 'group', sectionId: section.id })}
           onEntryPress={(entry) => {
             haptic('light');
             setEditingId(entry.id);
@@ -361,11 +437,12 @@ export default function DiaryScreen() {
         entryId={editingId}
         date={date}
         groups={(groupsQ.data ?? []).filter((g) => !g.hidden)}
+        copyActions={copyActions}
         onClose={() => setEditingId(null)}
       />
       <ActionMenu
         visible={menuVisible}
-        title={menu?.kind === 'group' ? menu.section.name : 'Diary'}
+        title={menu?.kind === 'group' ? (menuSection?.name ?? 'Meal') : 'Diary'}
         actions={menuActions}
         onClose={() => setMenuVisible(false)}
       />
@@ -373,8 +450,42 @@ export default function DiaryScreen() {
         visible={copyGroup !== undefined}
         targetDate={date}
         group={copyGroup}
+        announceCopy={copyActions.announceCopy}
         onClose={() => setCopyGroup(undefined)}
       />
+      <NutritionSummarySheet
+        visible={summarySection !== undefined}
+        name={summarySection?.name ?? 'Meal'}
+        entries={summarySection?.entries ?? NO_ENTRIES}
+        netCarbs={netCarbs}
+        onClose={() => setSummaryId(null)}
+      />
+      <SaveMealSheet
+        visible={mealSection !== undefined}
+        name={mealSection?.name ?? 'Meal'}
+        entries={mealSection?.entries ?? NO_ENTRIES}
+        onClose={() => setMealId(null)}
+      />
+      <ConfirmSheet
+        visible={confirm?.kind === 'copy-diary'}
+        title="Copy yesterday's entire diary?"
+        message={`${formatDayLabel(date)} already has ${day.entries.length} ${itemWord(day.entries.length)}. The ${yesterdayCount} ${itemWord(yesterdayCount)} from yesterday are added to them.`}
+        confirmLabel={`Copy ${yesterdayCount} ${itemWord(yesterdayCount)}`}
+        cancelLabel="Cancel"
+        onConfirm={() => void copyActions.copyYesterdayDiary()}
+        onClose={() => setConfirm(null)}
+      />
+      <ConfirmSheet
+        visible={confirmSection !== undefined && deleteCount > 0}
+        title={`Delete ${confirmSection?.name ?? 'meal'} entries?`}
+        message={`This removes ${deleteCount} ${itemWord(deleteCount)} from ${confirmSection?.name ?? 'this meal'} on ${formatDayLabel(date)}. You can undo it right after.`}
+        confirmLabel={`Delete ${deleteCount} ${itemWord(deleteCount)}`}
+        cancelLabel="Keep"
+        destructive
+        onConfirm={() => confirmSection && void copyActions.deleteEntries(confirmSection.entries, confirmSection.name)}
+        onClose={() => setConfirm(null)}
+      />
+      <ToastHost />
     </View>
   );
 }

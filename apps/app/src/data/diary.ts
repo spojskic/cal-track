@@ -11,12 +11,14 @@ import {
   type NutrientMap,
 } from '@cal/core';
 
-import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
 import { addDays, todayISO } from '@/state/selected-date';
 
+import { copyFromDay, type CopyDiaryEntriesInput, type CopyOutcome } from './diary-copy';
 import type { DiarySource } from './diary-write';
-import { dayKey, invalidateDay } from './keys';
+import { dayKey, invalidateDay, keys } from './keys';
+
+export type { CopyDiaryEntriesInput, CopyOutcome } from './diary-copy';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Types
@@ -244,16 +246,25 @@ function invalidateRecent(qc: QueryClient): Promise<void> {
   });
 }
 
-async function settle(qc: QueryClient, date: string): Promise<void> {
+/** Refreshes one diary day and everything derived from it (dashboard recent days). */
+export async function settle(qc: QueryClient, date: string): Promise<void> {
   await Promise.all([invalidateDay(qc, date), invalidateRecent(qc)]);
 }
 
-interface OptimisticContext {
+/** {@link settle} for every date once, plus the "recent foods" list (inserting entries changes the food usage). */
+export async function settleDates(qc: QueryClient, dates: readonly string[]): Promise<void> {
+  await Promise.all([
+    ...Array.from(new Set(dates)).map((d) => settle(qc, d)),
+    qc.invalidateQueries({ queryKey: keys.recentFoods }),
+  ]);
+}
+
+export interface OptimisticContext {
   previous: DiaryEntryRow[] | undefined;
   key: ReturnType<typeof dayKey>;
 }
 
-async function patchRows(
+export async function patchRows(
   qc: QueryClient,
   date: string,
   fn: (rows: DiaryEntryRow[]) => DiaryEntryRow[],
@@ -265,7 +276,7 @@ async function patchRows(
   return { previous, key };
 }
 
-function rollback(qc: QueryClient, ctx: OptimisticContext | undefined) {
+export function rollback(qc: QueryClient, ctx: OptimisticContext | undefined) {
   if (ctx?.previous) qc.setQueryData(ctx.key, ctx.previous);
 }
 
@@ -335,58 +346,15 @@ export function useDeleteDiaryEntry() {
   });
 }
 
-export interface CopyDiaryEntriesInput {
-  fromDate: string;
-  toDate: string;
-  /** Copy only this meal group of the source day. Omit to copy the whole day (groups are preserved). */
-  fromMealGroupId?: string;
-  /** Target group for a single-group copy (defaults to the same group id). */
-  toMealGroupId?: string;
-}
-
-/** Copies a meal group (or a whole day) from another date as new entries with source='copy'. Returns the count. */
+/**
+ * Copies a meal group (or a whole day) from another date as new entries with source='copy'. Resolves to the number of
+ * copies and their ids (what Undo removes).
+ */
 export function useCopyDiaryEntries() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CopyDiaryEntriesInput): Promise<number> => {
-      const userId = await requireUserId();
-
-      let query = supabase
-        .from('diary_entries')
-        .select('meal_group_id,food_id,grams,amount,portion_label,note,logged_at')
-        .eq('entry_date', input.fromDate)
-        .order('logged_at', { ascending: true });
-      if (input.fromMealGroupId) query = query.eq('meal_group_id', input.fromMealGroupId);
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const source = (data ?? []) as {
-        meal_group_id: string | null;
-        food_id: string;
-        grams: number;
-        amount: number | null;
-        portion_label: string | null;
-        note: string | null;
-      }[];
-      if (source.length === 0) return 0;
-
-      const targetGroup = input.toMealGroupId ?? input.fromMealGroupId ?? null;
-      const rows = source.map((s) => ({
-        user_id: userId,
-        entry_date: input.toDate,
-        meal_group_id: input.fromMealGroupId ? targetGroup : s.meal_group_id,
-        food_id: s.food_id,
-        grams: s.grams,
-        amount: s.amount,
-        portion_label: s.portion_label,
-        note: s.note,
-        source: 'copy' as const,
-      }));
-      const { error: insertError } = await supabase.from('diary_entries').insert(rows);
-      if (insertError) throw insertError;
-      return rows.length;
-    },
-    onSettled: (_d, _e, input) => settle(qc, input.toDate),
+    mutationFn: (input: CopyDiaryEntriesInput): Promise<CopyOutcome> => copyFromDay(input),
+    onSettled: (_d, _e, input) => settleDates(qc, [input.toDate]),
   });
 }
 

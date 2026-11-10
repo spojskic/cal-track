@@ -48,6 +48,10 @@ class FakeLocator {
     await this.page.onClick?.(this.description);
   }
   async scrollIntoViewIfNeeded() {}
+  /** Permissive pages place every element 10 px lower than the one asked for before (scenarios compare row order). */
+  async boundingBox() {
+    return this.page.permissive ? { x: 0, y: (this.page.nextTop += 10), width: 100, height: 40 } : null;
+  }
   async count() {
     if (this.page.permissive) return 1;
     return this.page.visibleTexts.filter((t) => this.page.matches(this.description, t)).length;
@@ -67,6 +71,7 @@ class FakeLocator {
 class FakePage extends EventEmitter {
   /** Every locator exists, every URL matches: lets scenario scripts run to the end. */
   permissive = false;
+  nextTop = 0;
   visibleTexts: string[] = ['Dashboard', 'Today 1,850 kcal remaining and more text'];
   clicked: string[] = [];
   currentUrl = 'about:blank';
