@@ -2,8 +2,8 @@
 
 /**
  * "Search online" (Open Food Facts / USDA branded products) and the remote half of the barcode scan need the Supabase
- * Edge Functions `online-search` and `barcode-lookup` to be deployed (docs: supabase/functions/README.md).
- * Off by default: without them the app only uses the foods in your own database, and an unknown barcode offers
- * "Create custom food" right away. Set EXPO_PUBLIC_ONLINE_LOOKUP_ENABLED=true when the functions work.
+ * Edge Functions `online-search` and `barcode-lookup` to be deployed (supabase/functions/README.md). On by default;
+ * set EXPO_PUBLIC_ONLINE_LOOKUP_ENABLED=false to hide "Search online" and make an unknown barcode go straight to
+ * "Create custom food" (for example while the functions are not deployed).
  */
-export const ONLINE_LOOKUP_ENABLED: boolean = process.env.EXPO_PUBLIC_ONLINE_LOOKUP_ENABLED === 'true';
+export const ONLINE_LOOKUP_ENABLED: boolean = process.env.EXPO_PUBLIC_ONLINE_LOOKUP_ENABLED !== 'false';

@@ -6,7 +6,7 @@ on the Supabase **free** plan.
 | function         | purpose                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------- |
 | `barcode-lookup` | barcode -> food. Local DB first, then USDA FDC Branded, then Open Food Facts; remote hits are saved globally. |
-| `online-search`  | text search in FDC Branded + Open Food Facts. Returns summaries only (nothing is saved).                      |
+| `online-search`  | text search in FDC Branded + Open Food Facts (Search-a-licious first, the classic search only as fallback: the classic `cgi/search.pl` answers 503 to Supabase's cloud IPs). Returns summaries only (nothing is saved). |
 | `garmin-oauth-start`, `garmin-oauth-callback`, `garmin-webhook`, `garmin-disconnect` | "Connect Garmin" (OAuth2 PKCE + push webhooks). Dormant until Garmin approves the app; see [docs/garmin-integration.md](../../docs/garmin-integration.md). |
 
 ```

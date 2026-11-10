@@ -32,7 +32,8 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
   });
 
 const FDC = 'api.nal.usda.gov/fdc/v1/foods/search';
-const OFF = 'world.openfoodfacts.org/cgi/search.pl';
+const OFF = 'search.openfoodfacts.org/search'; // Search-a-licious, the primary Open Food Facts search
+const OFF_LEGACY = 'world.openfoodfacts.org/cgi/search.pl'; // classic search, fallback only
 const USER = '11111111-2222-4333-8444-555555555555';
 
 const fdcFood = (
@@ -83,6 +84,10 @@ function setup(
 const fdcOk = (foods: unknown[]): [string, Handler] => [FDC, () => json({ foods })];
 const offOk = (products: unknown[]): [string, Handler] => [
   OFF,
+  () => json({ count: products.length, hits: products }),
+];
+const offLegacyOk = (products: unknown[]): [string, Handler] => [
+  OFF_LEGACY,
   () => json({ count: products.length, products }),
 ];
 
@@ -120,10 +125,11 @@ describe('onlineSearch', () => {
             new URL(c.url).searchParams.get('page_size'),
         );
       };
-      expect(await pageSizes({ query: 'yogurt' })).toEqual(['10', '10']);
-      expect(await pageSizes({ query: 'yogurt', limit: 500 })).toEqual(['20', '20']);
-      expect(await pageSizes({ query: 'yogurt', limit: 7.9 })).toEqual(['7', '7']);
-      expect(await pageSizes({ query: 'yogurt', limit: null })).toEqual(['10', '10']);
+      // FDC asks for `limit`; Search-a-licious for twice that (many of its products have no nutrition data), capped at 50
+      expect(await pageSizes({ query: 'yogurt' })).toEqual(['10', '20']);
+      expect(await pageSizes({ query: 'yogurt', limit: 500 })).toEqual(['20', '40']);
+      expect(await pageSizes({ query: 'yogurt', limit: 7.9 })).toEqual(['7', '14']);
+      expect(await pageSizes({ query: 'yogurt', limit: null })).toEqual(['10', '20']);
     });
   });
 
@@ -144,14 +150,12 @@ describe('onlineSearch', () => {
 
       const offCall = t.net.calls.find((c) => c.url.includes(OFF))!;
       const off = new URL(offCall.url);
-      expect(off.origin + off.pathname).toBe('https://world.openfoodfacts.org/cgi/search.pl');
+      expect(off.origin + off.pathname).toBe('https://search.openfoodfacts.org/search');
       expect(Object.fromEntries(off.searchParams)).toEqual({
-        search_terms: 'greek yogurt & honey',
-        search_simple: '1',
-        action: 'process',
-        json: '1',
-        page_size: '5',
-        fields: 'code,product_name,brands,nutriments,serving_size',
+        q: 'greek yogurt & honey',
+        page_size: '10',
+        fields:
+          'code,product_name,brands,nutriments,serving_size,serving_quantity,quantity,countries_tags,categories_tags_en,nutrition_data_per',
       });
       expect((offCall.init!.headers as Record<string, string>)['User-Agent']).toBe(
         'cal-track-test/1.0',
@@ -335,6 +339,58 @@ describe('onlineSearch', () => {
 
       const offOnlyDown = setup([[OFF, () => json({}, 500)]], { env: {} });
       expect((await onlineSearch({ query: 'yogurt' }, offOnlyDown.deps)).status).toBe(502);
+    });
+  });
+
+  describe('Open Food Facts fallback', () => {
+    it('uses the classic search when Search-a-licious answers 503 (the cloud-IP failure seen in production)', async () => {
+      const t = setup(
+        [[OFF, () => json({}, 503)], offLegacyOk([offFood('4006381333931', 'Classic hit')])],
+        { env: {} },
+      );
+      const res = await onlineSearch({ query: 'yogurt' }, t.deps);
+      expect(res.status).toBe(200);
+      expect((res.body as { results: SearchSummary[] }).results.map((r) => r.name)).toEqual(['Classic hit']);
+      expect(res.body).not.toHaveProperty('warnings');
+      expect(t.net.calls.map((c) => new URL(c.url).hostname)).toEqual([
+        'search.openfoodfacts.org',
+        'world.openfoodfacts.org',
+      ]);
+    });
+
+    it('does not call the classic search when Search-a-licious works', async () => {
+      const t = setup([offOk([offFood('4006381333931')])], { env: {} });
+      await onlineSearch({ query: 'yogurt' }, t.deps);
+      expect(t.net.calls).toHaveLength(1);
+    });
+
+    it('502 only when both Open Food Facts APIs fail', async () => {
+      const t = setup([[OFF, () => json({}, 503)], [OFF_LEGACY, () => json({}, 503)]], { env: {} });
+      const res = await onlineSearch({ query: 'yogurt' }, t.deps);
+      expect(res.status).toBe(502);
+      expect(res.body).toMatchObject({ error: 'upstream_error' });
+    });
+
+    it('keeps the retry time when Search-a-licious is rate limited and the classic search is down', async () => {
+      const t = setup(
+        [[OFF, () => json({}, 429, { 'Retry-After': '45' })], [OFF_LEGACY, () => json({}, 503)]],
+        { env: {} },
+      );
+      const res = await onlineSearch({ query: 'yogurt' }, t.deps);
+      expect(res.status).toBe(429);
+      expect(res.body).toMatchObject({ retryAfterSeconds: 45 });
+    });
+
+    it('accepts brands as an array (Search-a-licious) and as a comma separated string (classic)', async () => {
+      const t = setup(
+        [offOk([offFood('4006381333931', 'Array brands', { brands: ['Fage', 'Total'] })])],
+        { env: {} },
+      );
+      const res = await onlineSearch({ query: 'yogurt' }, t.deps);
+      expect((res.body as { results: SearchSummary[] }).results[0]).toMatchObject({
+        name: 'Array brands',
+        brand: 'Fage',
+      });
     });
   });
 

@@ -51,6 +51,15 @@ and the provider's terms; you can restrict providers in your OpenRouter settings
 
 Nothing is sent to OpenRouter unless you use one of these features.
 
+## Barcode scans and online food search
+
+When you scan a barcode or choose "search online", the app sends the barcode number or the words you typed to a Cal Track
+server function (signed in as you). That function asks **Open Food Facts** and, where configured, **USDA FoodData Central**
+for the product. They receive the barcode or search words and the server's network address; they do **not** receive your
+name, email, account id or your own network address. A product found this way is saved in the shared food list (product data
+only, not linked to you), so the next lookup does not need to ask again. Data from Open Food Facts is under the Open Database
+Licence.
+
 ## Garmin Connect (optional)
 
 Cal Track can receive your data from Garmin if you choose **Connect Garmin** in Settings > Connected Apps & Devices.
@@ -85,6 +94,7 @@ dialog, and does not write to your health data. Disconnecting stops the import; 
 | Who | What and why |
 | --- | --- |
 | **Supabase** | hosts the database, sign-in and the server functions |
+| **Open Food Facts, USDA FoodData Central** | product lookups, as described above |
 | **Garmin** | only if you connect it: sends your Garmin data to Cal Track |
 | **OpenRouter and the model provider you choose** | only if you use AI features, as described above |
 

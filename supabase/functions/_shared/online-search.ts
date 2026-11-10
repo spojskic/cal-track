@@ -20,6 +20,18 @@ import {
 import { mapOffProduct } from './off-product.ts';
 import { GLOBAL_RATE_LIMIT_USER, type ConsumeRateLimit } from './rate-limit.ts';
 
+/**
+ * Open Food Facts has two text-search APIs:
+ *  - Search-a-licious (search.openfoodfacts.org): the one OFF recommends for apps. Used first.
+ *  - the legacy /cgi/search.pl: answers 503 to requests from cloud networks such as Supabase's edge ("off search failed
+ *    http_503" in the function logs), so it is only a fallback.
+ */
+export const OFF_SALICIOUS_URL = 'https://search.openfoodfacts.org/search';
+export const OFF_SALICIOUS_FIELDS =
+  'code,product_name,brands,nutriments,serving_size,serving_quantity,quantity,countries_tags,categories_tags_en,nutrition_data_per';
+/** Search-a-licious returns many products without nutrition data; ask for more than needed so enough remain after filtering. */
+export const OFF_SALICIOUS_OVERFETCH = 2;
+export const OFF_SALICIOUS_MAX_PAGE = 50;
 export const OFF_SEARCH_URL = 'https://world.openfoodfacts.org/cgi/search.pl';
 export const OFF_SEARCH_FIELDS = 'code,product_name,brands,nutriments,serving_size';
 
@@ -147,7 +159,51 @@ async function searchFdc(
   return { status: 'ok', items };
 }
 
-async function searchOff(
+function offHeaders(deps: OnlineSearchDeps): Record<string, string> {
+  return {
+    'User-Agent': deps.env.OFF_USER_AGENT?.trim() || DEFAULT_OFF_USER_AGENT,
+    Accept: 'application/json',
+  };
+}
+
+/** OFF products -> summaries (a product without a barcode or nutrition is dropped). */
+function summarizeOffProducts(products: unknown): SearchSummary[] {
+  const items: SearchSummary[] = [];
+  if (!Array.isArray(products)) return items;
+  for (const product of products) {
+    const record = asRecord(product);
+    if (!record) continue;
+    // Search-a-licious lists brands as an array, the classic API as one comma separated string.
+    const normalised = Array.isArray(record.brands)
+      ? { ...record, brands: record.brands.filter((b) => typeof b === 'string').join(',') }
+      : record;
+    const summary = summarize(mapOffProduct(normalised));
+    if (summary) items.push(summary);
+  }
+  return items;
+}
+
+async function searchOffSalicious(
+  query: string,
+  limit: number,
+  deps: OnlineSearchDeps,
+): Promise<SourceResult> {
+  const pageSize = Math.min(OFF_SALICIOUS_MAX_PAGE, limit * OFF_SALICIOUS_OVERFETCH);
+  const url =
+    `${OFF_SALICIOUS_URL}?q=${encodeURIComponent(query)}&page_size=${pageSize}` +
+    `&fields=${OFF_SALICIOUS_FIELDS}`;
+  const res = await fetchUpstreamJson(deps.fetch, url, { headers: offHeaders(deps) }, deps.timeoutMs);
+  if (res.kind === 'rate_limited')
+    return { status: 'rate_limited', items: [], retryAfterSeconds: res.retryAfterSeconds };
+  if (res.kind === 'error') {
+    deps.log?.('off search-a-licious failed', res.reason);
+    return { status: 'error', items: [] };
+  }
+  if (res.kind === 'not_found') return { status: 'ok', items: [] };
+  return { status: 'ok', items: summarizeOffProducts(asRecord(res.json)?.hits) };
+}
+
+async function searchOffLegacy(
   query: string,
   limit: number,
   deps: OnlineSearchDeps,
@@ -155,17 +211,7 @@ async function searchOff(
   const url =
     `${OFF_SEARCH_URL}?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1` +
     `&page_size=${limit}&fields=${OFF_SEARCH_FIELDS}`;
-  const res = await fetchUpstreamJson(
-    deps.fetch,
-    url,
-    {
-      headers: {
-        'User-Agent': deps.env.OFF_USER_AGENT?.trim() || DEFAULT_OFF_USER_AGENT,
-        Accept: 'application/json',
-      },
-    },
-    deps.timeoutMs,
-  );
+  const res = await fetchUpstreamJson(deps.fetch, url, { headers: offHeaders(deps) }, deps.timeoutMs);
   if (res.kind === 'rate_limited')
     return { status: 'rate_limited', items: [], retryAfterSeconds: res.retryAfterSeconds };
   if (res.kind === 'error') {
@@ -173,15 +219,21 @@ async function searchOff(
     return { status: 'error', items: [] };
   }
   if (res.kind === 'not_found') return { status: 'ok', items: [] };
-  const products = asRecord(res.json)?.products;
-  const items: SearchSummary[] = [];
-  if (Array.isArray(products)) {
-    for (const product of products) {
-      const summary = summarize(mapOffProduct(product));
-      if (summary) items.push(summary);
-    }
-  }
-  return { status: 'ok', items };
+  return { status: 'ok', items: summarizeOffProducts(asRecord(res.json)?.products) };
+}
+
+/** Search-a-licious first; the classic search only when that one is unavailable (error or rate limit). */
+async function searchOff(
+  query: string,
+  limit: number,
+  deps: OnlineSearchDeps,
+): Promise<SourceResult> {
+  const primary = await searchOffSalicious(query, limit, deps);
+  if (primary.status === 'ok') return primary;
+  const fallback = await searchOffLegacy(query, limit, deps);
+  if (fallback.status === 'ok') return fallback;
+  // both failed: report the more useful reason (a rate limit carries a retry time)
+  return primary.status === 'rate_limited' ? primary : fallback;
 }
 
 function parseRequest(body: unknown): { query: string; limit: number } | ApiResult {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { friendlyPermissionError } from '@/health/errors';
+import { friendlyPermissionError } from '../../../apps/app/src/health/errors';
 
 describe('friendlyPermissionError', () => {
   it('explains the missing HealthKit entitlement', () => {

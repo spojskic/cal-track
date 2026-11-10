@@ -91,11 +91,10 @@ Your project reference `<PROJECT-REF>` is the first part of `EXPO_PUBLIC_SUPABAS
 - When Garmin reports that a user removed the app, their imported Garmin data is deleted (`GARMIN_DELETE_DATA_ON_DEREGISTER=false`
   keeps it). The in-app **Disconnect** lets the user choose.
 
-## D. Add back to the privacy policy if you later switch these on
+## D. Privacy policy upkeep
 
 - **Nightly backups** (`.github/workflows/db-backup.yml`): "a nightly encrypted backup is kept for 30 days; a deletion leaves the
   backups after at most 30 more days", and GitHub as a handler in the table.
-- **Online food search / barcode lookup** (`EXPO_PUBLIC_ONLINE_LOOKUP_ENABLED=true`): a section saying the barcode number or search
-  words go to a Cal Track function, which asks USDA FoodData Central and Open Food Facts (they get the words and the server's
-  address, not your name, email or account), and that found products are saved in the shared food list without any link to you.
+- **Online food search / barcode lookup** is ON by default and is already described in the privacy policy. If you switch it off
+  (`EXPO_PUBLIC_ONLINE_LOOKUP_ENABLED=false`), delete the section "Barcode scans and online food search" and its row in the table.
 - **A public web app:** the hosting provider as a handler (standard access logs).

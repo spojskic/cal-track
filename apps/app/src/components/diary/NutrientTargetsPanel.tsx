@@ -106,7 +106,8 @@ export function NutrientTargetsPanel({
     <View style={styles.wrap}>
       <AppText variant="heading">Nutrient Targets</AppText>
 
-      <ResponsiveGrid minItemWidth={260}>
+      {/* ONE grid for every card: separate grids each end with a gap under their shorter card (masonry columns only close gaps within a grid). */}
+      <ResponsiveGrid minItemWidth={300}>
         <Card>
           <AppText variant="label" muted>
             Nutrition score
@@ -138,15 +139,12 @@ export function NutrientTargetsPanel({
             </AppText>
           )}
         </Card>
-      </ResponsiveGrid>
-
-      {groups.length === 0 ? (
-        <Card>
-          <AppText muted>Nutrient details appear once you log food.</AppText>
-        </Card>
-      ) : (
-        <ResponsiveGrid minItemWidth={340}>
-          {groups.map((group) => {
+        {groups.length === 0 ? (
+          <Card>
+            <AppText muted>Nutrient details appear once you log food.</AppText>
+          </Card>
+        ) : (
+          groups.map((group) => {
             const isCollapsed = collapsed[group.code] === true;
             return (
               <Card key={group.code} style={styles.groupCard}>
@@ -179,9 +177,9 @@ export function NutrientTargetsPanel({
                 ) : null}
               </Card>
             );
-          })}
-        </ResponsiveGrid>
-      )}
+          })
+        )}
+      </ResponsiveGrid>
 
       {incompleteNutrients.length > 0 ? (
         <AppText variant="small" muted>
