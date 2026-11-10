@@ -297,10 +297,12 @@ describe('coach data retention', () => {
           .filter((c) => c.table_name === t)
           .map((c) => c.column_name)
           .sort();
+      // `topic` (migration …106) is only {kind, id} of what the chat is about, never text or a secret
       expect(byTable('coach_threads')).toEqual([
         'created_at',
         'id',
         'title',
+        'topic',
         'updated_at',
         'user_id',
       ]);

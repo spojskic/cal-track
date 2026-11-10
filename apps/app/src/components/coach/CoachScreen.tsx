@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import { useAiBootstrap } from '@/ai/use-ai-bootstrap';
 import { useAiClient } from '@/ai/use-ai-client';
 import { useAiGate } from '@/ai/use-ai-gate';
+import type { CoachTopic } from '@/ai/coach-topic';
 import { useCoachChat } from '@/ai/use-coach-chat';
 import { WIDE_BREAKPOINT, spacing, useTheme } from '@/theme';
 
@@ -41,23 +42,30 @@ function useCoachAccess() {
 
 /**
  * `/coach` and `/coach/[threadId]`. Wide screens show the history as a left column with the chat on the right;
- * phones show only the chat, with history one tap away as its own route.
+ * phones show only the chat, with history one tap away as its own route. `/coach?topicKind=workout&topicId=...`
+ * opens (or resumes) a conversation ABOUT that workout (`topic`).
  */
-export function CoachScreen({ initialThreadId = null }: { initialThreadId?: string | null }) {
+export function CoachScreen({
+  initialThreadId = null,
+  topic = null,
+}: {
+  initialThreadId?: string | null;
+  topic?: CoachTopic | null;
+}) {
   const access = useCoachAccess();
   if (!access.open) return <CoachUnavailable reason={access.reason} />;
-  return <CoachWorkspace initialThreadId={initialThreadId} />;
+  return <CoachWorkspace initialThreadId={initialThreadId} topic={topic} />;
 }
 
-function CoachWorkspace({ initialThreadId }: { initialThreadId: string | null }) {
+function CoachWorkspace({ initialThreadId, topic = null }: { initialThreadId: string | null; topic?: CoachTopic | null }) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_BREAKPOINT;
-  const chat = useCoachChat({ initialThreadId });
+  const chat = useCoachChat({ initialThreadId, topic });
 
-  // On phones the URL names the open thread, so "new chat" leaves it by replacing the route.
+  // On phones the URL names the open thread (or the topic), so "new chat" leaves it by replacing the route.
   const startNew = () => {
-    if (!wide && initialThreadId) router.replace(COACH);
+    if (!wide && (initialThreadId || topic)) router.replace(COACH);
     else chat.newChat();
   };
 

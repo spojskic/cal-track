@@ -73,6 +73,11 @@ export interface WorkoutPoint {
   name: string;
   minutes: number;
   kcal: number;
+  /**
+   * What the device already told us about the session, e.g. the Garmin activity list's heart rate and zones (a `level: 'summary'`
+   * details object, packages/garmin workout-details.ts). Written to exercise_entries.details when the row is new or has no full details.
+   */
+  details?: Record<string, unknown>;
 }
 
 /** A biometric sample or per-day aggregate. */
@@ -172,6 +177,8 @@ export interface ExerciseRowInput {
   ended_at: string;
   /** Always false for device workouts: they are already inside the daily active energy. */
   counts_toward_energy: false;
+  /** Only present when the device sent details; absent otherwise (so a row without details never clears stored ones). */
+  details?: Record<string, unknown>;
 }
 
 export interface BiometricRowInput {

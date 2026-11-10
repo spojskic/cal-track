@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 
 import { registerHealthBackgroundTask, unregisterHealthBackgroundTask } from './background';
 import { parseGarminSettings, serializeGarminSettings } from './garmin';
+import { clearDetailStats } from './garmin-detail-local';
 import { clearLocalState } from './garmin-local';
 import { invalidateGarminQueries, runGarminSync } from './garmin-runner';
 import { clearGarminTokens, saveGarminTokens } from './garmin-tokens';
@@ -26,6 +27,7 @@ export async function completeGarminSignIn(ticket: string): Promise<void> {
   const tokens = await redeemServiceTicket(nativeFetch, ticket);
   await saveGarminTokens(userId, tokens);
   await clearLocalState().catch(() => undefined); // a new session: forget an old rate-limit time and report
+  await clearDetailStats().catch(() => undefined);
 
   const existing = await fetchIntegration('garmin', userId);
   const settings = parseGarminSettings(existing?.settings);
@@ -54,6 +56,7 @@ export async function signOutGarmin(options: { deleteData: boolean }): Promise<v
   const userId = await requireUserId();
   await clearGarminTokens();
   await clearLocalState().catch(() => undefined);
+  await clearDetailStats().catch(() => undefined);
 
   if (options.deleteData) {
     for (const table of GARMIN_TABLES) {

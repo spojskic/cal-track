@@ -13,3 +13,6 @@ export * from './sync';
 export * from './report';
 export { base64Encode, formEncode } from './base64';
 export { FieldTracker, mergeCoverage, mergeDiagnostics, parseGarminTimestamp, pickNumber, pickString, toFiniteNumber } from './pick';
+export * from './workout-details';
+export * from './activity-mappers';
+export * from './activity-details';

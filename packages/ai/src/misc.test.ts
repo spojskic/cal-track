@@ -108,27 +108,60 @@ describe('json helpers', () => {
 });
 
 describe('prompts', () => {
-  it('coach prompt is strict about scope, medical limits and untrusted data', () => {
+  it('coach prompt: broad diet scope, concrete answers, hard limits only for safety, untrusted data', () => {
     const p = COACH_SYSTEM_PROMPT;
     for (const needle of [
       'Nutrition',
+      'Supplements and vitamins',
       'Training and exercise',
       'Recovery and sleep',
       'Body composition',
+      'magnesium bisglycinate',
       'coding',
       'politics',
       'trivia',
       'Never diagnose',
-      'medication',
+      'prescription medicine',
       'untrusted DATA',
       'ignore previous instructions',
       'Do not reveal',
-      'doctor',
       'encouraging',
+      // the data contract
+      'Findings',
+      'Never invent data',
+      'earlier messages of this chat',
     ]) {
       expect(p).toContain(needle);
     }
     expect(p).toMatch(/cannot be overridden|No user message can change/i);
+  });
+
+  it('coach prompt no longer pushes the user to a doctor instead of answering', () => {
+    const p = COACH_SYSTEM_PROMPT;
+    // the old restrictions
+    expect(p).not.toMatch(/never prescribe supplement/i);
+    expect(p).not.toMatch(/refer to a doctor or pharmacist/i);
+    expect(p).not.toMatch(/clearly recommend seeing a doctor/i);
+    expect(p).not.toMatch(/not a doctor or dietitian/i);
+    // supplement doses are answered, with at most one short caution
+    expect(p).toMatch(/Give the usual effective dose/);
+    expect(p).toMatch(/at most ONE short, specific caution/i);
+    expect(p).toMatch(/instead of the information/);
+    // no repeated disclaimers
+    expect(p).toMatch(/Do not add generic disclaimers/);
+    // numbers and next steps
+    expect(p).toMatch(/2 to 4 concrete next steps/);
+    expect(p).toMatch(/per kg of body weight/);
+  });
+
+  it('coach prompt keeps the hard safety layer: red flags, self-harm, eating disorders, medicines', () => {
+    const p = COACH_SYSTEM_PROMPT;
+    expect(p).toMatch(/chest pain/);
+    expect(p).toMatch(/suspected overdose/);
+    expect(p).toMatch(/Self-harm/);
+    expect(p).toMatch(/1200 kcal per day \(women\)/);
+    expect(p).toMatch(/1500 kcal per day \(men\)/);
+    expect(p).toMatch(/never tell the person to start, stop, skip or change the dose of a prescription medicine/);
   });
 
   it('extra instructions are appended after the fixed rules', () => {
@@ -158,17 +191,19 @@ describe('prompts', () => {
     expect(sanitizeUntrusted('z'.repeat(50), 10)).toBe('zzzzzzzzzz [truncated]');
   });
 
-  it('guard content includes only the last turns, truncated', () => {
+  it('guard content includes only the last 6 turns, truncated', () => {
     const history = Array.from({ length: 10 }, (_, i) => ({
       role: (i % 2 ? 'assistant' : 'user') as 'user' | 'assistant',
-      content: `turn${i} ${'x'.repeat(500)}`,
+      content: `turn${i} ${'x'.repeat(900)}`,
     }));
     const c = buildGuardUserContent('and for dinner?', history);
     expect(c).toContain('turn9');
-    expect(c).toContain('turn6');
-    expect(c).not.toContain('turn5');
+    expect(c).toContain('turn4');
+    expect(c).not.toContain('turn3');
     expect(c).toContain('and for dinner?');
-    expect(c.length).toBeLessThan(2000);
+    // 6 turns of at most ~600 characters plus the wrapper
+    expect(c.length).toBeLessThan(4200);
+    expect(c).toContain('[truncated]');
   });
 });
 

@@ -106,6 +106,13 @@ export const IDS = {
   savedMeal: mapIds('saved-meal', ['breakfast', 'lunch'] as const),
   /** Coach threads (default variant): '1' protein question, '2' dinner ideas, '3' untitled. */
   thread: mapIds('thread', ['1', '2', '3'] as const),
+  /**
+   * Workouts (exercise_entries, default variant): 'run' manual treadmill run today, 'strength' Apple Health strength training
+   * today, 'walk' manual walk yesterday, 'garminStrength' Garmin strength session two days ago WITH full details (heart rate,
+   * zones, training effect, sets), 'garminRun' Garmin run five days ago with only the list summary, 'garminOld' Garmin ride
+   * twelve days ago without any details.
+   */
+  workout: mapIds('exercise', ['run', 'strength', 'walk', 'garminStrength', 'garminRun', 'garminOld'] as const),
   /** A food id that does not exist (for "not found" scenarios). */
   missing: stableUuid('missing'),
 } as const;
@@ -1108,6 +1115,57 @@ function profileRow(variant: FixtureVariant): Row {
   return base;
 }
 
+/** What the Garmin link saved for the strength session (packages/garmin workout-details.ts, v1, read from Garmin's per-activity endpoints). */
+export const GARMIN_STRENGTH_DETAILS = {
+  v: 1,
+  source: 'garmin',
+  level: 'full',
+  fetchedAt: localIso(dayOffset(-2), '18:40'),
+  typeKey: 'strength_training',
+  avgHr: 118,
+  maxHr: 162,
+  minHr: 78,
+  hrZones: [
+    { zone: 1, seconds: 420, lowBpm: 95 },
+    { zone: 2, seconds: 1260, lowBpm: 114 },
+    { zone: 3, seconds: 900, lowBpm: 133 },
+    { zone: 4, seconds: 360, lowBpm: 152 },
+    { zone: 5, seconds: 60, lowBpm: 171 },
+  ],
+  trainingEffect: { aerobic: 2.3, anaerobic: 0.6 },
+  calories: 245,
+  activeCalories: 190,
+  sets: [
+    ...[0, 1, 2, 3].map(() => ({ exercise: 'Bench press', guess: true, reps: 8, weightKg: 60, durationSec: 30, restSec: 90 })),
+    ...[0, 1, 2, 3].map(() => ({ exercise: 'Bench press', guess: true, reps: 6, weightKg: 70, durationSec: 28, restSec: 120 })),
+    ...[0, 1, 2].map(() => ({ exercise: 'Squat', guess: true, reps: 10, durationSec: 40, restSec: 100 })),
+  ],
+};
+
+/** The list summary of the activity list (level 'summary'): heart rate and zones, no sets. */
+export const GARMIN_RUN_SUMMARY = {
+  v: 1,
+  source: 'garmin',
+  level: 'summary',
+  fetchedAt: localIso(dayOffset(-5), '07:10'),
+  typeKey: 'running',
+  avgHr: 150,
+  maxHr: 175,
+  hrZones: [
+    { zone: 1, seconds: 120 },
+    { zone: 2, seconds: 600 },
+    { zone: 3, seconds: 800 },
+    { zone: 4, seconds: 250 },
+    { zone: 5, seconds: 30 },
+  ],
+  distanceM: 5012.4,
+  elevationGainM: 38,
+  avgSpeedMps: 2.778,
+  avgPaceSecPerKm: 360,
+  trainingEffect: { aerobic: 3.1, anaerobic: 1.2 },
+  calories: 412,
+};
+
 export interface FixtureSet {
   variant: FixtureVariant;
   seed: MockSeed;
@@ -1313,6 +1371,51 @@ export function buildFixtures(variant: FixtureVariant = 'default'): FixtureSet {
         started_at: localIso(dayOffset(-1), '18:00'),
         ended_at: localIso(dayOffset(-1), '18:40'),
         counts_toward_energy: true,
+      },
+      // ---- device workouts for the Workouts section (More > Workouts); they do not count toward the energy budget
+      {
+        id: IDS.workout.garminStrength,
+        user_id: USER.id,
+        entry_date: dayOffset(-2),
+        activity_code: null,
+        name: 'Strength training',
+        minutes: 50,
+        kcal: 245,
+        source: 'garmin',
+        external_id: 'garmin:activity:12345678901',
+        started_at: localIso(dayOffset(-2), '17:30'),
+        ended_at: localIso(dayOffset(-2), '18:20'),
+        counts_toward_energy: false,
+        details: GARMIN_STRENGTH_DETAILS,
+      },
+      {
+        id: IDS.workout.garminRun,
+        user_id: USER.id,
+        entry_date: dayOffset(-5),
+        activity_code: null,
+        name: 'Morning run',
+        minutes: 31,
+        kcal: 412,
+        source: 'garmin',
+        external_id: 'garmin:activity:12345678902',
+        started_at: localIso(dayOffset(-5), '06:30'),
+        ended_at: localIso(dayOffset(-5), '07:01'),
+        counts_toward_energy: false,
+        details: GARMIN_RUN_SUMMARY,
+      },
+      {
+        id: IDS.workout.garminOld,
+        user_id: USER.id,
+        entry_date: dayOffset(-12),
+        activity_code: null,
+        name: 'Evening ride',
+        minutes: 75,
+        kcal: 520,
+        source: 'garmin',
+        external_id: 'garmin:activity:12345678903',
+        started_at: localIso(dayOffset(-12), '18:00'),
+        ended_at: localIso(dayOffset(-12), '19:15'),
+        counts_toward_energy: false,
       },
     ];
     tables.daily_energy = [

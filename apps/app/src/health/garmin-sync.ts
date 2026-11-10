@@ -73,6 +73,8 @@ export function toWorkoutPoints(workouts: readonly GarminWorkout[]): WorkoutPoin
       name: w.name,
       minutes: w.durationSec / 60,
       kcal: w.kcal ?? 0,
+      // heart rate, zones and training effect from the activity list: a summary, read at no extra request
+      ...(w.details ? { details: w.details as unknown as Record<string, unknown> } : {}),
     });
   }
   return out;

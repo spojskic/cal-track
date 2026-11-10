@@ -1,6 +1,7 @@
 // react-query hooks for the Garmin link. The phone reads Garmin itself (src/health/garmin*.ts, packages/garmin); there is no
 // server side. On the web nothing runs: no query is enabled and no Garmin code is called.
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { formatDetailReport } from '@cal/garmin';
 import { Platform, Share } from 'react-native';
 
 import {
@@ -12,6 +13,7 @@ import {
   type GarminLocalState,
 } from '@/health/garmin';
 import { signOutGarmin } from '@/health/garmin-actions';
+import { loadDetailStats } from '@/health/garmin-detail-local';
 import { loadLocalState } from '@/health/garmin-local';
 import { runGarminSync } from '@/health/garmin-runner';
 import { useGarminSyncStore } from '@/health/garmin-status';
@@ -105,13 +107,17 @@ export function useGarminSignOut() {
   return useMutation({ mutationFn: (input: { deleteData: boolean }) => signOutGarmin(input) });
 }
 
-/** Copies the plain-text report of the last sync (endpoints, HTTP outcomes, fields found / not found; no values, no tokens). */
+/**
+ * Copies the plain-text report of the last sync (endpoints, HTTP outcomes, fields found / not found; no values, no tokens), followed
+ * by a "Workout details" section when workout details have been read on this phone (which endpoints, what they answered).
+ */
 export function useCopyGarminReport() {
   return useMutation({
     mutationFn: async (): Promise<boolean> => {
       const local = await loadLocalState();
-      await copyText(local.report ?? GARMIN_NO_REPORT);
-      return local.report !== null;
+      const details = formatDetailReport(await loadDetailStats().catch(() => null));
+      await copyText([local.report ?? GARMIN_NO_REPORT, details].filter(Boolean).join('\n\n'));
+      return local.report !== null || details !== '';
     },
   });
 }

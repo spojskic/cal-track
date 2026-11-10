@@ -16,6 +16,8 @@ import { Notice } from '@/components/ai/AiBits';
 import { AppText, Button, Card } from '@/components/ui';
 import { spacing, useTheme } from '@/theme';
 
+import { topicLabel, topicPrompts } from '@/ai/coach-topic';
+
 import { ChatErrorBanner } from './ChatErrorBanner';
 import { ChatInput } from './ChatInput';
 import { AssistantContent, MessageBubble } from './MessageBubble';
@@ -99,7 +101,16 @@ export function ChatView({ chat, onStartNew }: { chat: CoachChat; onStartNew: ()
       </View>
     );
   } else if (chat.messages.length === 0 && !chat.busy) {
-    empty = <SuggestedPrompts onSelect={(p) => void send(p)} disabled={!chat.ready} />;
+    empty = chat.topic ? (
+      <SuggestedPrompts
+        title={`Ask about this ${topicLabel(chat.topic).toLowerCase()}`}
+        prompts={topicPrompts(chat.topic)}
+        onSelect={(p) => void send(p)}
+        disabled={!chat.ready}
+      />
+    ) : (
+      <SuggestedPrompts onSelect={(p) => void send(p)} disabled={!chat.ready} />
+    );
   }
 
   return (
@@ -107,6 +118,11 @@ export function ChatView({ chat, onStartNew }: { chat: CoachChat; onStartNew: ()
       style={styles.flex}
       behavior={Platform.OS === 'web' ? undefined : 'padding'}
       keyboardVerticalOffset={headerOffset}>
+      {chat.topic ? (
+        <View style={styles.offline}>
+          <Notice tone="info">{`This chat is about a ${topicLabel(chat.topic).toLowerCase()}. The coach sees its details each time you ask.`}</Notice>
+        </View>
+      ) : null}
       {!chat.online ? (
         <View style={styles.offline}>
           <Notice tone="warning" live>
@@ -154,7 +170,7 @@ export function ChatView({ chat, onStartNew }: { chat: CoachChat; onStartNew: ()
             <ChatErrorBanner error={chat.error} online={chat.online} onRetry={chat.retry} onDismiss={chat.dismissError} />
           </View>
         ) : null}
-        <ChatInput onSend={send} onStop={chat.stop} phase={chat.phase} disabled={inputDisabled} />
+        <ChatInput onSend={send} onStop={chat.stop} phase={chat.phase} disabled={inputDisabled} prefill={chat.suggestedInput} />
       </View>
     </KeyboardAvoidingView>
   );

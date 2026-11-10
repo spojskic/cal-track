@@ -11,6 +11,8 @@ import { Platform } from 'react-native';
 import { queryClient } from '@/lib/query';
 
 import { todayLocal } from './dates';
+import { fetchNewestDetailsQuietly } from './garmin-details-runner';
+import { withGarminGate } from './garmin-gate';
 import { executeGarminSync, type GarminDeps, type GarminOutcome } from './garmin-sync';
 import { loadLocalState, saveLocalState } from './garmin-local';
 import { useGarminSyncStore, type GarminTrigger } from './garmin-status';
@@ -39,9 +41,13 @@ export function appInfo(): string {
   return `Cal Track ${Constants.expoConfig?.version ?? '?'} (${Platform.OS})`;
 }
 
-/** Everything that can display Garmin data or the Garmin card. */
+/** Everything that can display Garmin data or the Garmin card (the Workouts list and detail included). */
 export async function invalidateGarminQueries(): Promise<void> {
-  await Promise.all([invalidateHealthQueries(), queryClient.invalidateQueries({ queryKey: ['garmin'] })]);
+  await Promise.all([
+    invalidateHealthQueries(),
+    queryClient.invalidateQueries({ queryKey: ['garmin'] }),
+    queryClient.invalidateQueries({ queryKey: ['workouts'] }),
+  ]);
 }
 
 function realDeps(): GarminDeps {
@@ -76,7 +82,8 @@ export function runGarminSync(options: RunGarminSyncOptions): Promise<GarminRunO
     return Promise.resolve({ status: 'skipped', reason: 'unavailable', message: 'Garmin sync runs in the iPhone and Android app.' });
   }
   if (inFlight) return Promise.resolve({ status: 'skipped', reason: 'busy', message: 'A Garmin sync is already running.' });
-  const run = execute(options).finally(() => {
+  // Through the Garmin gate: a workout-detail read that is running finishes first, and no read starts while the sync is running.
+  const run = withGarminGate(() => execute(options)).finally(() => {
     inFlight = null;
   });
   inFlight = run;
@@ -95,6 +102,9 @@ async function execute(options: RunGarminSyncOptions): Promise<GarminRunOutcome>
   }
   useGarminSyncStore.getState().finish(outcome);
   if (outcome.status !== 'skipped') await invalidateGarminQueries();
+  // Quietly read the details (heart rate, zones, sets) of the newest workouts that have none. Not from the background task: it has
+  // little time, and a workout's details are read when it is opened anyway.
+  if (outcome.status === 'done' && options.trigger !== 'background') void fetchNewestDetailsQuietly();
   return outcome;
 }
 

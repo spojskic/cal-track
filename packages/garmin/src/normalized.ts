@@ -4,6 +4,8 @@
 // These are structurally the same as the rows the app writes for health data (apps/app/src/health/types.ts:
 // DailyEnergyPoint, WorkoutPoint, BiometricPoint); the app converts them one to one.
 
+import type { WorkoutDetails } from './workout-details';
+
 export type GarminMetaValue = string | number | boolean;
 export type GarminMeta = Record<string, GarminMetaValue>;
 
@@ -36,6 +38,11 @@ export interface GarminWorkout {
   durationSec: number;
   kcal?: number;
   distanceM?: number;
+  /**
+   * What the activity LIST already says about the session (heart rate, time in zones, training effect, ...), as a `level: 'summary'`
+   * details object. Present when the caller passed `nowMs` to mapActivities and the item carried any such value. Costs no request.
+   */
+  details?: WorkoutDetails;
 }
 
 export const GARMIN_BIOMETRIC_TYPES = [

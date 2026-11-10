@@ -330,7 +330,7 @@ export async function runGarminSync(options: GarminSyncOptions): Promise<GarminS
         if (cancelRequested()) break;
         const reply = await call('activities', () => client.activities(page * PAGE_SIZE, PAGE_SIZE));
         if (!reply) break;
-        const mapped = mapActivities(reply.data);
+        const mapped = mapActivities(reply.data, { nowMs: now() });
         recorder.map(mapped);
         for (const w of mapped.items) if (w.date >= range.from && w.date <= range.to) workouts.push(w);
         recorder.records('activities', mapped.items.length);

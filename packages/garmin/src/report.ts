@@ -2,6 +2,8 @@
 // field name was a guess. It contains NO health values, NO ids and NO tokens: only endpoint templates, HTTP outcomes,
 // counts, and the NAMES of the JSON fields that were (or were not) found.
 
+import { DETAIL_ENDPOINT_ORDER, type DetailStats } from './activity-details';
+import { ENDPOINT_TEMPLATES } from './constants';
 import type { GarminDiagnostic, GarminFieldCoverage } from './normalized';
 import type { GarminSyncCounts, GarminSyncReport } from './sync';
 
@@ -98,6 +100,50 @@ export function formatSyncReport(report: GarminSyncReport, info: ReportInfo, cou
     lines.push('');
     lines.push('Other notes');
     for (const n of report.notes) lines.push(`  ${n}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * The "Workout details" section of the report: which per-activity endpoints were asked (all GET), what they answered and which
+ * JSON fields were found. Like the rest of the report it has NO values, NO activity ids and NO tokens. Empty string when no
+ * workout detail has been read on this phone yet.
+ */
+export function formatDetailReport(stats: DetailStats | null | undefined): string {
+  if (!stats || stats.reads === 0) return '';
+  const lines: string[] = [];
+  lines.push('Workout details (one activity at a time, all GET; read when a Garmin workout is opened and for the newest ones after a sync)');
+  lines.push(`Activities read: ${stats.reads}${stats.lastReadAtMs !== null ? `, last at ${new Date(stats.lastReadAtMs).toISOString()}` : ''}`);
+  const stops = Object.entries(stats.stops);
+  if (stops.length > 0) lines.push(`Reads stopped early: ${stops.map(([kind, n]) => `${kind} x${n}`).join(', ')}`);
+  for (const name of DETAIL_ENDPOINT_ORDER) {
+    const e = stats.endpoints[name];
+    if (!e) continue;
+    lines.push(`${name}: ${ENDPOINT_TEMPLATES[name]}`);
+    lines.push(`  ${plural(e.requests, 'request', 'requests')}: ${resultsText(e.results)}`);
+  }
+
+  const notFound = stats.coverage.filter((c) => c.found === 0 && c.total > 0);
+  lines.push('');
+  lines.push(
+    notFound.length > 0
+      ? `Detail fields NOT found: ${notFound.map((c) => `${c.endpoint}.${c.field}`).join(', ')}`
+      : 'Detail fields NOT found: none',
+  );
+  const byEndpoint = new Map<string, GarminFieldCoverage[]>();
+  for (const c of stats.coverage) byEndpoint.set(c.endpoint, [...(byEndpoint.get(c.endpoint) ?? []), c]);
+  for (const [endpoint, list] of byEndpoint) {
+    lines.push(endpoint);
+    for (const c of list) lines.push(fieldLine(c));
+  }
+  const notes = stats.diagnostics.filter((d) => d.reason !== 'missing');
+  if (notes.length > 0) {
+    lines.push('');
+    lines.push('Detail mapper notes');
+    for (const d of notes) {
+      const detail = d.detail && DETAIL_SAFE.has(d.reason) ? ` - ${d.detail}` : '';
+      lines.push(`  ${d.endpoint}.${d.field}: ${d.reason} x${d.count}${d.of !== undefined ? ` of ${d.of}` : ''}${detail}`);
+    }
   }
   return lines.join('\n');
 }

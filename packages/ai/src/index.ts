@@ -37,3 +37,4 @@ export * from './label';
 export * from './food-candidate';
 export * from './error-presentation';
 export * from './coach';
+export * from './coach-findings';

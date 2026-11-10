@@ -474,6 +474,8 @@ const defs: TableDef[] = [
       started_at: ts(),
       ended_at: ts(),
       counts_toward_energy: bool({ notNull: true, default: { value: true } }),
+      // 20261110000105: what a device knows about the workout (heart rate, zones, sets, ...); jsonb object, null = not known.
+      details: jsonb(),
     },
     pk: ['id'],
     fks: [userFk('exercise_entries'), fk('exercise_entries', ['activity_code'], 'exercise_activities', ['code'], 'set null')],
@@ -576,6 +578,8 @@ const defs: TableDef[] = [
       title: text(),
       created_at: nowCol(),
       updated_at: nowCol(),
+      // migration 20261110000106: what the chat is about, {kind, id}; null = ordinary chat
+      topic: jsonb(),
     },
     pk: ['id'],
     unique: [['id', 'user_id']],

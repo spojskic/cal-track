@@ -413,3 +413,91 @@ describe('pacing', () => {
     expect(b.status).toBe('fulfilled');
   });
 });
+
+describe('one activity (workout details)', () => {
+  const ID = '12345678901';
+
+  it('uses the reference endpoint paths, GET only, on the Connect API host', async () => {
+    const { client, calls } = setup(() => json(200, {}));
+    await client.activity(ID);
+    await client.activityHrZones(ID);
+    await client.activityExerciseSets(ID);
+    await client.activitySplits(12345678901);
+    expect(calls.map((c) => c.url.slice(CONNECT_API_BASE.length))).toEqual([
+      `/activity-service/activity/${ID}`,
+      `/activity-service/activity/${ID}/hrTimeInZones`,
+      `/activity-service/activity/${ID}/exerciseSets`,
+      `/activity-service/activity/${ID}/splits`,
+    ]);
+    expectReadOnly(calls);
+    for (const c of calls) expect(c.init.headers.Authorization).toBe(`Bearer ${VALID}`);
+  });
+
+  it('only accept a numeric activity id (no path tricks) and never send a request for anything else', async () => {
+    const { client, calls } = setup(() => json(200, {}));
+    for (const bad of ['', '12a', '../../x', '1/2', '12 34', 'garmin:activity:5', '1e9', -5, 1.5, Number.NaN, '9'.repeat(25)]) {
+      const e = (await client.activity(bad as never).catch((x: unknown) => x)) as GarminError;
+      expect(e, String(bad)).toBeInstanceOf(GarminError);
+      expect(e.kind, String(bad)).toBe('bad_request');
+    }
+    expect(calls).toHaveLength(0);
+  });
+
+  it('are queued one at a time, 250 ms apart, even when started together', async () => {
+    const clock = createClock();
+    const starts: number[] = [];
+    const { client, maxInFlight, calls } = setup(
+      () => {
+        starts.push(clock.now());
+        return json(200, {});
+      },
+      { now: clock.now, sleep: clock.sleep },
+    );
+    await Promise.all([client.activity(ID), client.activityHrZones(ID), client.activityExerciseSets(ID), client.activitySplits(ID)]);
+    expect(calls).toHaveLength(4);
+    expect(maxInFlight()).toBe(1);
+    for (let i = 1; i < starts.length; i++) expect((starts[i] as number) - (starts[i - 1] as number)).toBeGreaterThanOrEqual(250);
+  });
+
+  it('refresh once on a 401 and ask again; a second 401 is "unauthorized"', async () => {
+    const { client, calls } = setup((c) => {
+      if (c.url === DI_TOKEN_URL) return json(200, { access_token: FRESH, refresh_token: 'rotated' });
+      return c.init.headers.Authorization === `Bearer ${FRESH}` ? json(200, { zones: 1 }) : reply(401);
+    });
+    expect(await client.activityHrZones(ID)).toMatchObject({ status: 200, data: { zones: 1 } });
+    expect(calls.map((c) => (c.url === DI_TOKEN_URL ? 'token' : 'data'))).toEqual(['data', 'token', 'data']);
+    expectReadOnly(calls);
+
+    const dead = setup((c) => (c.url === DI_TOKEN_URL ? json(200, { access_token: FRESH }) : reply(401)));
+    const e = (await dead.client.activity(ID).catch((x: unknown) => x)) as GarminError;
+    expect(e.kind).toBe('unauthorized');
+  });
+
+  it('a 429 is retried with Retry-After (capped), then reported as rate_limited', async () => {
+    const { client, calls, clock } = setup(() => reply(429, '', { 'Retry-After': '120' }));
+    const e = (await client.activityExerciseSets(ID).catch((x: unknown) => x)) as GarminError;
+    expect(e.kind).toBe('rate_limited');
+    expect(e.retryAfterSeconds).toBe(120);
+    expect(isFatalForRun(e)).toBe(true);
+    expect(calls).toHaveLength(3);
+    expect(clock.sleeps.filter((ms) => ms >= 1000)).toEqual([30_000, 30_000]);
+  });
+
+  it('an empty body, a 204 and a JSON null mean "no data"; a 404 is a no-data http error', async () => {
+    for (const r of [reply(200, ''), reply(200, '  '), reply(200, 'null'), reply(204)]) {
+      const { client } = setup(() => r);
+      expect(await client.activitySplits(ID)).toMatchObject({ empty: true, data: null });
+    }
+    const { client, calls } = setup(() => reply(404));
+    const e = (await client.activityHrZones(ID).catch((x: unknown) => x)) as GarminError;
+    expect(isNoData(e)).toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('a body that is not JSON is a parse error that does not echo the body', async () => {
+    const { client } = setup(() => reply(200, 'SECRET-HEART-RATES <html>'));
+    const e = (await client.activity(ID).catch((x: unknown) => x)) as GarminError;
+    expect(e.kind).toBe('parse');
+    expect(`${e.message} ${JSON.stringify(e)}`).not.toContain('SECRET-HEART-RATES');
+  });
+});

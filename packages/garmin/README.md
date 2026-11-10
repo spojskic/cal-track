@@ -20,7 +20,10 @@ Only `fetch`, timers and `AbortController` are used, so it runs on Node 22 and R
 | `client.ts` | `GarminConnectClient`: GET-only, 401 -> refresh once, 429/5xx backoff, one request at a time, 250 ms apart |
 | `mappers.ts` | Connect JSON -> the rows the app writes (`GarminDailyEnergy`, `GarminWorkout`, `GarminBiometric`) with diagnostics |
 | `sync.ts` | `runGarminSync`: which endpoints, in which order, what stops a run; hands data to `onBatch` as it arrives |
-| `report.ts` | `formatSyncReport`: the plain-text "sync report" (no values, no tokens) |
+| `report.ts` | `formatSyncReport`: the plain-text "sync report" (no values, no tokens); `formatDetailReport`: its "Workout details" section |
+| `workout-details.ts` | the versioned shape of `exercise_entries.details` (`v: 1`), `parseWorkoutDetails` (tolerant), `needsGarminDetails` (when to read) |
+| `activity-mappers.ts` | one activity: the list summary (`detailsFromListItem`), the summaryDTO, the heart-rate zones, the strength sets, the laps |
+| `activity-details.ts` | `fetchActivityDetails`: the four per-activity GET calls in order, with the sync's failure policy; `DetailStats` for the report |
 | `pick.ts`, `dates.ts`, `jwt.ts`, `base64.ts`, `http.ts`, `errors.ts` | tolerant pickers, date math, helpers, typed errors with token redaction |
 
 ## Safety properties (all covered by tests)
@@ -69,7 +72,11 @@ read of the same day replaces the earlier one, it is never added.
 | `/wellness-service/wellness/dailySleepData/{displayName}?date=&nonSleepBufferMinutes=60` | sleep hours, stages, score, SpO2, respiration, overnight HRV |
 | `/hrv-service/hrv/{date}` | overnight HRV average |
 | `/weight-service/weight/dateRange?startDate=&endDate=` | weigh-ins (grams), body fat |
-| `/activitylist-service/activities/search/activities?start=&limit=` | workouts with calories and duration |
+| `/activitylist-service/activities/search/activities?start=&limit=` | workouts with calories and duration (and heart rate, zones, training effect: stored as a `summary`) |
+| `/activity-service/activity/{id}` | one workout: `summaryDTO` (heart rate, distance, speed, climb, calories, training effect) |
+| `/activity-service/activity/{id}/hrTimeInZones` | time in each heart-rate zone |
+| `/activity-service/activity/{id}/exerciseSets` | strength sets (strength-like sessions only) |
+| `/activity-service/activity/{id}/splits` | laps (everything that is not strength-like) |
 
 ## What is verified and what is a guess
 
@@ -78,6 +85,13 @@ first candidate of each list. The others (nested Personal-API names, `startTimeG
 names) are guesses, tried only after the verified name. The mappers never throw, never invent a value (absent stays absent, never 0), and
 report which JSON key matched which field and which fields matched nothing (`coverage`, `diagnostics`) - that is what the app's
 "Copy sync report" button prints. **No real Garmin payload and no live request was available when this was written.**
+
+Workout details (`workout-details.ts`, `activity-mappers.ts`): VERIFIED names are `averageHR`, `maxHR`, `averageSpeed`, `calories`,
+`aerobicTrainingEffect`, `anaerobicTrainingEffect`, `elevationGain`, `hrTimeInZone_1..5` (activity list), `zoneNumber` / `secsInZone` /
+`zoneLowBoundary` (hrTimeInZones), `exerciseSets[].setType / duration / repetitionCount / weight (grams) / exercises[].category /
+probability` and `lapDTOs[].lapIndex / distance / duration / averageHR / maxHR / elevationGain`. GUESSES: every name inside `summaryDTO`
+(it is expected to repeat the list names), `activityTypeDTO.typeKey`, `minHR`, `trainingEffect`, `bmrCalories` (active calories =
+calories - bmrCalories). The per-activity endpoints are the part no real reply was available for.
 
 ## Tests
 

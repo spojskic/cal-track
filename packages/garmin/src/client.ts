@@ -59,6 +59,15 @@ export function assertReadOnly(method: string, url: string): void {
   }
 }
 
+/** The numeric id of an activity as the digits that go into a path. Throws GarminError(bad_request) for anything else. */
+export function activityIdOf(id: string | number): string {
+  const text = typeof id === 'number' ? (Number.isSafeInteger(id) ? String(id) : '') : String(id).trim();
+  if (!/^\d{1,19}$/.test(text)) {
+    throw new GarminError({ kind: 'bad_request', message: 'the Garmin activity id must be a number' });
+  }
+  return text;
+}
+
 function buildUrl(path: string, params?: QueryParams): string {
   if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//') || path.includes('://') || /[\s\\]/.test(path)) {
     throw new GarminError({ kind: 'bad_request', message: 'request path must be a relative path starting with "/"' });
@@ -151,7 +160,41 @@ export class GarminConnectClient {
     return this.get(PATHS.activities, { start, limit });
   }
 
+  // ---- one activity (workout detail) ----------------------------------------------------------------------------
+  // All GET, all through the same queue and pacing as everything else. `id` is the numeric Garmin activity id (the number
+  // after `garmin:activity:` in exercise_entries.external_id); anything else is refused before a request is built.
+
+  /** Full detail of one activity, including the `summaryDTO` block (reference: client.rs `activity`). */
+  activity(id: string | number): Promise<GarminReply> {
+    return this.activityGet(id, PATHS.activity);
+  }
+
+  /** Time in each heart-rate zone (reference: client.rs `hr_time_in_zones`). */
+  activityHrZones(id: string | number): Promise<GarminReply> {
+    return this.activityGet(id, PATHS.activityHrZones);
+  }
+
+  /** Set-by-set record of a strength session (reference: client.rs `activity_exercise_sets`). */
+  activityExerciseSets(id: string | number): Promise<GarminReply> {
+    return this.activityGet(id, PATHS.activitySets);
+  }
+
+  /** Per-lap splits (reference: client.rs `activity_splits`). */
+  activitySplits(id: string | number): Promise<GarminReply> {
+    return this.activityGet(id, PATHS.activitySplits);
+  }
+
   // ---- internals ------------------------------------------------------------------------------------------------
+
+  private activityGet(id: string | number, path: (id: string) => string): Promise<GarminReply> {
+    let target: string;
+    try {
+      target = path(activityIdOf(id));
+    } catch (e) {
+      return Promise.reject(toGarminError(e));
+    }
+    return this.get(target);
+  }
 
   /** One GET through the queue. */
   private get(path: string, query?: QueryParams): Promise<GarminReply> {

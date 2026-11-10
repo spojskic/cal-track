@@ -1,11 +1,13 @@
 /**
- * Health coach: strict scope enforcement around a streaming chat.
+ * Health coach: a data-grounded streaming chat with a light safety layer around it.
  *
  * Turn flow (runCoachTurn):
- *   1. guard   - cheap classifier on the NEW user message (structured JSON)
- *   2. refuse  - anything but `on_topic` returns a fixed message; the coach model is NOT called
- *   3. answer  - streamed coach reply (user data wrapped in <user_data>, treated as data)
- *   4. audit   - optional output classifier; a drifting reply is replaced by the redirect
+ *   1. guard   - cheap classifier on the NEW user message and the last turns (structured JSON)
+ *   2. refuse  - off-topic, acute medical red flags and eating-disorder risk return a fixed message; the coach model
+ *                is NOT called. Everything about food, supplements, training, sleep and the body is on topic.
+ *   3. answer  - streamed coach reply. The request carries the WHOLE conversation (see prepareHistory) and a
+ *                `<user_data>` block that starts with the app's computed findings (see coach-findings.ts)
+ *   4. audit   - optional output classifier; a drifting or dangerous reply is replaced by the redirect
  *
  * When `onDelta` is used together with `checkOutput`, the UI has already shown
  * the streamed text by the time the audit runs: if the result has
@@ -23,6 +25,7 @@ import {
   sanitizeUntrusted,
 } from './prompts';
 import { GuardResultSchema, type GuardCategory, type GuardResult } from './schemas';
+import type { CoachFinding, CoachNutrientRow } from './coach-findings';
 import type { ChatMessage, ChatUsage } from './types';
 
 // ---------------------------------------------------------------------------
@@ -48,6 +51,8 @@ export interface CoachIntakeDay {
   fatG?: number;
   fiberG?: number;
   sodiumMg?: number;
+  /** Water the user logged that day. */
+  waterMl?: number;
 }
 
 export interface CoachWeightPoint {
@@ -55,11 +60,20 @@ export interface CoachWeightPoint {
   kg: number;
 }
 
+export interface CoachWorkout {
+  type: string;
+  minutes?: number;
+  kcal?: number;
+  /** Average / maximum heart rate in bpm, when the source recorded it. */
+  avgHr?: number;
+  maxHr?: number;
+}
+
 export interface CoachActivityDay {
   date: string;
   steps?: number;
   activeKcal?: number;
-  workouts?: Array<{ type: string; minutes?: number }>;
+  workouts?: CoachWorkout[];
 }
 
 export interface CoachSleepNight {
@@ -69,6 +83,13 @@ export interface CoachSleepNight {
   quality?: number;
 }
 
+/** Overnight HRV (ms) and resting heart rate (bpm) of one day. */
+export interface CoachRecoveryDay {
+  date: string;
+  hrv?: number;
+  restingHr?: number;
+}
+
 export interface CoachGoals {
   type?: 'lose' | 'maintain' | 'gain';
   targetWeightKg?: number;
@@ -76,28 +97,59 @@ export interface CoachGoals {
   notes?: string;
 }
 
+/** Newest date each kind of data reaches, so "this morning" is never said about a week-old reading. */
+export interface CoachFreshness {
+  food?: string;
+  weight?: string;
+  sleep?: string;
+  workout?: string;
+  recovery?: string;
+}
+
+/** A free-text description of a workout, written by the app from device data (untrusted: names come from outside). */
+export interface CoachWorkoutDetail {
+  /** Line above the text, e.g. "The user is asking about this workout:". */
+  heading: string;
+  text: string;
+  /** Cap for the text. Default 3000 characters. */
+  maxChars?: number;
+}
+
 export interface CoachSummary {
   asOf?: string;
   goals?: CoachGoals;
   profile?: { sex?: string; ageYears?: number; heightCm?: number; activityLevel?: string };
   targets?: CoachTargets;
-  /** Last ~14 days; older entries are dropped. */
+  /** Last ~14 completed days with a food log; older entries are dropped. */
   intake?: CoachIntakeDay[];
+  /** Today so far (an unfinished day). */
+  today?: CoachIntakeDay;
   weight?: { currentKg?: number; trendKgPerWeek?: number; points?: CoachWeightPoint[] };
   activity?: CoachActivityDay[];
   sleep?: CoachSleepNight[];
+  recovery?: CoachRecoveryDay[];
+  /** Deterministic findings computed by the app, shown FIRST in the data block. */
+  findings?: CoachFinding[];
+  /** What the app could not see (rendered so the model says so instead of guessing). */
+  unavailable?: string[];
+  freshness?: CoachFreshness;
+  /** Average intake against target per nutrient (lowest first). */
+  nutrients?: CoachNutrientRow[];
+  /** Descriptions of the workout the chat is about and/or the latest workout. */
+  workoutDetails?: CoachWorkoutDetail[];
   /** Free text the user wrote (diary notes etc.). Untrusted. */
   notes?: string[];
 }
 
 export interface BuildCoachContextOptions {
-  /** Hard cap for the whole block. Default 4500 characters (~1100 tokens). */
+  /** Hard cap for the whole block. Default 11000 characters (~2800 tokens). */
   maxChars?: number;
   /** Max days kept per time series. Default 14. */
   maxDays?: number;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}/;
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function fmt(n: number | undefined, decimals = 0): string {
   if (n === undefined || !Number.isFinite(n)) return '-';
@@ -113,6 +165,12 @@ function dateOf(s: string): string {
   return DATE_RE.test(s) ? s.slice(0, 10) : text(s, 10) || '?';
 }
 
+function weekdayOf(s: string): string {
+  if (!DATE_RE.test(s)) return '';
+  const [y, m, d] = s.slice(0, 10).split('-').map(Number) as [number, number, number];
+  return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] ?? '';
+}
+
 function lastN<T extends { date: string }>(rows: T[] | undefined, n: number): T[] {
   if (!rows) return [];
   return [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).slice(-n);
@@ -124,19 +182,23 @@ function average(values: Array<number | undefined>): number | undefined {
 }
 
 interface Section {
-  header: string;
-  /** Rows in chronological order; trimming removes the oldest first. */
+  /** Printed above the rows when present. */
+  header?: string;
   rows: string[];
   /** Lower number is trimmed first. */
   trimOrder: number;
+  /** Rows are never trimmed below this count. */
   minRows: number;
+  /** Time series lose their oldest row first; ranked lists lose their last (least important) row. */
+  trimFrom: 'start' | 'end';
 }
 
-function renderSections(lines: string[], sections: Section[]): string {
-  const body: string[] = [...lines];
+function renderSections(sections: Section[]): string {
+  const body: string[] = [];
   for (const s of sections) {
     if (s.rows.length === 0) continue;
-    body.push(s.header, ...s.rows);
+    if (s.header) body.push(s.header);
+    body.push(...s.rows);
   }
   return [
     '<user_data>',
@@ -146,13 +208,48 @@ function renderSections(lines: string[], sections: Section[]): string {
   ].join('\n');
 }
 
+const FINDINGS_HEADER =
+  'Findings (computed by the app from the logs, most important first; quote these numbers, do not recompute or contradict them):';
+
+function renderFinding(f: CoachFinding, index: number): string {
+  const ev = f.evidence.length ? ` [${f.evidence.map((e) => text(e, 200)).join('; ')}]` : '';
+  return `${index}. [${f.tone}] ${text(f.claim, 400)}${ev} Counted: ${text(f.basis, 300)}.`;
+}
+
+function workoutLine(x: CoachWorkout): string {
+  const bits = [text(x.type, 30)];
+  if (x.minutes !== undefined) bits.push(`${fmt(x.minutes)} min`);
+  if (x.kcal !== undefined) bits.push(`${fmt(x.kcal)} kcal`);
+  if (x.avgHr !== undefined) bits.push(`avg HR ${fmt(x.avgHr)}`);
+  if (x.maxHr !== undefined) bits.push(`max HR ${fmt(x.maxHr)}`);
+  return bits.join(' ');
+}
+
 /** Builds the clearly delimited, size-capped data block for the coach. Pure. */
 export function buildCoachContext(summary: CoachSummary, opts: BuildCoachContextOptions = {}): string {
-  const maxChars = opts.maxChars ?? 4500;
+  const maxChars = opts.maxChars ?? 11_000;
   const maxDays = opts.maxDays ?? 14;
   const lines: string[] = [];
 
-  if (summary.asOf) lines.push(`as_of: ${dateOf(summary.asOf)}`);
+  if (summary.asOf) {
+    const day = weekdayOf(summary.asOf);
+    lines.push(`as_of (today): ${dateOf(summary.asOf)}${day ? ` (${day})` : ''}`);
+  }
+  const fr = summary.freshness;
+  if (fr) {
+    const parts = (
+      [
+        ['food log', fr.food],
+        ['weight', fr.weight],
+        ['sleep', fr.sleep],
+        ['workouts', fr.workout],
+        ['HRV / resting HR', fr.recovery],
+      ] as const
+    )
+      .filter(([, d]) => d)
+      .map(([label, d]) => `${label} ${dateOf(d as string)}`);
+    if (parts.length) lines.push(`data_reaches: ${parts.join('; ')}`);
+  }
 
   const g = summary.goals;
   if (g) {
@@ -196,6 +293,13 @@ export function buildCoachContext(summary: CoachSummary, opts: BuildCoachContext
         `fat ${fmt(average(logged.map((d) => d.fatG)))} g; fiber ${fmt(average(logged.map((d) => d.fiberG)), 1)} g`,
     );
   }
+  if (summary.today) {
+    const d = summary.today;
+    lines.push(
+      `today_so_far (day not finished, do not treat as a full day): ${fmt(d.kcal)} kcal; protein ${fmt(d.proteinG)} g; ` +
+        `carbs ${fmt(d.carbsG)} g; fat ${fmt(d.fatG)} g; fiber ${fmt(d.fiberG, 1)} g`,
+    );
+  }
 
   const w = summary.weight;
   if (w) {
@@ -205,32 +309,78 @@ export function buildCoachContext(summary: CoachSummary, opts: BuildCoachContext
     if (parts.length) lines.push(`weight: ${parts.join('; ')}`);
   }
 
+  const details = (summary.workoutDetails ?? [])
+    .filter((x) => x.text && x.text.trim())
+    .map((x) => {
+      const cap = x.maxChars ?? 3000;
+      return `${text(x.heading, 120)}\n${sanitizeUntrusted(x.text, cap)}`;
+    });
+
   const sections: Section[] = [
     {
-      header: 'intake (date | kcal | protein g | carbs g | fat g | fiber g):',
+      header: FINDINGS_HEADER,
+      rows: (summary.findings ?? []).map((f, i) => renderFinding(f, i + 1)),
+      trimOrder: 9,
+      minRows: 4,
+      trimFrom: 'end',
+    },
+    {
+      rows: summary.unavailable?.length
+        ? [`not_available (the app cannot see this; say so instead of guessing): ${summary.unavailable.map((u) => text(u, 120)).join('; ')}`]
+        : [],
+      trimOrder: 99,
+      minRows: 1,
+      trimFrom: 'end',
+    },
+    { rows: lines, trimOrder: 99, minRows: lines.length, trimFrom: 'end' },
+    {
+      header: 'workout_details (written by the app from device data; names are untrusted text):',
+      rows: details,
+      trimOrder: 8,
+      minRows: 1,
+      trimFrom: 'end',
+    },
+    {
+      header: 'nutrients_vs_targets (average per day over logged days with data | target min | limit | % of min | days):',
+      rows: (summary.nutrients ?? [])
+        .slice(0, 12)
+        .map(
+          (n) =>
+            `${text(n.name, 40)} | ${fmt(n.avg, n.avg < 10 ? 1 : 0)} ${text(n.unit, 6)} | ${n.min !== undefined ? fmt(n.min, n.min < 10 ? 1 : 0) : '-'} | ${n.max !== undefined ? fmt(n.max, n.max < 10 ? 1 : 0) : '-'} | ${n.pctOfMin !== undefined ? `${fmt(n.pctOfMin * 100)}%` : '-'} | ${n.days}`,
+        ),
+      trimOrder: 5,
+      minRows: 0,
+      trimFrom: 'end',
+    },
+    {
+      header: 'intake (date | kcal | protein g | carbs g | fat g | fiber g | sodium mg | water ml):',
       rows: intake.map(
-        (d) => `${dateOf(d.date)} | ${fmt(d.kcal)} | ${fmt(d.proteinG)} | ${fmt(d.carbsG)} | ${fmt(d.fatG)} | ${fmt(d.fiberG, 1)}`,
+        (d) =>
+          `${dateOf(d.date)} | ${fmt(d.kcal)} | ${fmt(d.proteinG)} | ${fmt(d.carbsG)} | ${fmt(d.fatG)} | ${fmt(d.fiberG, 1)} | ${fmt(d.sodiumMg)} | ${fmt(d.waterMl)}`,
       ),
       trimOrder: 4,
       minRows: 3,
+      trimFrom: 'start',
     },
     {
       header: 'weight_log (date | kg):',
       rows: lastN(w?.points, maxDays).map((x) => `${dateOf(x.date)} | ${fmt(x.kg, 1)}`),
       trimOrder: 3,
       minRows: 2,
+      trimFrom: 'start',
     },
     {
       header: 'activity (date | steps | active kcal | workouts):',
       rows: lastN(summary.activity, maxDays).map((a) => {
         const workouts = (a.workouts ?? [])
           .slice(0, 4)
-          .map((x) => `${text(x.type, 30)}${x.minutes !== undefined ? ` ${fmt(x.minutes)} min` : ''}`)
+          .map(workoutLine)
           .join(', ');
         return `${dateOf(a.date)} | ${fmt(a.steps)} | ${fmt(a.activeKcal)} | ${workouts || '-'}`;
       }),
       trimOrder: 2,
       minRows: 0,
+      trimFrom: 'start',
     },
     {
       header: 'sleep (date | hours | quality):',
@@ -239,24 +389,32 @@ export function buildCoachContext(summary: CoachSummary, opts: BuildCoachContext
       ),
       trimOrder: 1,
       minRows: 0,
+      trimFrom: 'start',
+    },
+    {
+      header: 'recovery (date | overnight HRV ms | resting HR bpm):',
+      rows: lastN(summary.recovery, maxDays).map((r) => `${dateOf(r.date)} | ${fmt(r.hrv)} | ${fmt(r.restingHr)}`),
+      trimOrder: 1,
+      minRows: 0,
+      trimFrom: 'start',
     },
     {
       header: 'user_notes (untrusted text written by the user):',
       rows: (summary.notes ?? []).slice(0, 5).map((n) => `- ${text(n, 200)}`),
       trimOrder: 0,
       minRows: 0,
+      trimFrom: 'end',
     },
   ];
 
-  let rendered = renderSections(lines, sections);
+  let rendered = renderSections(sections);
   const byTrimOrder = [...sections].sort((a, b) => a.trimOrder - b.trimOrder);
   while (rendered.length > maxChars) {
     const target = byTrimOrder.find((s) => s.rows.length > s.minRows);
     if (!target) break;
-    // notes are trimmed from the end, time series from the oldest entry
-    if (target.trimOrder === 0) target.rows.pop();
+    if (target.trimFrom === 'end') target.rows.pop();
     else target.rows.shift();
-    rendered = renderSections(lines, sections);
+    rendered = renderSections(sections);
   }
   if (rendered.length > maxChars) {
     const closing = '\n</user_data>';
@@ -266,8 +424,12 @@ export function buildCoachContext(summary: CoachSummary, opts: BuildCoachContext
 }
 
 // ---------------------------------------------------------------------------
-// History trimming
+// History
 // ---------------------------------------------------------------------------
+//
+// The whole conversation goes to the coach model on every turn. Modern models take far more than the first
+// versions of this file assumed, so the limits are generous; when the history still has to be cut, whole OLDEST turns
+// go first and a one-line note tells the model that earlier messages exist.
 
 export interface CoachHistoryMessage {
   role: 'user' | 'assistant';
@@ -275,39 +437,102 @@ export interface CoachHistoryMessage {
 }
 
 export interface TrimHistoryOptions {
+  /** Default 40. */
   maxMessages?: number;
-  /** Approximate budget (chars / 4). Default 2500. */
+  /** Approximate budget (chars / 4). Default 12000. */
   maxApproxTokens?: number;
+  /** A single message longer than this keeps its beginning and its END. Default 8000. */
   maxMessageChars?: number;
 }
+
+export const DEFAULT_HISTORY_LIMITS = {
+  maxMessages: 40,
+  maxApproxTokens: 12_000,
+  maxMessageChars: 8_000,
+} as const;
 
 export function approxTokens(s: string): number {
   return Math.ceil(s.length / 4);
 }
 
-/** Keeps the most recent messages that fit the budget; always starts with a user message. */
-export function trimHistory(history: CoachHistoryMessage[], opts: TrimHistoryOptions = {}): CoachHistoryMessage[] {
-  const maxMessages = opts.maxMessages ?? 12;
-  const maxTokens = opts.maxApproxTokens ?? 2500;
-  const maxChars = opts.maxMessageChars ?? 2000;
-  const cleaned = history
-    .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-    .map((m) => ({
-      role: m.role,
-      content: m.content.length > maxChars ? `${m.content.slice(0, maxChars)} [truncated]` : m.content,
-    }));
+/** Cuts the MIDDLE of an over-long message so that its start (the question) and its end (the conclusion) survive. */
+function capMessage(content: string, maxChars: number): string {
+  if (content.length <= maxChars) return content;
+  const marker = '\n[...]\n';
+  const budget = Math.max(0, maxChars - marker.length);
+  const head = Math.ceil(budget * 0.7);
+  return `${content.slice(0, head)}${marker}${content.slice(content.length - (budget - head))}`;
+}
 
-  const kept: CoachHistoryMessage[] = [];
+export interface PreparedHistory {
+  /** Starts with a user message and alternates user / assistant. */
+  messages: CoachHistoryMessage[];
+  /** How many (valid) messages of the input were cut: the oldest turns that did not fit, or a reply with no question. */
+  omitted: number;
+}
+
+/**
+ * Cleans the history and fits it to the budget.
+ *  - invalid and empty messages are dropped, consecutive messages of the SAME role are merged (a user message that
+ *    never got an answer must not disappear when the user then writes another one)
+ *  - turns (a user message and the reply that follows it) are the unit: the OLDEST turns are cut first, whole
+ *  - the newest turn is always kept, however long (its messages are capped, keeping start and end)
+ */
+export function prepareHistory(history: CoachHistoryMessage[], opts: TrimHistoryOptions = {}): PreparedHistory {
+  const maxMessages = opts.maxMessages ?? DEFAULT_HISTORY_LIMITS.maxMessages;
+  const maxTokens = opts.maxApproxTokens ?? DEFAULT_HISTORY_LIMITS.maxApproxTokens;
+  const maxChars = opts.maxMessageChars ?? DEFAULT_HISTORY_LIMITS.maxMessageChars;
+
+  const valid = history.filter(
+    (m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim(),
+  );
+  // `n` = how many input messages the entry stands for (merged messages count once each)
+  const merged: Array<CoachHistoryMessage & { n: number }> = [];
+  for (const m of valid) {
+    const content = m.content.trim();
+    const prev = merged[merged.length - 1];
+    if (prev && prev.role === m.role) {
+      prev.content = `${prev.content}\n\n${content}`;
+      prev.n += 1;
+    } else merged.push({ role: m.role, content, n: 1 });
+  }
+  let omitted = 0;
+  // a conversation cannot start with a reply
+  while (merged.length > 0 && merged[0]?.role !== 'user') omitted += (merged.shift() as { n: number }).n;
+
+  type Entry = CoachHistoryMessage & { n: number };
+  const turns: Entry[][] = [];
+  for (const m of merged) {
+    if (m.role === 'user' || turns.length === 0) turns.push([m]);
+    else (turns[turns.length - 1] as Entry[]).push(m);
+  }
+
+  const kept: CoachHistoryMessage[][] = [];
+  let count = 0;
   let used = 0;
-  for (let i = cleaned.length - 1; i >= 0 && kept.length < maxMessages; i--) {
-    const m = cleaned[i] as CoachHistoryMessage;
-    const cost = approxTokens(m.content);
-    if (used + cost > maxTokens && kept.length > 0) break;
-    kept.unshift(m);
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const entries = turns[i] as Entry[];
+    const turn = entries.map((m) => ({ role: m.role, content: capMessage(m.content, maxChars) }));
+    const cost = turn.reduce((a, m) => a + approxTokens(m.content), 0);
+    if (kept.length > 0 && (count + turn.length > maxMessages || used + cost > maxTokens)) {
+      for (let j = i; j >= 0; j--) omitted += (turns[j] as Entry[]).reduce((a, m) => a + m.n, 0);
+      break;
+    }
+    kept.unshift(turn);
+    count += turn.length;
     used += cost;
   }
-  while (kept.length > 0 && kept[0]?.role !== 'user') kept.shift();
-  return kept;
+  return { messages: kept.flat(), omitted };
+}
+
+/** Keeps the most recent whole turns that fit the budget; always starts with a user message. */
+export function trimHistory(history: CoachHistoryMessage[], opts: TrimHistoryOptions = {}): CoachHistoryMessage[] {
+  return prepareHistory(history, opts).messages;
+}
+
+/** One line telling the model that part of the conversation is not shown. */
+export function omittedNote(omitted: number): string {
+  return `[Note: ${omitted} earlier ${omitted === 1 ? 'message' : 'messages'} of this conversation are not shown here.]`;
 }
 
 // ---------------------------------------------------------------------------
@@ -398,15 +623,62 @@ export interface BuildCoachMessagesArgs {
   contextOptions?: BuildCoachContextOptions;
 }
 
-/** system prompt + trimmed history + (data block + wrapped user message). */
-export function buildCoachMessages(args: BuildCoachMessagesArgs): ChatMessage[] {
+export interface BuiltCoachMessages {
+  messages: ChatMessage[];
+  /** Conversation messages sent before the new one. */
+  historyMessages: number;
+  /** Conversation messages that did not fit and were cut (the oldest ones). */
+  historyOmitted: number;
+}
+
+/**
+ * system prompt + the conversation so far + (data block + the new message).
+ *
+ * The conversation is real chat turns, oldest first. If the last stored message is a user message that never got an
+ * answer (a failed or stopped turn) it is folded into the new message instead of being dropped. If old turns had to be
+ * cut, a one-line note says so.
+ */
+export function buildCoachMessagesDetailed(args: BuildCoachMessagesArgs): BuiltCoachMessages {
   const context = buildCoachContext(args.summary, args.contextOptions);
   const message = sanitizeUntrusted(args.userMessage, 2000);
-  return [
-    { role: 'system', content: args.systemPrompt ?? coachSystemPrompt() },
-    ...trimHistory(args.history, args.historyOptions).map((m): ChatMessage => ({ role: m.role, content: m.content })),
-    { role: 'user', content: `${context}\n\n<user_message>\n${message}\n</user_message>` },
-  ];
+  const prepared = prepareHistory(args.history, args.historyOptions);
+  const turns = prepared.messages.map((m): CoachHistoryMessage => ({ ...m }));
+
+  let unanswered = '';
+  const last = turns[turns.length - 1];
+  if (last && last.role === 'user') {
+    unanswered = sanitizeUntrusted(last.content, 2000);
+    turns.pop();
+  }
+  const note = prepared.omitted > 0 ? `${omittedNote(prepared.omitted)}\n\n` : '';
+  const first = turns[0];
+  if (note && first) first.content = `${note}${first.content}`;
+
+  const userBlock = [
+    note && !first ? note.trimEnd() : '',
+    unanswered ? `(Earlier message of the user that was never answered:)\n${unanswered}\n\n(New message:)` : '',
+    message,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  // a short pointer for the answering model: the new message is a continuation, not a fresh question
+  const continues = turns.length > 0 ? '(This message continues the conversation above. Read it in that context.)\n' : '';
+
+  return {
+    messages: [
+      { role: 'system', content: args.systemPrompt ?? coachSystemPrompt() },
+      ...turns.map((m): ChatMessage => ({ role: m.role, content: m.content })),
+      { role: 'user', content: `${context}\n\n${continues}<user_message>\n${userBlock}\n</user_message>` },
+    ],
+    historyMessages: turns.length,
+    historyOmitted: prepared.omitted,
+  };
+}
+
+/** See {@link buildCoachMessagesDetailed}. */
+export function buildCoachMessages(args: BuildCoachMessagesArgs): ChatMessage[] {
+  return buildCoachMessagesDetailed(args).messages;
 }
 
 export interface RunCoachTurnArgs {
@@ -415,6 +687,7 @@ export interface RunCoachTurnArgs {
   model: string;
   /** Classifier model (needs structured outputs). Defaults to `model`. */
   guardModel?: string;
+  /** The conversation so far, oldest first, WITHOUT the new message (see prepareHistory). */
   history: CoachHistoryMessage[];
   userMessage: string;
   summary: CoachSummary;
@@ -423,10 +696,15 @@ export interface RunCoachTurnArgs {
   onDelta?: (delta: string) => void;
   /** Audit the finished answer with the classifier and replace it if it drifted. Default true. */
   checkOutput?: boolean;
-  /** Cap for the coach answer. Default 600. */
+  /** Cap for the coach answer (reasoning models count their thinking in it). Default 1800. */
   maxTokens?: number;
+  /** Default 40. */
   maxHistoryMessages?: number;
+  /** Default 12000 (approximate tokens). */
   maxHistoryTokens?: number;
+  /** Default 8000. */
+  maxHistoryMessageChars?: number;
+  /** Default 11000 characters. */
   maxContextChars?: number;
   maxUserChars?: number;
   refusals?: Partial<CoachRefusalTexts>;
@@ -444,6 +722,12 @@ export interface CoachTurnResult {
   replaced?: boolean;
   /** False when `checkOutput` was on but the audit call failed (answer is returned unchecked). */
   outputChecked?: boolean;
+  /** True when the model stopped because it hit `maxTokens`: the answer may end mid-sentence. */
+  truncated?: boolean;
+  /** Conversation messages sent to the coach model before the new one (answers only). */
+  historyMessages?: number;
+  /** Older conversation messages that did not fit and were cut (answers only). */
+  historyOmitted?: number;
   usage?: ChatUsage;
 }
 
@@ -458,17 +742,19 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   }
   const message = rawMessage.slice(0, args.maxUserChars ?? 2000);
   const guardModel = args.guardModel ?? args.model;
-  const trimmedHistory = trimHistory(args.history, {
+  const historyOptions: TrimHistoryOptions = {
     maxMessages: args.maxHistoryMessages,
     maxApproxTokens: args.maxHistoryTokens,
-  });
+    maxMessageChars: args.maxHistoryMessageChars,
+  };
 
-  // 1. guard the NEW message (the data summary is deliberately not shown to the classifier)
+  // 1. guard the NEW message in the context of the recent turns (the data summary is deliberately not shown to
+  //    the classifier, so injected text in the data cannot steer it)
   const guard = await classifyUserMessage({
     client: args.client,
     model: guardModel,
     message,
-    history: trimmedHistory,
+    history: prepareHistory(args.history, historyOptions).messages,
     signal: args.signal,
   });
 
@@ -482,31 +768,33 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   }
 
   // 3. coach answer (streamed)
-  const messages = buildCoachMessages({
-    history: trimmedHistory,
+  const built = buildCoachMessagesDetailed({
+    history: args.history,
     userMessage: message,
     summary: args.summary,
     systemPrompt: coachSystemPrompt({ extraInstructions: args.extraInstructions }),
-    historyOptions: { maxMessages: args.maxHistoryMessages, maxApproxTokens: args.maxHistoryTokens },
+    historyOptions,
     contextOptions: { maxChars: args.maxContextChars },
   });
   const request: ChatStreamRequest = {
     model: args.model,
-    messages,
+    messages: built.messages,
     temperature: 0.4,
-    maxTokens: args.maxTokens ?? 600,
+    maxTokens: args.maxTokens ?? 1800,
     signal: args.signal,
     stream: args.stream,
   };
 
   let answer = '';
   let usage: ChatUsage | undefined;
+  let finishReason: string | null | undefined;
   for await (const ev of args.client.chatStream(request)) {
     if (ev.type === 'delta') {
       answer += ev.text;
       args.onDelta?.(ev.text);
     } else {
       usage = ev.usage;
+      finishReason = ev.finishReason;
     }
   }
   answer = answer.trim();
@@ -517,10 +805,15 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
       userMessage: 'The coach did not reply. Please try again.',
     });
   }
+  const meta = {
+    historyMessages: built.historyMessages,
+    historyOmitted: built.historyOmitted,
+    ...(finishReason === 'length' ? { truncated: true } : {}),
+  };
 
   // 4. optional output audit
   if (args.checkOutput === false) {
-    return { kind: 'answer', text: answer, category: 'on_topic', usage };
+    return { kind: 'answer', text: answer, category: 'on_topic', usage, ...meta };
   }
   try {
     const audit = await classifyCoachReply({
@@ -539,9 +832,9 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
         usage,
       };
     }
-    return { kind: 'answer', text: answer, category: 'on_topic', outputChecked: true, usage };
+    return { kind: 'answer', text: answer, category: 'on_topic', outputChecked: true, usage, ...meta };
   } catch (e) {
     if (isAbortError(e) || args.signal?.aborted) throw e;
-    return { kind: 'answer', text: answer, category: 'on_topic', outputChecked: false, usage };
+    return { kind: 'answer', text: answer, category: 'on_topic', outputChecked: false, usage, ...meta };
   }
 }

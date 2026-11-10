@@ -38,6 +38,9 @@ function useKeyboardVisible(): boolean {
  * Message box with Send / Stop and the permanent disclaimer. Enter sends on web (Shift+Enter inserts a line
  * break); on phones Enter adds a line break and the Send button sends. `onSend` returns whether the message was
  * accepted; the draft is only cleared then.
+ *
+ * `prefill` is a suggestion that is put into the EMPTY box once (a coach chat about a workout starts with
+ * "How was this workout?"). It is only text in the box: nothing is sent until the user presses Send.
  */
 export function ChatInput({
   onSend,
@@ -45,6 +48,7 @@ export function ChatInput({
   phase,
   disabled = false,
   placeholder = 'Ask your coach...',
+  prefill = '',
 }: {
   onSend: (text: string) => boolean;
   onStop: () => void;
@@ -52,12 +56,22 @@ export function ChatInput({
   /** Cannot type a new message (conversation still loading, thread missing...). */
   disabled?: boolean;
   placeholder?: string;
+  prefill?: string;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(prefill);
   const [height, setHeight] = useState(MIN_HEIGHT);
+  // A suggestion that arrives after the first render (the topic's earlier thread was still being looked up) fills the box
+  // once, and only while it is empty. Adjusting state while rendering is the supported way to derive it from a prop.
+  const [appliedPrefill, setAppliedPrefill] = useState(prefill);
+  if (prefill !== appliedPrefill) {
+    setAppliedPrefill(prefill);
+    if (prefill && value === '') setValue(prefill);
+    // the suggestion is gone (the chat started, e.g. from a tapped starter question): drop it if it was left untouched
+    else if (!prefill && value === appliedPrefill) setValue('');
+  }
 
   const running = phase === 'preparing' || phase === 'streaming';
   const busy = phase !== 'idle';

@@ -47,19 +47,23 @@ export interface DailyEnergyRow {
   updated_at?: string | null;
 }
 
-function dayQuery<T>(date: string, part: Parameters<typeof dayKey>[1], table: string, dateColumn = 'entry_date') {
+function dayQuery<T>(date: string, part: Parameters<typeof dayKey>[1], table: string, dateColumn = 'entry_date', columns = '*') {
   return {
     queryKey: dayKey(date, part),
     queryFn: async (): Promise<T[]> => {
-      const { data, error } = await supabase.from(table).select('*').eq(dateColumn, date);
+      const { data, error } = await supabase.from(table).select(columns).eq(dateColumn, date);
       if (error) throw error;
       return (data ?? []) as T[];
     },
   };
 }
 
+/** The columns of {@link ExerciseEntry}: not `details` (jsonb of a device workout, loaded by the Workouts screens when needed). */
+const EXERCISE_COLUMNS =
+  'id, entry_date, activity_code, name, minutes, kcal, source, external_id, started_at, ended_at, counts_toward_energy';
+
 export const useExerciseEntries = (date: string) =>
-  useQuery(dayQuery<ExerciseEntry>(date, 'exercise', 'exercise_entries'));
+  useQuery(dayQuery<ExerciseEntry>(date, 'exercise', 'exercise_entries', 'entry_date', EXERCISE_COLUMNS));
 
 export const useBiometrics = (date: string) =>
   useQuery(dayQuery<BiometricEntry>(date, 'biometrics', 'biometrics'));

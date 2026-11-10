@@ -317,3 +317,26 @@ describe('the report', () => {
     expect(active?.tried).toContain('activeKilocalories');
   });
 });
+
+describe('workout details from the activity list', () => {
+  it('hands each workout the heart rate, zones and training effect the list already carries (no extra request)', async () => {
+    const withHr = { ...ACTIVITY(1, '2026-11-09'), averageHR: 150, maxHR: 171, aerobicTrainingEffect: 3.1, hrTimeInZone_2: 600, hrTimeInZone_3: 300 };
+    const { batches, log } = await run({ activities: () => ok([withHr, ACTIVITY(2, '2026-11-09')]) }, { now: () => Date.UTC(2026, 10, 10, 12) });
+    const workouts = batches[0]?.workouts ?? [];
+    expect(workouts).toHaveLength(2);
+    expect(workouts[0]?.details).toMatchObject({
+      v: 1,
+      level: 'summary',
+      fetchedAt: '2026-11-10T12:00:00.000Z',
+      typeKey: 'running',
+      avgHr: 150,
+      maxHr: 171,
+      trainingEffect: { aerobic: 3.1 },
+      hrZones: [{ zone: 2, seconds: 600 }, { zone: 3, seconds: 300 }],
+    });
+    expect(workouts[1]?.details).toMatchObject({ level: 'summary', calories: 300 });
+    // the sync still makes exactly the same requests as before: nothing per activity
+    expect(log.filter((l) => l.startsWith('activities'))).toEqual(['activities 0 50']);
+    expect(log.some((l) => l.includes('/activity-service/'))).toBe(false);
+  });
+});

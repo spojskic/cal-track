@@ -40,10 +40,24 @@ their privacy terms. OpenRouter lets you restrict providers in your account sett
 - **Photo log**: the resized photo and a short instruction, plus your optional note.
 - **Scan nutrition label**: the resized photo of the label and a short instruction, like the photo log. Nothing else is sent.
 - **Describe a meal / AI recipe**: the text you typed.
-- **Coach**: your message, the recent conversation, and a compact summary of your data: sex, age, height, activity level,
-  targets and goals, calorie and macro totals for the last 14 days, weight trend, and steps, active calories, workouts and sleep
-  duration of the last 14 days (from any connected source, including Garmin when it is connected: what your phone read from
-  Garmin and saved to your account). Heart rate, stress, body battery, HRV and the text of diary notes are not sent. No name or email address.
+- **Coach**: your message, **the whole conversation so far** (as many of the earlier messages as fit, about 40 messages), and a
+  compact summary of your data, rebuilt on every message. The summary starts with *findings* the app computed from your logs
+  (for example "protein averages 92 g/day, 1.1 g/kg, 61% of your target") and then lists the numbers behind them:
+  - **About you**: sex, age, height, activity level, targets and goal (target weight, planned rate).
+  - **Food**: calories, protein, carbs, fat, fiber, sodium and logged water per day for the last 14 days, the nutrients that are
+    furthest below their target or above their limit (names, average amounts, percentages), and today so far.
+  - **Body**: weigh-ins of the last 6 weeks and the weight trend.
+  - **Activity**: steps, active calories and workouts (name or type, duration, calories, average and maximum heart rate when
+    known) of the last 4 weeks, from any connected source, including Garmin when it is connected (what your phone read from Garmin
+    and saved to your account).
+  - **Recovery**: sleep duration and sleep score, overnight HRV and resting heart rate of the last 2 to 4 weeks.
+  - **One workout in detail**: when you ask the coach about a workout (from the Workouts screens), and for "how was my last
+    workout?", a description of that workout: heart rate and time in heart-rate zones, distance, pace, training effect, strength
+    sets, and your previous workouts of the same type. In this description a Garmin workout is named by its type, not by the
+    title Garmin gave it.
+
+  **Not sent**: your name, your e-mail address, the text of your diary notes, stress, body battery, blood oxygen, breathing rate,
+  blood pressure, passwords, tokens and your OpenRouter key. How this is built and how to change it: [The coach](coach.md).
 
 ## How meals are estimated
 
@@ -73,23 +87,34 @@ you scanned is carried into the new food). Like every AI feature it is hidden wh
 
 ## The coach
 
-A personal coach for **nutrition, training, recovery and sleep, body composition and your own logged data**. It will not help
-with anything else (code, trivia, politics, writing and so on), cannot be talked out of that by instructions in your messages or
-in your diary notes, and does not diagnose or prescribe.
+A personal coach for **food and nutrition, supplements, training, recovery and sleep, body composition and your own logged data**.
+It answers diet questions directly and with numbers: macros and calories, deficits and surpluses, micronutrients, supplements and
+their usual doses (for example magnesium bisglycinate vs oxide, creatine, vitamin D, caffeine), meal ideas, hydration. It scales
+amounts to your weight and targets, quotes your own data, ends with a few concrete next steps, and says what it cannot see instead of
+guessing. At most one short caution when it really matters (kidney disease, an interacting medicine, going over an upper limit);
+no "ask your doctor" instead of an answer. It will not help with anything unrelated (code, trivia, politics, writing and so on),
+cannot be talked out of that by instructions in your messages or in your diary notes, and does not diagnose or tell you to
+change a prescription.
 
-Before the coach model sees a message, a quick classifier sorts it:
+Before the coach model sees a message, a quick classifier sorts it (it also sees the last few messages, so "how was it?" is understood):
 
-- *On topic*: answered, then the answer is checked against the same rules.
+- *On topic*: answered, then the answer is checked for danger and drift.
 - *Off topic*: a polite redirect, without calling the coach model.
-- *Medical red flag*: a short "please see a doctor or emergency services" message.
-- *Possible eating-disorder risk*: a supportive message that points to professional help.
+- *Medical red flag* (urgent symptoms, a suspected overdose, self-harm, requests to diagnose or to change a prescription or insulin dose):
+  a short "please get care" message.
+- *Possible eating-disorder risk* (crash diets of about 1,000 kcal and below, long fasts to lose weight, purging, laxatives): a supportive
+  message that points to professional help.
 
-If the classifier call itself fails, the message is not answered (it fails closed). The coach is not medical advice. A set of
-more than 150 test prompts for tuning this lives in `packages/ai/eval`; running it needs your key:
+If the classifier call itself fails, the message is not answered (it fails closed). The permanent note under the input box says
+the coach is not a substitute for a professional; the answers do not repeat it. A set of about 200 test prompts for tuning this
+lives in `packages/ai/eval`; running it needs your key:
 
 ```bash
 OPENROUTER_API_KEY=... node --import tsx packages/ai/eval/run-guard-eval.ts
 ```
+
+Chats are stored in your Supabase project and deleted after 90 days (see above). A chat about a workout stores only the kind and id
+of that workout next to the chat.
 
 ## Troubleshooting
 

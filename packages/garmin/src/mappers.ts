@@ -7,6 +7,7 @@
 // accepted, missing fields stay absent (never 0), and whatever could not be found is reported in `diagnostics` /
 // `coverage` (key NAMES and counts only, never a value).
 
+import { detailsFromListItem } from './activity-mappers';
 import { leadingYmd, utcDateOf } from './dates';
 import {
   FieldTracker,
@@ -464,7 +465,7 @@ const LOCAL_TS = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/;
  * the reference's structs) gives the real instant when it exists. Calories are the activity's own total (they are also
  * inside the day's active energy, so the app files a workout as informational).
  */
-export function mapActivities(raw: unknown): GarminMapResult<GarminWorkout> {
+export function mapActivities(raw: unknown, options: { nowMs?: number } = {}): GarminMapResult<GarminWorkout> {
   const t = new FieldTracker('activities');
   const c = FIELD_CANDIDATES.activities;
   const out: GarminWorkout[] = [];
@@ -505,6 +506,8 @@ export function mapActivities(raw: unknown): GarminMapResult<GarminWorkout> {
     const name = t.string(it, 'name', c.name, { optional: true }) ?? humanizeTypeKey(typeKey === 'unknown' ? '' : typeKey);
     const kcal = t.rounded(it, 'kcal', c.calories, { optional: true, min: 0, minExclusive: true, max: 20000, decimals: 0 });
     const distanceM = t.rounded(it, 'distanceM', c.distance, { optional: true, min: 0, minExclusive: true, max: 5_000_000, decimals: 1 });
+    // Heart rate, time in zones and training effect come with the list itself: a "summary" level read at no extra request.
+    const details = options.nowMs !== undefined ? detailsFromListItem(it, options.nowMs) : undefined;
     out.push({
       externalId: `garmin:activity:${id}`,
       name,
@@ -515,6 +518,7 @@ export function mapActivities(raw: unknown): GarminMapResult<GarminWorkout> {
       durationSec: Math.round(durationSec),
       ...(kcal !== undefined ? { kcal } : {}),
       ...(distanceM !== undefined ? { distanceM } : {}),
+      ...(details ? { details } : {}),
     });
   }
   return finish(t, dedupe(out, (w) => w.externalId));

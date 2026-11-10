@@ -47,11 +47,14 @@ and the provider's terms; you can restrict providers in your OpenRouter settings
 - **Scan nutrition label:** the photo of the label, resized on your phone, and a short instruction. What the AI reads from it only
   fills in the "New food" form on your phone; you check and edit it, and nothing is saved until you press Save food.
 - **Describe a meal / AI recipe:** the text you typed.
-- **Coach:** your message, the recent conversation, and a compact summary of your data: sex, age, height, activity level, your
-  targets and goal, calorie and macro totals of the last 14 days, weight trend, steps, active calories and workouts of the last
-  14 days, and sleep duration. **If you have connected Garmin, the steps, active calories, workouts and sleep duration that
-  came from Garmin can be part of this summary.** Heart rate, stress, body battery, HRV, blood oxygen, breathing rate, your
-  email address, your name and the text of your diary notes are **not** included.
+- **Coach:** your message, the conversation so far, and a compact summary of your data, rebuilt on every message: sex, age, height,
+  activity level, your targets and goal; calories, macros, fiber, sodium and logged water per day of the last 14 days, and the
+  vitamins and minerals that are furthest below or above their targets; your weigh-ins and weight trend; steps, active calories and
+  workouts of the last 4 weeks (with duration, calories and heart rate when known); sleep duration and score, overnight HRV and
+  resting heart rate; and, when you ask about a workout, a description of that workout (heart rate and zones, distance, pace,
+  training effect, sets). **If you have connected Garmin, the steps, active calories, workouts and their details, sleep, HRV and
+  resting heart rate that came from Garmin can be part of this summary.** Stress, body battery, blood oxygen, breathing rate, blood
+  pressure, your email address, your name and the text of your diary notes are **not** included.
 
 Nothing is sent to OpenRouter unless you use one of these features.
 

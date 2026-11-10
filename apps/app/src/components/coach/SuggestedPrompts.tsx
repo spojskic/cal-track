@@ -5,35 +5,42 @@ import { radius, spacing, useTheme } from '@/theme';
 
 export const SUGGESTED_PROMPTS: readonly string[] = [
   'How is my protein intake this week?',
+  'Which micronutrients am I low on?',
   'Am I in a sustainable deficit?',
-  'Plan a 3-day push/pull/legs split',
-  'What should I eat before a morning run?',
+  'How much magnesium should I take before sleep?',
+  'How was my last workout?',
   'How can I improve my sleep for recovery?',
-  "Review yesterday's food log",
 ];
 
-/** Empty-thread starter: the coach's scope in one line plus six tappable example questions. */
+/**
+ * Empty-thread starter: the coach's scope in one line plus tappable example questions (`prompts` replaces the
+ * defaults, e.g. for a chat about a workout). A tap sends the question; nothing is sent without a tap.
+ */
 export function SuggestedPrompts({
   onSelect,
   disabled = false,
+  prompts = SUGGESTED_PROMPTS,
+  title = 'Ask your coach',
 }: {
   onSelect: (prompt: string) => void;
   disabled?: boolean;
+  prompts?: readonly string[];
+  title?: string;
 }) {
   const { colors } = useTheme();
   return (
     <View style={styles.root}>
       <View style={styles.intro}>
         <AppText variant="heading" accessibilityRole="header">
-          Ask your coach
+          {title}
         </AppText>
         <AppText muted>
-          Nutrition, training, recovery and sleep, body composition, and what your own logged data says. Your coach
-          reads your recent diary, weight and activity each time you ask.
+          Food and macros, vitamins and supplements, training, recovery and sleep, body composition, and what your own
+          logged data says. Your coach reads your recent diary, weight, workouts and sleep each time you ask.
         </AppText>
       </View>
       <View style={styles.list} accessibilityRole="list">
-        {SUGGESTED_PROMPTS.map((prompt) => (
+        {prompts.map((prompt) => (
           <Pressable
             key={prompt}
             accessibilityRole="button"

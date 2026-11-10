@@ -2,13 +2,17 @@
  * State machine around `runCoachTurn` for the coach chat screen.
  *
  * One turn, in order:
- *   1. persist  - create the thread if needed (title from the first message) and store the USER message, so a
- *                 failed turn still keeps what the user wrote (shown with a "failed - retry" affordance)
- *   2. ground   - build a FRESH CoachSummary from Supabase (intake, weight, activity, sleep, goals)
- *   3. guard    - `runCoachTurn` classifies the new message; off-topic / medical / eating-disorder messages get a
+ *   1. persist  - create the thread if needed (title from the first message, with its topic when the chat is about a
+ *                 workout) and store the USER message, so a failed turn still keeps what the user wrote (shown with a
+ *                 "failed - retry" affordance)
+ *   2. history  - read the whole conversation BEFORE the new message from the database (not from the query cache,
+ *                 which only drives the screen and can be stale or incomplete) and hand all of it to the coach
+ *   3. ground   - build a FRESH CoachSummary from Supabase (findings, intake, weight, workouts, sleep, goals) plus the
+ *                 description of the workout the chat is about
+ *   4. guard    - `runCoachTurn` classifies the new message; off-topic / red-flag / eating-disorder messages get a
  *                 fixed refusal and the coach model is never called
- *   4. answer   - the coach reply streams in (`streamText`); the output audit may replace it (`result.replaced`)
- *   5. persist  - the assistant message (or refusal) is stored; only then is the turn complete
+ *   5. answer   - the coach reply streams in (`streamText`); the output audit may replace it (`result.replaced`)
+ *   6. persist  - the assistant message (or refusal) is stored; only then is the turn complete
  * A failed or stopped turn saves nothing for the assistant. Partial streamed text is discarded on stop: it never
  * went through the output audit, so it is not kept.
  *
@@ -23,7 +27,6 @@ import {
   isOpenRouterError,
   presentAiError,
   runCoachTurn,
-  type CoachHistoryMessage,
   type CoachSummary,
   type GuardCategory,
 } from '@cal/ai';
@@ -37,6 +40,8 @@ import {
   coachKeys,
   createCoachThread,
   detectRefusal,
+  fetchCoachMessages,
+  findCoachThreadForTopic,
   invalidateCoachThreads,
   useCoachMessages,
   useCoachThread,
@@ -46,8 +51,12 @@ import {
 } from '@/data/coach';
 
 import { useAiStore } from './ai-store';
+import { loadTurnHistory } from './coach-history';
+import { topicPrefill, type CoachTopic } from './coach-topic';
 import { useAiClient } from './use-ai-client';
 import { useCoachSummary } from './use-coach-summary';
+
+export { toCoachHistory } from './coach-history';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Public types
@@ -92,21 +101,6 @@ const MAX_AUTO_RETRIES = 2;
 // ---------------------------------------------------------------------------------------------------------------
 // Pure helpers (exported for reuse; no React)
 // ---------------------------------------------------------------------------------------------------------------
-
-/**
- * Conversation history for the model: oldest first, alternating where possible. User messages that never got
- * an answer (failed turns) are dropped, and so is a trailing user message, because the message being sent is
- * passed separately. `runCoachTurn` trims the result to its token budget.
- */
-export function toCoachHistory(rows: readonly Pick<CoachMessage, 'role' | 'content'>[]): CoachHistoryMessage[] {
-  const out: CoachHistoryMessage[] = [];
-  rows.forEach((m, i) => {
-    if (m.role === 'user' && rows[i + 1]?.role === 'user') return;
-    out.push({ role: m.role, content: m.content });
-  });
-  while (out.length > 0 && out[out.length - 1]?.role === 'user') out.pop();
-  return out;
-}
 
 function toChatMessage(m: CoachMessage): CoachChatMessage {
   return {
@@ -201,13 +195,27 @@ interface Run {
 
 const NO_MESSAGES: CoachMessage[] = [];
 
-export function useCoachChat({ initialThreadId = null }: { initialThreadId?: string | null } = {}) {
+export interface UseCoachChatOptions {
+  /** Open this stored thread (route `/coach/[threadId]`). */
+  initialThreadId?: string | null;
+  /**
+   * What a NEW conversation is about (route `/coach?topicKind=workout&topicId=...`). If a thread for the same topic
+   * exists it is resumed, otherwise the first message creates one with this topic. Pass a stable object.
+   */
+  topic?: CoachTopic | null;
+}
+
+export function useCoachChat({ initialThreadId = null, topic: topicProp = null }: UseCoachChatOptions = {}) {
   const qc = useQueryClient();
   const ai = useAiClient();
   const buildSummary = useCoachSummary();
   const online = useOnline();
 
   const [threadId, setThreadId] = useState<string | null>(initialThreadId);
+  // The topic of a blank chat that was opened "about" something. A stored thread brings its own topic (below).
+  const [activeTopic, setActiveTopic] = useState<CoachTopic | null>(initialThreadId ? null : topicProp);
+  // While the topic's earlier thread is being looked up, sending is held back so a duplicate thread is never created.
+  const [resolving, setResolving] = useState<boolean>(Boolean(topicProp && !initialThreadId));
   const [phase, setPhase] = useState<CoachPhase>('idle');
   const [streamText, setStreamText] = useState('');
   const [savedAssistantId, setSavedAssistantId] = useState<string | null>(null);
@@ -218,9 +226,12 @@ export function useCoachChat({ initialThreadId = null }: { initialThreadId?: str
 
   const messagesQ = useCoachMessages(threadId);
   const threadQ = useCoachThread(threadId);
+  const topic: CoachTopic | null = threadQ.data?.topic ?? activeTopic;
 
   // Refs let the long-running async turn read the latest values without re-creating callbacks.
   const threadIdRef = useRef(threadId);
+  const topicRef = useRef<CoachTopic | null>(topic);
+  const navigatedRef = useRef(false);
   const runRef = useRef<Run | null>(null);
   const epochRef = useRef(0);
   const mountedRef = useRef(true);
@@ -242,6 +253,26 @@ export function useCoachChat({ initialThreadId = null }: { initialThreadId?: str
       runRef.current?.controller.abort();
     };
   }, []);
+
+  // Opening the coach "about" something resumes the conversation that already has this topic.
+  useEffect(() => {
+    if (!topicProp || initialThreadId) return undefined;
+    let cancelled = false;
+    findCoachThreadForTopic(topicProp)
+      .then((found) => {
+        if (cancelled || !found || navigatedRef.current || threadIdRef.current !== null) return;
+        qc.setQueryData(coachKeys.thread(found.id), found);
+        threadIdRef.current = found.id;
+        setThreadId(found.id);
+      })
+      .catch(() => undefined) // a failed lookup only means "start a new thread"
+      .finally(() => {
+        if (!cancelled) setResolving(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [topicProp, initialThreadId, qc]);
 
   // ---- display model -------------------------------------------------------------------------------------
 
@@ -301,7 +332,9 @@ export function useCoachChat({ initialThreadId = null }: { initialThreadId?: str
             };
             if (live()) setLocalUser(optimistic);
             if (!tid) {
-              const thread: CoachThread = await createCoachThread(job.text);
+              const created: CoachThread = await createCoachThread(job.text, topicRef.current);
+              // A database without the topic column stores no topic; this session still knows it.
+              const thread: CoachThread = created.topic || !topicRef.current ? created : { ...created, topic: topicRef.current };
               tid = thread.id;
               // Seed the caches: the observer mounted for the new thread must not refetch an empty list
               // over the message appended next.
@@ -325,16 +358,31 @@ export function useCoachChat({ initialThreadId = null }: { initialThreadId?: str
         }
         if (!tid || !live()) return;
 
-        // history = everything stored before this user message
+        // 2. history = everything stored before this user message. Read from the DATABASE, not from the query cache: the
+        //    cache only drives the screen and can be stale (thread opened from History, app resumed), incomplete or
+        //    reordered by an optimistic row; a missing turn here is exactly "the coach forgot what I said".
         const cached = qc.getQueryData<CoachMessage[]>(coachKeys.messages(tid)) ?? [];
-        const at = cached.findIndex((m) => m.id === userMessageId);
-        const history = toCoachHistory(at >= 0 ? cached.slice(0, at) : cached);
+        const loaded = await loadTurnHistory<CoachMessage>({
+          threadId: tid,
+          userMessageId,
+          text: job.text,
+          fetchRows: fetchCoachMessages,
+          cached,
+        });
+        // heal a screen that missed rows
+        if (loaded.fromDatabase && (loaded.rows.length !== cached.length || loaded.rows.some((m, i) => m.id !== cached[i]?.id))) {
+          qc.setQueryData<CoachMessage[]>(coachKeys.messages(tid), loaded.rows);
+        }
+        if (controller.signal.aborted) throw new AbortError();
+        const history = loaded.history;
 
-        // 2. fresh grounding data (never rejects; missing series are simply omitted)
-        const summary: CoachSummary = await buildSummaryRef.current().catch((): CoachSummary => ({}));
+        // 3. fresh grounding data (never rejects; missing series are simply omitted)
+        const summary: CoachSummary = await buildSummaryRef
+          .current({ topic: topicRef.current })
+          .catch((): CoachSummary => ({}));
         if (controller.signal.aborted) throw new AbortError();
 
-        // 3 + 4. guard, then stream the answer
+        // 4 + 5. guard, then stream the answer
         let streamed = '';
         const flush = () => {
           streamTimer = null;
@@ -364,7 +412,7 @@ export function useCoachChat({ initialThreadId = null }: { initialThreadId?: str
           setPhase('finishing');
         }
 
-        // 5. persist the assistant message
+        // 6. persist the assistant message
         const saved = await appendCoachMessage(tid, 'assistant', result.text, { touch: true });
         reply = null;
         // Remember the stored id BEFORE the cache gets the message, so the live reply is hidden exactly when
@@ -479,8 +527,11 @@ export function useCoachChat({ initialThreadId = null }: { initialThreadId?: str
     runRef.current = null;
     epochRef.current += 1;
     autoRetriesRef.current = 0;
+    navigatedRef.current = true;
     threadIdRef.current = id;
     setThreadId(id);
+    setActiveTopic(null);
+    setResolving(false);
     setPhase('idle');
     setStreamText('');
     setSavedAssistantId(null);
@@ -514,9 +565,12 @@ export function useCoachChat({ initialThreadId = null }: { initialThreadId?: str
   /** The last user message has no answer and nothing is running: show "failed - retry" on it. */
   const failedMessageId = !busy && last?.role === 'user' && !unsaved ? last.id : null;
   const threadMissing = threadId !== null && threadQ.isSuccess && threadQ.data === null && !localUser;
-  const ready = threadId === null || messagesQ.isSuccess;
+  const ready = !resolving && (threadId === null || messagesQ.isSuccess);
+  /** A blank chat about something: the question that is pre-filled in the input (never sent automatically). */
+  const suggestedInput = topic && ready && !threadMissing && messages.length === 0 && !busy ? topicPrefill(topic) : '';
 
   useEffect(() => {
+    topicRef.current = topic;
     aiRef.current = ai;
     buildSummaryRef.current = buildSummary;
     onlineRef.current = online;
@@ -528,6 +582,9 @@ export function useCoachChat({ initialThreadId = null }: { initialThreadId?: str
 
   return {
     threadId,
+    /** What this conversation is about, or null for an ordinary chat. */
+    topic,
+    suggestedInput,
     thread: threadQ.data ?? null,
     threadMissing,
     messages,

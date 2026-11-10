@@ -7,28 +7,46 @@
  *
  * Decisions:
  *  - `intake` holds COMPLETED days only (the 14 days before today, logged days only). The context builder
- *    averages every row it gets, so a half-eaten today would skew the average; today is passed as a separate
- *    one-line note instead. Unlogged days are left out, because a 0 kcal row would read as "ate nothing".
+ *    averages every row it gets, so a half-eaten today would skew the average; today is passed as its own
+ *    `today` line instead. Unlogged days are left out, because a 0 kcal row would read as "ate nothing".
  *  - Everything is rounded for the model (kcal and grams to integers, fibre / sleep / weight to 0.1, trend to
  *    0.01 kg per week); the model should talk about trends, not false precision.
  *  - Free-text diary notes are deliberately NOT sent (less personal data leaves the device).
+ *  - The summary starts with FINDINGS: facts computed here in code (see packages/ai/src/coach-findings.ts) from the same
+ *    rows, each with its numbers and what was counted. The rows below them are the evidence; the model quotes the findings.
+ *    Findings look further back (4 weeks of workouts, 6 weeks of weight) than the rows that are listed (14 days).
  */
 
-import type {
-  CoachActivityDay,
-  CoachGoals,
-  CoachIntakeDay,
-  CoachSleepNight,
-  CoachSummary,
-  CoachTargets,
-  CoachWeightPoint,
+import {
+  computeCoachFindings,
+  computeNutrientRows,
+  computeUnavailable,
+  type CoachActivityDay,
+  type CoachFinding,
+  type CoachGoals,
+  type CoachIntakeDay,
+  type CoachRecoveryDay,
+  type CoachSleepNight,
+  type CoachSummary,
+  type CoachTargets,
+  type CoachWeightPoint,
+  type CoachWorkout,
+  type CoachWorkoutDetail,
+  type FindingsInput,
+  type FindingsIntakeDay,
+  type NutrientTarget,
 } from '@cal/ai';
 
 export const INTAKE_DAYS = 14;
+/** Days of activity listed in the data block. */
 export const ACTIVITY_DAYS = 14;
+/** Days of workouts / steps the findings look at. */
+export const ACTIVITY_FINDINGS_DAYS = 28;
 export const SLEEP_DAYS = 14;
-export const WEIGHT_DAYS = 30;
-/** buildCoachContext keeps only the last 14 weight rows, so the 30-day series is thinned to this many. */
+/** Days of HRV / resting heart rate (a baseline needs the weeks before the last one). */
+export const RECOVERY_DAYS = 28;
+export const WEIGHT_DAYS = 42;
+/** buildCoachContext keeps only the last 14 weight rows, so the 42-day series is thinned to this many. */
 export const WEIGHT_POINTS_MAX = 14;
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -44,6 +62,13 @@ export interface SummaryDailyTotal {
   fatG: number;
   fiberG: number;
   entryCount: number;
+  /** daily_totals.nutrients: nutrient code -> amount. Codes no logged food had data for are absent. */
+  nutrients?: Record<string, number> | null;
+}
+
+export interface SummaryWaterRow {
+  date: string;
+  ml: number;
 }
 
 export interface SummaryWeightRow {
@@ -52,10 +77,15 @@ export interface SummaryWeightRow {
 }
 
 export interface SummaryExerciseRow {
+  /** exercise_entries.id */
+  id?: string;
   date: string;
   name: string;
   minutes: number | null;
   kcal: number;
+  /** Heart rate in bpm, when the device recorded it. */
+  avgHr?: number | null;
+  maxHr?: number | null;
   /** 'garmin' | 'apple_health' | 'health_connect' | 'manual'. With the times it lets one workout seen by two devices count once. */
   source?: string | null;
   startedAt?: string | null;
@@ -105,6 +135,18 @@ export interface BuildCoachSummaryInput {
   /** Today's local date, YYYY-MM-DD. */
   today: string;
   targets?: SummaryTargetsInput | null;
+  /** Per nutrient code: the minimum to reach / the limit on total intake (from the resolved targets). */
+  nutrientTargets?: Record<string, NutrientTarget> | null;
+  /** Daily water target in ml, when the app has one. */
+  waterTargetMl?: number | null;
+  /** Resting energy (BMR) in kcal. */
+  bmrKcal?: number | null;
+  /** Newest day with any food logged (any age). */
+  lastLoggedDate?: string | null;
+  /** Logged water per day. */
+  water?: readonly SummaryWaterRow[] | null;
+  /** Text descriptions of workouts (the topic of the chat, the latest workout), already built by the app. */
+  workoutDetails?: readonly CoachWorkoutDetail[] | null;
   profile?: SummaryProfileInput | null;
   /** Signed kg per week from the active weight goal (negative = lose). */
   rateKgPerWeek?: number | null;
@@ -197,13 +239,18 @@ export function thin<T>(items: readonly T[], max: number): T[] {
   return out;
 }
 
-function buildWeight(input: BuildCoachSummaryInput): CoachSummary['weight'] {
+/** Valid weigh-ins of the last WEIGHT_DAYS, oldest first. */
+function weightRows(input: BuildCoachSummaryInput): SummaryWeightRow[] {
   const from = shiftDate(input.today, -WEIGHT_DAYS);
-  const rows = (input.weight ?? [])
+  return (input.weight ?? [])
     .filter((p) => ISO_RE.test(p.date) && p.date >= from && p.date <= input.today && positive(p.kg))
     .sort(byDate);
+}
+
+function buildWeight(input: BuildCoachSummaryInput, rows: readonly SummaryWeightRow[]): CoachSummary['weight'] {
   const latest = positive(input.latestWeightKg) ? input.latestWeightKg : rows[rows.length - 1]?.kg;
-  const trend = weightTrendKgPerWeek(rows);
+  // the straight-line trend over the last 4 weeks (the findings use the same window), not over the whole 6
+  const trend = weightTrendKgPerWeek(rows.filter((p) => p.date >= shiftDate(input.today, -28)));
   const points: CoachWeightPoint[] = thin(rows, WEIGHT_POINTS_MAX).map((p) => ({ date: p.date, kg: round(p.kg, 1) }));
   if (latest === undefined && trend === undefined && points.length === 0) return undefined;
   return {
@@ -218,6 +265,7 @@ function buildWeight(input: BuildCoachSummaryInput): CoachSummary['weight'] {
 // ---------------------------------------------------------------------------------------------------------------
 
 function toIntakeDay(d: SummaryDailyTotal): CoachIntakeDay {
+  const sodium = d.nutrients?.SODIUM_MG;
   return {
     date: d.date,
     kcal: round(d.kcal),
@@ -225,27 +273,39 @@ function toIntakeDay(d: SummaryDailyTotal): CoachIntakeDay {
     carbsG: round(d.carbsG),
     fatG: round(d.fatG),
     fiberG: round(d.fiberG, 1),
+    ...(finite(sodium) ? { sodiumMg: round(sodium) } : {}),
   };
 }
 
 const isLogged = (d: SummaryDailyTotal): boolean => finite(d.entryCount) && d.entryCount > 0 && positive(d.kcal);
 
-function buildIntake(input: BuildCoachSummaryInput): CoachIntakeDay[] {
+function loggedDays(input: BuildCoachSummaryInput): SummaryDailyTotal[] {
   const from = shiftDate(input.today, -INTAKE_DAYS);
   return (input.dailyTotals ?? [])
     .filter((d) => ISO_RE.test(d.date) && d.date >= from && d.date < input.today && isLogged(d))
-    .sort(byDate)
-    .map(toIntakeDay);
+    .sort(byDate);
 }
 
-function todaySoFar(input: BuildCoachSummaryInput): string | undefined {
+function waterByDate(input: BuildCoachSummaryInput): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const r of input.water ?? []) {
+    if (ISO_RE.test(r.date) && positive(r.ml)) map.set(r.date, (map.get(r.date) ?? 0) + r.ml);
+  }
+  return map;
+}
+
+function buildIntake(input: BuildCoachSummaryInput): CoachIntakeDay[] {
+  const water = waterByDate(input);
+  return loggedDays(input).map((d) => {
+    const ml = water.get(d.date);
+    return { ...toIntakeDay(d), ...(ml !== undefined ? { waterMl: round(ml) } : {}) };
+  });
+}
+
+/** The unfinished day, shown on its own line and never averaged in. */
+function buildToday(input: BuildCoachSummaryInput): CoachIntakeDay | undefined {
   const today = (input.dailyTotals ?? []).find((d) => d.date === input.today);
-  if (!today || !isLogged(today)) return undefined;
-  const t = toIntakeDay(today);
-  return (
-    `today_so_far (day not finished, do not treat as a full day): ${t.kcal} kcal; protein ${t.proteinG} g; ` +
-    `carbs ${t.carbsG} g; fat ${t.fatG} g; fiber ${t.fiberG} g`
-  );
+  return today && isLogged(today) ? toIntakeDay(today) : undefined;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -282,8 +342,8 @@ export function withoutDuplicateWorkouts(rows: readonly SummaryExerciseRow[]): S
   return rows.filter((r) => !duplicate.has(r));
 }
 
-function buildActivity(input: BuildCoachSummaryInput): CoachActivityDay[] {
-  const from = shiftDate(input.today, -(ACTIVITY_DAYS - 1));
+function buildActivity(input: BuildCoachSummaryInput, days: number): CoachActivityDay[] {
+  const from = shiftDate(input.today, -(days - 1));
   const inRange = (date: string) => ISO_RE.test(date) && date >= from && date <= input.today;
 
   const device = new Map<string, SummaryDeviceEnergyRow>();
@@ -294,13 +354,16 @@ function buildActivity(input: BuildCoachSummaryInput): CoachActivityDay[] {
     if (!current || sourceRank(r.source) < sourceRank(current.source)) device.set(r.date, r);
   }
 
-  const workouts = new Map<string, { type: string; minutes?: number }[]>();
+  const workouts = new Map<string, CoachWorkout[]>();
   for (const e of withoutDuplicateWorkouts(input.exercise ?? [])) {
     if (!inRange(e.date)) continue;
     const list = workouts.get(e.date) ?? [];
     list.push({
       type: e.name,
       ...(positive(e.minutes) ? { minutes: round(e.minutes) } : {}),
+      ...(positive(e.kcal) ? { kcal: round(e.kcal) } : {}),
+      ...(positive(e.avgHr) ? { avgHr: round(e.avgHr) } : {}),
+      ...(positive(e.maxHr) ? { maxHr: round(e.maxHr) } : {}),
     });
     workouts.set(e.date, list);
   }
@@ -316,6 +379,13 @@ function buildActivity(input: BuildCoachSummaryInput): CoachActivityDay[] {
       ...(w && w.length ? { workouts: w.slice(0, 4) } : {}),
     };
   });
+}
+
+/** The id of the most recent workout (by start time, then by day), after de-duplication. */
+export function latestWorkoutId(rows: readonly SummaryExerciseRow[] | null | undefined): string | undefined {
+  const list = withoutDuplicateWorkouts(rows ?? []).filter((r) => r.id && ISO_RE.test(r.date));
+  list.sort((a, b) => (a.date === b.date ? (a.startedAt ?? '').localeCompare(b.startedAt ?? '') : a.date < b.date ? -1 : 1));
+  return list[list.length - 1]?.id;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -372,6 +442,36 @@ function buildSleep(input: BuildCoachSummaryInput): CoachSleepNight[] {
       const q = qualityByDate.get(date)?.value;
       return { date, hours: round(h, 1), ...(q !== undefined ? { quality: round(q) } : {}) };
     });
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Recovery (overnight HRV, resting heart rate)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Biometric `type` values read as recovery data (also used to filter the query). */
+export const RECOVERY_BIOMETRIC_TYPES: readonly string[] = ['hrv', 'resting_heart_rate'];
+
+function buildRecovery(input: BuildCoachSummaryInput): CoachRecoveryDay[] {
+  const from = shiftDate(input.today, -(RECOVERY_DAYS - 1));
+  // One reading per day and type; when two sources describe the same day the best-ranked one wins.
+  const best = new Map<string, { value: number; rank: number }>();
+  for (const r of input.biometrics ?? []) {
+    if (!RECOVERY_BIOMETRIC_TYPES.includes(r.type) || !positive(r.value)) continue;
+    if (!ISO_RE.test(r.date) || r.date < from || r.date > input.today) continue;
+    const key = `${r.date}|${r.type}`;
+    const rank = sourceRank(r.source ?? '');
+    const current = best.get(key);
+    if (!current || rank <= current.rank) best.set(key, { value: r.value, rank });
+  }
+  const byDay = new Map<string, CoachRecoveryDay>();
+  for (const [key, { value }] of best) {
+    const [date, type] = key.split('|') as [string, string];
+    const day = byDay.get(date) ?? { date };
+    if (type === 'hrv') day.hrv = round(value);
+    else day.restingHr = round(value);
+    byDay.set(date, day);
+  }
+  return [...byDay.values()].sort(byDate);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -458,20 +558,93 @@ export function summaryTargetsFrom(resolved: {
   };
 }
 
+/** Per-nutrient minimum / limit (total intake) for the micronutrient findings. Entries without either are dropped. */
+export function summaryNutrientTargetsFrom(
+  nutrients: Partial<Record<string, { min?: number; max?: number } | undefined>>,
+): Record<string, NutrientTarget> {
+  const out: Record<string, NutrientTarget> = {};
+  for (const [code, t] of Object.entries(nutrients)) {
+    if (!t) continue;
+    const min = positive(t.min) ? t.min : undefined;
+    const max = positive(t.max) ? t.max : undefined;
+    if (min !== undefined || max !== undefined) out[code] = { ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) };
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Public builder
 // ---------------------------------------------------------------------------------------------------------------
 
-/** Builds the coach summary from plain rows. Sections without data are omitted (never filled with zeros). */
+const newest = (dates: (string | undefined)[]): string | undefined =>
+  dates.filter((d): d is string => Boolean(d)).sort().pop();
+
+/**
+ * Builds the coach summary from plain rows. Sections without data are omitted (never filled with zeros). The findings
+ * are computed from the same rows (see packages/ai/src/coach-findings.ts).
+ */
 export function buildCoachSummary(input: BuildCoachSummaryInput): CoachSummary {
+  const logged = loggedDays(input);
   const intake = buildIntake(input);
-  const activity = buildActivity(input);
+  const activity28 = buildActivity(input, ACTIVITY_FINDINGS_DAYS);
+  const activity = activity28.filter((a) => a.date >= shiftDate(input.today, -(ACTIVITY_DAYS - 1)));
   const sleep = buildSleep(input);
-  const weight = buildWeight(input);
+  const recovery = buildRecovery(input);
+  const weights = weightRows(input);
+  const weight = buildWeight(input, weights);
   const goals = buildGoals(input);
-  const targets = buildTargets(input.targets);
+  const baseTargets = buildTargets(input.targets);
+  const targets: CoachTargets | undefined = positive(input.waterTargetMl)
+    ? { ...(baseTargets ?? {}), waterMl: round(input.waterTargetMl) }
+    : baseTargets;
   const profile = buildProfile(input.profile);
-  const partialToday = todaySoFar(input);
+  const today = buildToday(input);
+  const workoutDetails = (input.workoutDetails ?? []).filter((d) => d.text.trim());
+
+  // ---- findings (pure code, the same rows) ----
+  const water = waterByDate(input);
+  const findingsIntake: FindingsIntakeDay[] = logged.map((d) => ({
+    date: d.date,
+    kcal: d.kcal,
+    proteinG: d.proteinG,
+    carbsG: d.carbsG,
+    fatG: d.fatG,
+    fiberG: d.fiberG,
+    ...(finite(d.nutrients?.SODIUM_MG) ? { sodiumMg: d.nutrients?.SODIUM_MG } : {}),
+    ...(water.has(d.date) ? { waterMl: water.get(d.date) } : {}),
+    ...(d.nutrients ? { nutrients: d.nutrients } : {}),
+  }));
+  const lastLogged = newest([
+    input.lastLoggedDate ?? undefined,
+    logged[logged.length - 1]?.date,
+    today ? input.today : undefined,
+  ]);
+  const findingsInput: FindingsInput = {
+    today: input.today,
+    ...(positive(input.latestWeightKg) ? { weightKg: input.latestWeightKg } : weights.length ? { weightKg: (weights[weights.length - 1] as SummaryWeightRow).kg } : {}),
+    ...(goals ? { goal: goals } : {}),
+    ...(targets ? { targets } : {}),
+    ...(input.nutrientTargets ? { nutrientTargets: input.nutrientTargets } : {}),
+    ...(positive(input.bmrKcal) ? { bmrKcal: input.bmrKcal } : {}),
+    intake: findingsIntake,
+    ...(lastLogged ? { lastLoggedDate: lastLogged } : {}),
+    weightPoints: weights.map((p) => ({ date: p.date, kg: p.kg })),
+    sleep,
+    recovery,
+    activity: activity28,
+    hasWorkoutDetail: workoutDetails.length > 0,
+  };
+  const findings: CoachFinding[] = computeCoachFindings(findingsInput);
+  const unavailable = computeUnavailable(findingsInput);
+  const nutrients = computeNutrientRows(findingsInput);
+
+  const freshness = {
+    ...(lastLogged ? { food: lastLogged } : {}),
+    ...(weights.length ? { weight: (weights[weights.length - 1] as SummaryWeightRow).date } : {}),
+    ...(sleep.length ? { sleep: (sleep[sleep.length - 1] as CoachSleepNight).date } : {}),
+    ...(newest(activity28.filter((a) => a.workouts?.length).map((a) => a.date)) ? { workout: newest(activity28.filter((a) => a.workouts?.length).map((a) => a.date)) } : {}),
+    ...(recovery.length ? { recovery: (recovery[recovery.length - 1] as CoachRecoveryDay).date } : {}),
+  };
 
   return {
     asOf: input.today,
@@ -479,9 +652,15 @@ export function buildCoachSummary(input: BuildCoachSummaryInput): CoachSummary {
     ...(profile ? { profile } : {}),
     ...(targets ? { targets } : {}),
     ...(intake.length ? { intake } : {}),
+    ...(today ? { today } : {}),
     ...(weight ? { weight } : {}),
     ...(activity.length ? { activity } : {}),
     ...(sleep.length ? { sleep } : {}),
-    ...(partialToday ? { notes: [partialToday] } : {}),
+    ...(recovery.length ? { recovery } : {}),
+    ...(findings.length ? { findings } : {}),
+    ...(unavailable.length ? { unavailable } : {}),
+    ...(Object.keys(freshness).length ? { freshness } : {}),
+    ...(nutrients.length ? { nutrients } : {}),
+    ...(workoutDetails.length ? { workoutDetails } : {}),
   };
 }

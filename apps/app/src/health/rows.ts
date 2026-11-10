@@ -58,6 +58,7 @@ export function buildExerciseRows(
       started_at: w.startedAt,
       ended_at: w.endedAt,
       counts_toward_energy: false,
+      ...(w.details ? { details: w.details } : {}),
     });
   }
   return rows;

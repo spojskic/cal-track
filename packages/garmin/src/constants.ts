@@ -74,10 +74,29 @@ export const PATHS = {
   weightRange: '/weight-service/weight/dateRange',
   /** Most recent activities, newest first: ?start=&limit= */
   activities: '/activitylist-service/activities/search/activities',
+  // ---- one activity (the workout detail screen). `id` is the numeric Garmin activity id, validated by the client. ----
+  /** Full detail of one activity, including the `summaryDTO` block. */
+  activity: (id: string): string => `/activity-service/activity/${id}`,
+  /** Time in each heart-rate zone: an array of { zoneNumber, secsInZone, zoneLowBoundary }. */
+  activityHrZones: (id: string): string => `/activity-service/activity/${id}/hrTimeInZones`,
+  /** Set-by-set record of a strength session: { exerciseSets: [...] }. */
+  activitySets: (id: string): string => `/activity-service/activity/${id}/exerciseSets`,
+  /** Per-lap splits: { lapDTOs: [...] }. */
+  activitySplits: (id: string): string => `/activity-service/activity/${id}/splits`,
 } as const;
 
-/** Endpoint names used in the sync report. */
-export type GarminEndpointName = 'profile' | 'userSummary' | 'sleep' | 'hrv' | 'weight' | 'activities';
+/** Endpoint names used in the sync report (the first six) and in the workout-detail report (the last four). */
+export type GarminEndpointName =
+  | 'profile'
+  | 'userSummary'
+  | 'sleep'
+  | 'hrv'
+  | 'weight'
+  | 'activities'
+  | 'activity'
+  | 'activityZones'
+  | 'activitySets'
+  | 'activitySplits';
 
 /** Path templates (no real values) as printed in the sync report. */
 export const ENDPOINT_TEMPLATES: Record<GarminEndpointName, string> = {
@@ -87,4 +106,8 @@ export const ENDPOINT_TEMPLATES: Record<GarminEndpointName, string> = {
   hrv: '/hrv-service/hrv/{date}',
   weight: '/weight-service/weight/dateRange?startDate={from}&endDate={to}',
   activities: '/activitylist-service/activities/search/activities?start={n}&limit={n}',
+  activity: '/activity-service/activity/{id}',
+  activityZones: '/activity-service/activity/{id}/hrTimeInZones',
+  activitySets: '/activity-service/activity/{id}/exerciseSets',
+  activitySplits: '/activity-service/activity/{id}/splits',
 };
