@@ -10,18 +10,12 @@ does not exist. Do not paste this first block.
 
 Before you submit:
 
-- Publish the privacy policy ([privacy-policy.md](privacy-policy.md), hosting tips at the top of that file) and use its address as
+- Publish the privacy policy ([privacy-policy.md](privacy-policy.md), how to host it: [garmin-setup-guide.md](garmin-setup-guide.md) step 3) and use its address as
   `[PRIVACY POLICY URL]`. `[APP URL]` is any public page that describes the app: the same GitHub/Netlify page works if you add a
   short "About Cal Track" paragraph.
 - Garmin may also ask for screenshots or a short walkthrough. The screen they care about is **Settings > Connected Apps & Devices >
   Garmin Connect** (build the app with `EXPO_PUBLIC_GARMIN_ENABLED=true` locally to take screenshots; the button says "Connect
   Garmin" and a note says data arrives from the moment of connecting).
-- The retention answer mentions encrypted nightly backups kept for 30 days: that is true only while you run the backup workflow
-  (`.github/workflows/db-backup.yml`); delete the sentence if you do not.
-- One point you must decide (see "Data sharing"): the optional AI coach can include Garmin-sourced steps, active calories,
-  workouts and sleep duration in what it sends to **your own** OpenRouter account. The answer below discloses this. If you would
-  rather answer "no Garmin data ever leaves our servers", the Garmin rows have to be excluded from the coach summary first
-  (a small change in `apps/app/src/data/coach.ts`).
 
 ---
 
@@ -56,7 +50,7 @@ under 20 users, no ads, no data sharing.
 
 ## Use case (long answer)
 
-Cal Track lets a person log meals (food database, barcode scanning, recipes) and see calories, macronutrients and about 90
+Cal Track lets a person log meals (food database, recipes) and see calories, macronutrients and about 90
 nutrients against personal targets. A person's daily calorie budget can optionally be based on what their watch measured.
 
 A Garmin user connects their account once with a single "Connect Garmin" button (OAuth2 authorization code with PKCE). From then
@@ -124,8 +118,7 @@ Cal Track in their Garmin account is disconnected and their data is deleted.
 - Retention: until the user deletes it. When a user disconnects, Cal Track deletes the link and the Garmin tokens
   immediately and offers to delete the imported Garmin data at the same time. When Garmin reports a deregistration, the link, the
   tokens, the raw messages and the imported Garmin data are deleted.
-- The raw push messages (kept only so a failed import can be replayed) are deleted after 14 days. Encrypted nightly backups of
-  the database are kept 30 days (they never contain Garmin tokens).
+- The raw push messages (kept only so a failed import can be replayed) are deleted after 14 days.
 - A user can ask for complete account deletion at any time by email; it is carried out within 30 days.
 
 ## Security measures

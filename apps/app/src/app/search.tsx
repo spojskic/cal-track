@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { hapticSelection } from '@/components/food/feedback';
+import { ONLINE_LOOKUP_ENABLED } from '@/lib/features';
 import { FoodRow, type QuickAddState } from '@/components/food/food-row';
 import { firstParam, foldText, formatDayLabel, trimNumber } from '@/components/food/format';
 import { MealGroupChips, useMealGroupChoice } from '@/components/food/meal-group-chips';
@@ -214,7 +215,7 @@ export default function SearchScreen() {
   }
 
   const onlineForThisQuery = online.variables?.query.trim() === trimmed && trimmed.length >= 2;
-  const showOnline = tab === 'all' && searching && !search.isLoading;
+  const showOnline = ONLINE_LOOKUP_ENABLED && tab === 'all' && searching && !search.isLoading;
 
   const emptyText =
     tab === 'all'

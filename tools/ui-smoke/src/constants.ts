@@ -39,4 +39,6 @@ export const BUILD_ENV = {
   CI: '1',
   EXPO_PUBLIC_SUPABASE_URL: BACKEND_ORIGIN,
   EXPO_PUBLIC_SUPABASE_ANON_KEY: ANON_KEY,
+  // The harness mocks the edge functions, so the online lookups are switched on in the test build.
+  EXPO_PUBLIC_ONLINE_LOOKUP_ENABLED: 'true',
 } as const;

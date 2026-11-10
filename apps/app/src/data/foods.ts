@@ -17,6 +17,7 @@ import {
 } from '@cal/core';
 
 import { requireUserId } from '@/lib/auth-user';
+import { ONLINE_LOOKUP_ENABLED } from '@/lib/features';
 import { supabase } from '@/lib/supabase';
 import { isUuid } from '@/lib/uuid';
 
@@ -427,6 +428,8 @@ export async function lookupBarcode(rawGtin: string): Promise<BarcodeLookupResul
   } catch {
     // fall through to the remote lookup
   }
+  // Without the deployed edge function only our own database is searched: "not found" offers "Create custom food".
+  if (!ONLINE_LOOKUP_ENABLED) return { status: 'notFound', gtin14 };
   return lookupRemote(gtin14);
 }
 

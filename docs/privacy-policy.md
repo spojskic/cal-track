@@ -1,30 +1,3 @@
-<!--
-  BEFORE YOU PUBLISH (delete this comment block when you copy the text; the policy below is the text for visitors)
-
-  Garmin will want a PUBLIC web address (URL) for the privacy policy. You do not need your own domain:
-
-  1. GitHub Pages (free, easiest if the repository is public or you have GitHub Pro):
-     - Create a tiny PUBLIC repository (for example "cal-track-privacy") and put this file in it as index.md.
-       Add these 3 lines at the very top of index.md (Jekyll only renders Markdown that starts with them):
-           ---
-           title: Cal Track privacy policy
-           ---
-     - Settings > Pages > "Deploy from a branch" > main > / (root). Your URL: https://<your-github-name>.github.io/cal-track-privacy/
-     - Publishing this repository's docs/ folder instead also works (Settings > Pages > main > /docs, URL
-       .../privacy-policy), but it publishes EVERY file in docs/ and needs a public repository on the free plan.
-  2. Netlify or Vercel (free): convert to a page and drag the file onto Netlify Drop (app.netlify.com/drop), e.g.
-         npx marked -i docs/privacy-policy.md -o index.html
-     You get https://<random-name>.netlify.app (rename it in the site settings).
-  3. Cloudflare Pages / any static host works the same way.
-
-  Then replace the placeholders in square brackets below: [YOUR NAME], [YOUR EMAIL], [SUPABASE REGION].
-  Check three statements against your own setup before you publish:
-    - "Backups": delete that paragraph if you did not turn on the nightly backup workflow (.github/workflows/db-backup.yml).
-    - "AI features": true while the app is as shipped (own OpenRouter key, direct from the phone).
-    - "Garmin": true once the integration in docs/garmin-integration.md is live.
-  Update the "Last updated" date whenever the text changes, and keep the URL stable.
--->
-
 # Cal Track privacy policy
 
 Last updated: 10 November 2026
@@ -40,7 +13,7 @@ contains no advertising, analytics or tracking tools.
 
 ## What Cal Track stores about you
 
-Everything below is stored in your own account in a database hosted by Supabase ([SUPABASE REGION]) and can only be read by
+Everything below is stored in your own account in a database hosted by Supabase and can only be read by
 you (each account is separated by row-level security) and by the operator, who administers the service.
 
 - **Account:** your email address and a password (stored only as a hash by Supabase's sign-in service), plus the usual sign-in
@@ -78,14 +51,6 @@ and the provider's terms; you can restrict providers in your OpenRouter settings
 
 Nothing is sent to OpenRouter unless you use one of these features.
 
-## Barcode scans and online food search
-
-When you scan a barcode or choose "search online", the app sends the barcode number or the words you typed to a Cal Track
-server function (signed in as you). That function asks **USDA FoodData Central** and **Open Food Facts** for the product. They
-receive the barcode or search words and the server's network address; they do **not** receive your name, email, account id or
-your own network address. A product found this way is saved in the shared food list (product data only, not linked to you), so
-the next lookup does not need to ask again. Data from Open Food Facts is under the Open Database Licence.
-
 ## Garmin Connect (optional)
 
 Cal Track can receive your data from Garmin if you choose **Connect Garmin** in Settings > Connected Apps & Devices.
@@ -122,9 +87,6 @@ dialog, and does not write to your health data. Disconnecting stops the import; 
 | **Supabase** | hosts the database, sign-in and the server functions |
 | **Garmin** | only if you connect it: sends your Garmin data to Cal Track |
 | **OpenRouter and the model provider you choose** | only if you use AI features, as described above |
-| **USDA FoodData Central, Open Food Facts** | product lookups, as described above |
-| **GitHub** | stores the encrypted nightly backup files, see below |
-| **The web hosting provider of the web app** | serves the app's files to your browser (standard access logs) |
 
 No other third party receives your data, and Cal Track does not sell or rent it.
 
@@ -133,8 +95,6 @@ No other third party receives your data, and Cal Track does not sell or rent it.
 - Your data stays until you delete it or ask for your account to be deleted.
 - AI coach chats: 90 days (automatic, can be switched off), or sooner when you delete them.
 - Raw Garmin messages: 14 days. Garmin tokens: until you disconnect or Garmin reports that you removed the app.
-- **Backups:** a nightly encrypted backup of user data is kept for 30 days in case the database must be restored. A deletion
-  therefore leaves the backups after at most 30 more days. Garmin tokens are not part of the backups.
 
 ## Security
 

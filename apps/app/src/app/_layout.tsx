@@ -8,6 +8,7 @@ import { SetupRequired } from '@/components/setup-required';
 import { useProfile } from '@/data/profile';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { queryClient, queryPersister } from '@/lib/query';
+import '@/lib/web-styles';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useTheme } from '@/theme';
 

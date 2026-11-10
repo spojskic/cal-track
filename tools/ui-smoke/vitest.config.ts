@@ -13,5 +13,7 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
     testTimeout: 20_000,
+    // Same switch as the browser build (src/constants.ts BUILD_ENV): the app's online lookups are on, the edge functions are mocked.
+    env: { EXPO_PUBLIC_ONLINE_LOOKUP_ENABLED: 'true' },
   },
 });
