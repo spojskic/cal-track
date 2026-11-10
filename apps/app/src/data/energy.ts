@@ -4,10 +4,13 @@ import { useMemo } from 'react';
 import {
   computeExpenditure,
   dedupeExercises,
+  isDeviceDayComplete,
   type DeviceWorkout,
   type EnergyBreakdown,
   type EnergyMode,
 } from '@cal/core';
+
+import { addDays, todayISO } from '@/state/selected-date';
 
 import { useDailyEnergy, useExerciseEntries, type DailyEnergyRow, type ExerciseEntry } from './activity';
 import { useDayNutrients, type DayNutrients } from './diary';
@@ -66,6 +69,11 @@ interface Inputs {
   targets: ResolvedTargets | undefined;
   exercise: readonly ExerciseEntry[];
   deviceRows: readonly DailyEnergyRow[];
+  /**
+   * The chosen device row describes a FINISHED day. Device energy is a running total (a Garmin shows 801 resting kcal at
+   * midday), so for today the resting part must not stand in for a whole day's BMR in device_total mode. Defaults to true.
+   */
+  deviceDayComplete?: boolean;
 }
 
 const toMs = (iso: string | null): number | undefined => {
@@ -76,7 +84,7 @@ const toMs = (iso: string | null): number | undefined => {
 
 /** Pure core of {@link useDayEnergy}. */
 export function computeDayEnergy(input: Inputs) {
-  const { mode, tefEnabled, consumedKcal, targets, exercise, deviceRows } = input;
+  const { mode, tefEnabled, consumedKcal, targets, exercise, deviceRows, deviceDayComplete = true } = input;
   const device = pickDeviceEnergy(deviceRows);
   const hasDeviceActive = device !== undefined;
   const counted = exercise.filter((e) => e.counts_toward_energy);
@@ -116,6 +124,7 @@ export function computeDayEnergy(input: Inputs) {
     manualExerciseKcal,
     deviceActiveKcal: device?.active_kcal ?? null,
     deviceRestingKcal: device?.resting_kcal ?? null,
+    deviceDayComplete,
     intakeKcal: consumedKcal,
     tefEnabled,
   });
@@ -125,6 +134,12 @@ export function computeDayEnergy(input: Inputs) {
     targetKcal: targets.energy.target,
     exerciseBurnedKcal: Math.max(0, extra),
   };
+}
+
+/** Epoch ms of the end of a local diary day (the next local midnight). */
+function localDayEndMs(date: string): number {
+  const [y, m, d] = addDays(date, 1).split('-').map(Number) as [number, number, number];
+  return new Date(y, m - 1, d).getTime();
 }
 
 /** Energy balance of one diary day, honouring profile.energy_mode and TEF. Safe before targets resolve. */
@@ -146,9 +161,19 @@ export function useDayEnergyFrom(date: string, day: DayNutrients): DayEnergy {
   const deviceRows = deviceQ.data ?? EMPTY_ENERGY_ROWS;
   const consumedKcal = day.kcal;
 
+  const device = pickDeviceEnergy(deviceRows);
+  const deviceDayComplete = device
+    ? isDeviceDayComplete({
+        date,
+        today: todayISO(),
+        updatedAtMs: toMs(device.updated_at ?? null),
+        dayEndMs: localDayEndMs(date),
+      })
+    : true;
+
   const computed = useMemo(
-    () => computeDayEnergy({ mode, tefEnabled, consumedKcal, targets, exercise, deviceRows }),
-    [mode, tefEnabled, consumedKcal, targets, exercise, deviceRows],
+    () => computeDayEnergy({ mode, tefEnabled, consumedKcal, targets, exercise, deviceRows, deviceDayComplete }),
+    [mode, tefEnabled, consumedKcal, targets, exercise, deviceRows, deviceDayComplete],
   );
 
   const budgetKcal = computed.targetKcal === undefined ? undefined : computed.targetKcal + computed.exerciseBurnedKcal;
@@ -165,7 +190,7 @@ export function useDayEnergyFrom(date: string, day: DayNutrients): DayEnergy {
     netKcal: consumedKcal - computed.exerciseBurnedKcal,
     remainingKcal: budgetKcal === undefined ? undefined : budgetKcal - consumedKcal,
     exercise,
-    deviceEnergy: pickDeviceEnergy(deviceRows),
+    deviceEnergy: device,
     deviceEnergyRows: deviceRows as DailyEnergyRow[],
   };
 }

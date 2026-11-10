@@ -1,5 +1,14 @@
 # @cal/garmin
 
+> **Developer-only.** This package and `tools/garmin-probe` talk to the *Personal API* with a key that one person pastes into an
+> environment variable. **No app screen offers a paste-a-key flow**, and none should be added: users connect Garmin with the
+> one-tap OAuth button (Garmin Connect Developer Program, push webhooks), documented in
+> [`docs/garmin-integration.md`](../../docs/garmin-integration.md). What this package is still good for: confirming real
+> response shapes (its mappers are verified against a real account, see `tools/garmin-probe`) and a possible future pull-based
+> backfill. The push mapper of the OAuth integration lives in `supabase/functions/_shared/garmin-push.ts` (Edge Functions cannot
+> import workspace packages) and deliberately uses the same biometric types, units and external ids as the mappers below, so pushed and
+> pulled rows de-duplicate.
+
 Pure TypeScript client for the **Garmin Connect Personal API** (read-only, pull-only, one person's own data). Only `fetch`, timers and `AbortController` are used, so it runs on Node 22 and React Native (Hermes). The package's `main` is `src/index.ts` and is consumed directly as TypeScript source.
 
 ## Terms and platform constraints

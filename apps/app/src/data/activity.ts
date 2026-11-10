@@ -43,6 +43,8 @@ export interface DailyEnergyRow {
   active_kcal: number | null;
   resting_kcal: number | null;
   steps: number | null;
+  /** When the row was last written; a day last written before it ended may still be partial (see isDeviceDayComplete). */
+  updated_at?: string | null;
 }
 
 function dayQuery<T>(date: string, part: Parameters<typeof dayKey>[1], table: string, dateColumn = 'entry_date') {

@@ -64,8 +64,9 @@ pressure and sleep, each behind its own switch, with a backfill date. Daily tota
 queries so an iPhone, a watch and Garmin are not counted twice. Watch workouts are shown for information and cancel any
 overlapping manual exercise. Setup: [install on devices](install-on-devices.md#turning-on-health-sync).
 
-**Garmin**: works through Apple Health / Health Connect. There is no direct Garmin account link yet, so Garmin-only data
-(Body Battery, Sleep Score, training readiness) is not available.
+**Garmin**: works through Apple Health / Health Connect. A one-tap **Connect Garmin** button (Garmin's OAuth, data pushed to
+the server when the watch syncs, from the moment of connecting) is built but switched off until Garmin approves the app; see
+[Garmin integration](garmin-integration.md). Without it, Garmin-only data (Body Battery, Sleep Score) is not available.
 
 ## AI (optional, your own key)
 
@@ -77,7 +78,7 @@ drafts and the coach are covered in [AI and privacy](ai-and-privacy.md).
 - Trends and reports page, CSV export
 - Fasting timer
 - "Mark day complete" and swiping between days
-- Direct Garmin Connect link
+- Direct Garmin Connect link: built, waiting for Garmin's approval ([how to switch it on](garmin-integration.md))
 - UK CoFID food import
 - Writing your nutrition back to Apple Health / Health Connect
 - Over-the-air app updates

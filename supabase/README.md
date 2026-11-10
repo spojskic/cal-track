@@ -28,7 +28,10 @@ tools/db-tests/      database tests (PGlite = real Postgres in WASM, no Docker)
 | `…08_search_functions`      | `search_foods()`, `private.search_foods_ranked()`, `get_food_by_gtin()`                                                                    |
 | `…09_rls_policies`          | RLS on every table                                                                                                                         |
 | `…10_grants`                | least-privilege grants (anon gets nothing)                                                                                                 |
-| `…90_pg_cron_supabase_only` | **Supabase-only**: daily 03:00 UTC cron job for the coach purge                                                                            |
+| `…11_edge_rate_limit`       | `private.edge_rate_limits` + `consume_rate_limit()` (service role only)                                                                    |
+| `…12_upsert_branded_food`   | `upsert_branded_food()` for the barcode edge function                                                                                      |
+| `…13_garmin_integration`    | Garmin link: `private.garmin_connections` / `garmin_oauth_states` / `garmin_push_events`, `garmin_connection_status()`, `apply_garmin_health()` |
+| `…90_pg_cron_supabase_only` | **Supabase-only**: daily cron jobs: coach purge (03:00 UTC) and Garmin purge (03:30 UTC)                                                   |
 
 All migrations except the last are idempotent (`if not exists`, `create or replace`,
 `drop … if exists`) and are applied twice by the tests. A migration whose file name
@@ -149,11 +152,18 @@ do update set name = excluded.name, brand = excluded.brand, gtin14 = excluded.gt
 `gtin14` may be any 8–14 digit code (separators ignored); a trigger left-pads it to
 14 digits and nulls unusable values.
 
+**Garmin.** The three Garmin tables (OAuth tokens, single-use PKCE states, raw push buffer with 14 days retention) live in
+the `private` schema with RLS on and no policies, and are reachable only through `SECURITY DEFINER` RPCs that `service_role`
+alone may execute. The app reads its own status through `public.garmin_connection_status()` (4 columns, no tokens), and
+imported data lands in the existing `daily_energy` / `exercise_entries` / `biometrics` tables with `source = 'garmin'` via
+`apply_garmin_health()`. Details, secrets and the portal settings: [docs/garmin-integration.md](../docs/garmin-integration.md).
+
 ## Real Supabase vs the PGlite tests
 
 Not covered by the tests (verify once on the hosted project):
 
-- **pg_cron**: the schedule is only in the skipped `…90_pg_cron_supabase_only` migration.
+- **pg_cron**: the schedules are only in the skipped `…90_pg_cron_supabase_only` migration. If it was pushed before the Garmin
+  block was appended, run that block once in the SQL editor (`db push` does not re-run an applied migration).
 - **Extension schema**: migration 01 does `create extension … with schema extensions`
   and `immutable_unaccent()` pins the dictionary `extensions.unaccent`. If `unaccent`
   was already installed elsewhere (e.g. `public`), drop and recreate it first.

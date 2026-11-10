@@ -81,7 +81,7 @@ All in `packages/core`, tested with golden values.
 | Entries store grams, not copied nutrients; foods immutable once logged | Small database and stable history |
 | AI picks foods and weights, the database supplies nutrients | LLM nutrient numbers are unreliable; matched numbers are auditable |
 | Key on the device, calls straight to OpenRouter | No server holds anyone's key |
-| Apple Health / Health Connect instead of a Garmin login | Needs no Garmin approval and covers other watches; costs Garmin-only metrics |
+| Apple Health / Health Connect first, a direct Garmin link second | Health sync needs no Garmin approval and covers other watches; the OAuth link ([Garmin integration](garmin-integration.md)) adds Garmin-only metrics but needs Garmin's approval, so it ships switched off |
 | No over-the-air updates | Needs an Expo account; every change is a rebuild for now |
 
 ## Known limits

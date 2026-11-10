@@ -223,6 +223,13 @@ export interface ExpenditureInput {
   tefEnabled: boolean;
   /** TEF share of intake (default 0.10). */
   tefPct?: number;
+  /**
+   * Is the device's row a FINISHED day (see {@link isDeviceDayComplete})? Default true. Devices report both active and
+   * resting energy as day-so-far counters (a Garmin shows 801 resting kcal at midday), so for the day that is still
+   * running, `deviceRestingKcal` is only the part already burned and must not stand in for a whole day's BMR.
+   * Only `device_total` reads the resting figure; see {@link computeExpenditure}.
+   */
+  deviceDayComplete?: boolean;
 }
 
 /**
@@ -268,6 +275,15 @@ const isNum = (v: number | null | undefined): v is number =>
  *   are NOT used (the device already measured them). If the device reports no
  *   resting energy, our BMR is used instead. If it reports no active energy,
  *   we fall back to `baseline + manualExercise`.
+ *   While the device's day is not finished (`deviceDayComplete === false`) its
+ *   resting energy is a day-so-far counter, i.e. a LOWER BOUND of the day's
+ *   resting energy, so the resting part is `max(our BMR, device resting so far)`
+ *   instead of the device figure alone. The device's active energy so far is
+ *   still counted in full (it is real, only incomplete).
+ *
+ * `static` never reads device numbers. `device_adjusted` reads only the device's
+ * ACTIVE energy, never its resting or total energy, so a partial day can only
+ * under-count there, never double count.
  *
  * TEF (when enabled) is `intakeKcal * tefPct` and is added in every mode.
  */
@@ -292,7 +308,9 @@ export function computeExpenditure(input: ExpenditureInput): EnergyBreakdown {
       };
       break;
     case 'device_total': {
-      const resting = isNum(input.deviceRestingKcal) ? Math.max(0, input.deviceRestingKcal) : bmr;
+      const deviceResting = isNum(input.deviceRestingKcal) ? Math.max(0, input.deviceRestingKcal) : undefined;
+      const resting =
+        deviceResting === undefined ? bmr : input.deviceDayComplete === false ? Math.max(bmr, deviceResting) : deviceResting;
       parts =
         active === undefined
           ? { bmr: resting, baselineActivity: baseline, exercise: manual, deviceAboveBaseline: 0 }
@@ -302,6 +320,31 @@ export function computeExpenditure(input: ExpenditureInput): EnergyBreakdown {
   }
   const total = parts.bmr + parts.baselineActivity + parts.exercise + parts.deviceAboveBaseline + tef;
   return { mode, ...parts, tef, total };
+}
+
+/**
+ * Is the device's daily energy row for local `date` a finished day, i.e. safe to treat its resting energy as a whole day?
+ *
+ * Not while the day is still running (`date >= today`), and not when the row was last written BEFORE the day ended (the
+ * watch has not synced since; `updatedAtMs < dayEndMs`), because Garmin / Apple Health / Health Connect all report these
+ * figures as running totals. Without timestamps the row is judged by the date alone.
+ *
+ * @param date        local diary day of the row, `YYYY-MM-DD`
+ * @param today       local today, `YYYY-MM-DD`
+ * @param updatedAtMs when the row was last written (`daily_energy.updated_at`), epoch ms
+ * @param dayEndMs    epoch ms of the end of `date` in the user's local time zone (the following local midnight)
+ */
+export function isDeviceDayComplete(input: {
+  date: string;
+  today: string;
+  updatedAtMs?: number | null;
+  dayEndMs?: number | null;
+}): boolean {
+  if (input.date >= input.today) return false;
+  const { updatedAtMs, dayEndMs } = input;
+  if (typeof updatedAtMs !== 'number' || !Number.isFinite(updatedAtMs)) return true;
+  if (typeof dayEndMs !== 'number' || !Number.isFinite(dayEndMs)) return true;
+  return updatedAtMs >= dayEndMs;
 }
 
 /** A time range in epoch milliseconds. `endMs` is exclusive. */

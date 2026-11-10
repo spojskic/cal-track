@@ -3,6 +3,8 @@
 All AI features are **optional** and use **your own [OpenRouter](https://openrouter.ai) account**. With no key, the app has
 no AI screens at all: they are hidden, not greyed out.
 
+The full privacy policy of the app (what is stored, which third parties, Garmin) is in [privacy-policy.md](privacy-policy.md).
+
 ## When AI is on
 
 AI turns on only when all three are true: a key exists on this device, the key was checked with OpenRouter (`GET /key`), and
@@ -38,8 +40,9 @@ their privacy terms. OpenRouter lets you restrict providers in your account sett
 - **Photo log**: the resized photo and a short instruction, plus your optional note.
 - **Describe a meal / AI recipe**: the text you typed.
 - **Coach**: your message, the recent conversation, and a compact summary of your data: sex, age, height, activity level,
-  targets and goals, calorie and macro totals for the last 14 days, weight trend, activity, sleep, and any diary notes you wrote.
-  No name or email address.
+  targets and goals, calorie and macro totals for the last 14 days, weight trend, and steps, active calories, workouts and sleep
+  duration of the last 14 days (from any connected source, including Garmin when it is connected). Heart rate, stress, body battery,
+  HRV and the text of diary notes are not sent. No name or email address.
 
 ## How meals are estimated
 

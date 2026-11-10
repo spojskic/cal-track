@@ -13,6 +13,7 @@ import {
   dailyDeltaFromRate,
   dedupeExercises,
   energyFloor,
+  isDeviceDayComplete,
   exerciseKcalGrossMet,
   exerciseKcalNetMet,
   leanMass,
@@ -203,23 +204,93 @@ describe('computeExpenditure - worked examples', () => {
     expect(r.total).toBe(2706); // 1850 + 356 + 300 + 200
   });
 
+  describe('a device day that is not finished (cumulative counters, e.g. Garmin resting 801 kcal at midday)', () => {
+    const midday = { ...base, mode: 'device_total' as const, deviceActiveKcal: 150, deviceRestingKcal: 801 };
+
+    it('device_total does not treat the resting-so-far as a whole day of BMR: our BMR stands in', () => {
+      const r = computeExpenditure({ ...midday, deviceDayComplete: false });
+      expect(r).toEqual({
+        mode: 'device_total',
+        bmr: 1780, // not 801
+        baselineActivity: 0,
+        exercise: 0,
+        deviceAboveBaseline: 150,
+        tef: 200,
+        total: 2130, // 1780 + 150 + 200
+      });
+      // the same row on a finished day is used as measured
+      expect(computeExpenditure({ ...midday, deviceDayComplete: true }).total).toBe(1151); // 801 + 150 + 200
+      expect(computeExpenditure(midday).total).toBe(1151); // default = complete (unchanged behaviour)
+    });
+
+    it('never goes below what the device has already measured', () => {
+      const late = computeExpenditure({ ...midday, deviceRestingKcal: 1900, deviceDayComplete: false });
+      expect(late.bmr).toBe(1900);
+      expect(late.total).toBe(1900 + 150 + 200);
+    });
+
+    it('does not double count with our own BMR / baseline / manual exercise', () => {
+      const r = computeExpenditure({ ...midday, deviceDayComplete: false });
+      expect(r.baselineActivity).toBe(0);
+      expect(r.exercise).toBe(0); // manual 300 and baseline 356 are not added on top of the device's active energy
+      expect(r.total).toBeCloseTo(r.bmr + r.deviceAboveBaseline + r.tef, 10);
+    });
+
+    it('static and device_adjusted ignore the flag (they never read resting energy)', () => {
+      for (const mode of ['static', 'device_adjusted'] as const) {
+        const a = computeExpenditure({ ...midday, mode, deviceDayComplete: false });
+        const b = computeExpenditure({ ...midday, mode, deviceDayComplete: true });
+        expect(a).toEqual(b);
+      }
+    });
+
+    it('device_adjusted counts only ACTIVE energy above the baseline, so a partial day can only under-count', () => {
+      const early = computeExpenditure({ ...base, mode: 'device_adjusted', deviceActiveKcal: 150, deviceRestingKcal: 801, deviceDayComplete: false });
+      expect(early.deviceAboveBaseline).toBe(0); // 150 < baseline 356
+      expect(early.bmr).toBe(1780);
+      expect(early.total).toBe(2636);
+    });
+  });
+
   it('always satisfies total = sum of components', () => {
     for (const mode of ['static', 'device_adjusted', 'device_total'] as const) {
-      const r = computeExpenditure({
-        ...base,
-        mode,
-        deviceActiveKcal: 650,
-        deviceRestingKcal: 1900,
-      });
-      expect(r.total).toBeCloseTo(
-        r.bmr + r.baselineActivity + r.exercise + r.deviceAboveBaseline + r.tef,
-        10,
-      );
+      for (const deviceDayComplete of [true, false]) {
+        const r = computeExpenditure({
+          ...base,
+          mode,
+          deviceActiveKcal: 650,
+          deviceRestingKcal: 1900,
+          deviceDayComplete,
+        });
+        expect(r.total).toBeCloseTo(
+          r.bmr + r.baselineActivity + r.exercise + r.deviceAboveBaseline + r.tef,
+          10,
+        );
+      }
     }
   });
 
   it('uses a custom TEF percentage', () => {
     expect(computeExpenditure({ ...base, tefPct: 0.05 }).tef).toBeCloseTo(100, 10);
+  });
+});
+
+describe('isDeviceDayComplete', () => {
+  const dayEnd = Date.UTC(2026, 10, 10); // end of 2026-11-09
+  it('today and future days are never complete', () => {
+    expect(isDeviceDayComplete({ date: '2026-11-10', today: '2026-11-10' })).toBe(false);
+    expect(isDeviceDayComplete({ date: '2026-11-11', today: '2026-11-10' })).toBe(false);
+  });
+  it('a past day is complete when no timestamps are known', () => {
+    expect(isDeviceDayComplete({ date: '2026-11-09', today: '2026-11-10' })).toBe(true);
+    expect(isDeviceDayComplete({ date: '2026-11-09', today: '2026-11-10', updatedAtMs: null, dayEndMs: dayEnd })).toBe(true);
+    expect(isDeviceDayComplete({ date: '2026-11-09', today: '2026-11-10', updatedAtMs: dayEnd, dayEndMs: undefined })).toBe(true);
+  });
+  it('a past day last written before it ended is still partial (the watch has not synced since)', () => {
+    expect(isDeviceDayComplete({ date: '2026-11-09', today: '2026-11-10', updatedAtMs: dayEnd - 1, dayEndMs: dayEnd })).toBe(false);
+    expect(isDeviceDayComplete({ date: '2026-11-09', today: '2026-11-10', updatedAtMs: dayEnd, dayEndMs: dayEnd })).toBe(true);
+    expect(isDeviceDayComplete({ date: '2026-11-09', today: '2026-11-10', updatedAtMs: dayEnd + 3_600_000, dayEndMs: dayEnd })).toBe(true);
+    expect(isDeviceDayComplete({ date: '2026-11-09', today: '2026-11-10', updatedAtMs: Number.NaN, dayEndMs: dayEnd })).toBe(true);
   });
 });
 

@@ -7,6 +7,7 @@ on the Supabase **free** plan.
 | ---------------- | ------------------------------------------------------------------------------------------------------------- |
 | `barcode-lookup` | barcode -> food. Local DB first, then USDA FDC Branded, then Open Food Facts; remote hits are saved globally. |
 | `online-search`  | text search in FDC Branded + Open Food Facts. Returns summaries only (nothing is saved).                      |
+| `garmin-oauth-start`, `garmin-oauth-callback`, `garmin-webhook`, `garmin-disconnect` | "Connect Garmin" (OAuth2 PKCE + push webhooks). Dormant until Garmin approves the app; see [docs/garmin-integration.md](../../docs/garmin-integration.md). |
 
 ```
 functions/
@@ -20,9 +21,15 @@ functions/
     food-store.ts                tiny Supabase adapters (local lookup, upsert RPC)
     rate-limit.ts                client of public.consume_rate_limit()
     http.ts                      CORS, JSON helpers, JWT claims, upstream fetch
+    garmin-flows.ts              the four Garmin flows (all I/O injected)
+    garmin-oauth.ts              Garmin config, PKCE, token/authorize requests, redirects, webhook secret compare
+    garmin-push.ts               Garmin push payload -> daily_energy / exercise / biometrics rows
+    garmin-store.ts              adapters for the service-role-only garmin_* RPCs
+    garmin-http.ts               large/gzip body reader and redirect responses (webhook, callback)
     nutrient-map.generated.ts    GENERATED from packages/core (see below)
   barcode-lookup/index.ts        thin Deno.serve wiring
   online-search/index.ts         thin Deno.serve wiring
+  garmin-*/index.ts              thin Deno.serve wiring (callback and webhook run with verify_jwt = false, see config.toml)
 ```
 
 Edge code cannot import workspace packages (`@cal/core`), hence the generated nutrient map.
@@ -35,7 +42,10 @@ Apply the migrations first (`npx supabase db push`):
 - `20261110000011_edge_rate_limit.sql`: `private.edge_rate_limits` + `public.consume_rate_limit()` (used by `online-search`).
 - `20261110000012_upsert_branded_food.sql`: `public.upsert_branded_food()` (used by `barcode-lookup`).
 
-Both functions are executable by `service_role` only.
+Both functions are executable by `service_role` only. The four `garmin-*` functions additionally need
+`20261110000013_garmin_integration.sql` (tables and RPCs, also service-role only) and their own secrets (`GARMIN_CLIENT_ID`,
+`GARMIN_CLIENT_SECRET`, `GARMIN_WEBHOOK_SECRET`, `APP_URL`, ...): see [docs/garmin-integration.md](../../docs/garmin-integration.md).
+Until those are set they answer `503 garmin_not_configured`.
 
 ## Secrets
 

@@ -83,7 +83,8 @@ Cal Track reads from Apple Health and Health Connect; it does **not** log in to 
 app and enable sharing with Apple Health (iPhone) or Health Connect (Android); the menu name and location vary by
 Garmin Connect version, and *what* gets shared is decided there. Cal Track then picks up what arrives: daily active and resting
 energy, steps, workouts, weight, sleep and heart data. Garmin-only scores such as Body Battery or Sleep Score do not come
-through this route.
+through this route. A direct, one-tap Garmin connection exists in the code but stays hidden until Garmin approves the app, see
+[Garmin integration](garmin-integration.md).
 
 ## Turning on health sync
 

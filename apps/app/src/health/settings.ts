@@ -64,7 +64,7 @@ export const DATA_TYPE_INFO: Record<HealthDataType, { label: string; description
 };
 
 export const GARMIN_NOTE =
-  'Garmin Connect syncs into Apple Health / Health Connect: enable that sharing in the Garmin Connect app and Cal Track picks it up. Direct Garmin API support comes later.';
+  'Garmin Connect can sync into Apple Health / Health Connect: enable that sharing in the Garmin Connect app and Cal Track picks it up.';
 
 export const WEB_NOTE = 'Health sync runs in the iOS/Android app; your data appears here after syncing.';
 

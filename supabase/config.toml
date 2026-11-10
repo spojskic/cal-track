@@ -41,7 +41,8 @@ port = 54323
 api_url = "http://127.0.0.1"
 
 # Local mail catcher: invite / recovery e-mails of the local stack land here.
-[inbucket]
+# (Named [inbucket] in older Supabase CLI versions; the current CLI rejects that name.)
+[local_smtp]
 enabled = true
 port = 54324
 
@@ -74,9 +75,9 @@ minimum_password_length = 8
 
 [auth.email]
 # E-mail + password sign-in is enabled (the provider switch). Self-signup stays
-# off through [auth].enable_signup above; invited users set their password from
-# the invite link.
-enable_signup = true
+# off through [auth].enable_signup above; the owner creates users in the dashboard
+# (Authentication > Users > Add user, with Auto Confirm User).
+enabled = true
 double_confirm_changes = true
 enable_confirmations = false
 max_frequency = "1s"
@@ -92,5 +93,26 @@ enabled = true
 verify_jwt = true
 
 [functions.online-search]
+enabled = true
+verify_jwt = true
+
+# Garmin Connect integration (dormant until the Garmin Developer Program approves the app and the secrets below are set;
+# see docs/garmin-integration.md). Secrets: npx supabase secrets set GARMIN_CLIENT_ID=... GARMIN_CLIENT_SECRET=...
+# GARMIN_WEBHOOK_SECRET=... APP_URL=...
+[functions.garmin-oauth-start]
+enabled = true
+verify_jwt = true
+
+# Garmin redirects the user's BROWSER here: there is no Cal Track JWT, the single-use PKCE `state` identifies the user.
+[functions.garmin-oauth-callback]
+enabled = true
+verify_jwt = false
+
+# Garmin's servers push health data here: authenticated with GARMIN_WEBHOOK_SECRET (constant-time compare), not a JWT.
+[functions.garmin-webhook]
+enabled = true
+verify_jwt = false
+
+[functions.garmin-disconnect]
 enabled = true
 verify_jwt = true
