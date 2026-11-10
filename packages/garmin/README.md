@@ -5,10 +5,8 @@ Cal Track phone app. **Read-only**, runs on the user's phone with a token the us
 Only `fetch`, timers and `AbortController` are used, so it runs on Node 22 and React Native (Hermes). The package's `main` is
 `src/index.ts` and is consumed directly as TypeScript source.
 
-> **Unofficial.** This is the same undocumented interface Garmin's own mobile app uses, copied from the reference project
-> `garmin-companion` (`crates/garmin-core/src/{auth,client,sync,sleep}.rs`, `crates/garmin-api/src/session.rs`,
-> `apps/mobile/src/data/ticket.ts`). It needs no Garmin developer approval and can break whenever Garmin changes it.
-> Nothing is ever written to Garmin: the reference's one write method (`create_workout`) is **not** ported.
+> **Unofficial.** This is the same undocumented interface Garmin's own mobile app uses. It needs no Garmin developer approval
+> and can break whenever Garmin changes it. Nothing is ever written to Garmin: the client only reads.
 
 ## What is in here
 
@@ -80,7 +78,7 @@ read of the same day replaces the earlier one, it is never added.
 
 ## What is verified and what is a guess
 
-Field names marked VERIFIED in `FIELD_CANDIDATES` (`src/mappers.ts`) were read from the reference's Rust structs and parsing; they are the
+Field names marked VERIFIED in `FIELD_CANDIDATES` (`src/mappers.ts`) come from a known working client of this interface (not from a live request made by this project); they are the
 first candidate of each list. The others (nested Personal-API names, `startTimeGMT`, `timestampGMT`, `elapsedDuration`, the un-nested sleep
 names) are guesses, tried only after the verified name. The mappers never throw, never invent a value (absent stays absent, never 0), and
 report which JSON key matched which field and which fields matched nothing (`coverage`, `diagnostics`) - that is what the app's

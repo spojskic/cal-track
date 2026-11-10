@@ -300,8 +300,8 @@ describe('saved theme choice', () => {
     expect(sanitizeThemePrefs('dark')).toEqual(DEFAULT_THEME_PREFS);
     expect(sanitizeThemePrefs([])).toEqual(DEFAULT_THEME_PREFS);
     expect(sanitizeThemePrefs({ mode: 'sepia', light: 7, dark: {} })).toEqual(DEFAULT_THEME_PREFS);
-    expect(sanitizeThemePrefs({ mode: 'dark', light: 'paper', dark: 'nord' })).toEqual({ mode: 'dark', light: 'paper', dark: 'nord', corners: 'rounded' });
-    expect(sanitizeThemePrefs({ mode: 'light', light: 'removed' })).toEqual({ mode: 'light', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: 'rounded' });
+    expect(sanitizeThemePrefs({ mode: 'dark', light: 'paper', dark: 'nord' })).toEqual({ mode: 'dark', light: 'paper', dark: 'nord', corners: DEFAULT_CORNERS });
+    expect(sanitizeThemePrefs({ mode: 'light', light: 'removed' })).toEqual({ mode: 'light', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: DEFAULT_CORNERS });
     expect(sanitizeThemePrefs({ mode: 'system', light: 'nord', dark: 'paper' })).toEqual(DEFAULT_THEME_PREFS);
   });
 
@@ -311,7 +311,7 @@ describe('saved theme choice', () => {
     expect(parseThemePrefs('')).toEqual(DEFAULT_THEME_PREFS);
     expect(parseThemePrefs('{not json')).toEqual(DEFAULT_THEME_PREFS);
     expect(parseThemePrefs('42')).toEqual(DEFAULT_THEME_PREFS);
-    expect(parseThemePrefs('{"mode":"dark","light":"one-light","dark":"one-dark"}')).toEqual({ mode: 'dark', light: 'one-light', dark: 'one-dark', corners: 'rounded' });
+    expect(parseThemePrefs('{"mode":"dark","light":"one-light","dark":"one-dark"}')).toEqual({ mode: 'dark', light: 'one-light', dark: 'one-dark', corners: DEFAULT_CORNERS });
   });
 
   it('round-trips through the stored string', () => {
@@ -322,17 +322,17 @@ describe('saved theme choice', () => {
     expect(Object.keys(JSON.parse(serializeThemePrefs(chosen))).sort()).toEqual(['corners', 'dark', 'light', 'mode']);
   });
 
-  it('corners: a choice saved before the Boxy look existed (no field) is Rounded, anything unknown is Rounded', () => {
-    expect(DEFAULT_THEME_PREFS.corners).toBe('rounded');
-    expect(DEFAULT_CORNERS).toBe('rounded');
+  it('corners: Boxy is the default; a choice saved before the Boxy look existed (no field) and anything unknown get the default', () => {
+    expect(DEFAULT_THEME_PREFS.corners).toBe('boxy');
+    expect(DEFAULT_CORNERS).toBe('boxy');
     // the exact payload an older version saved
     const old = '{"mode":"dark","light":"paper","dark":"nord"}';
-    expect(parseThemePrefs(old)).toEqual({ mode: 'dark', light: 'paper', dark: 'nord', corners: 'rounded' });
+    expect(parseThemePrefs(old)).toEqual({ mode: 'dark', light: 'paper', dark: 'nord', corners: 'boxy' });
     for (const bad of ['square', 'BOXY', 'Boxy', '', 7, null, true, {}, ['boxy']]) {
-      expect(sanitizeThemePrefs({ ...DEFAULT_THEME_PREFS, corners: bad }).corners, JSON.stringify(bad)).toBe('rounded');
+      expect(sanitizeThemePrefs({ ...DEFAULT_THEME_PREFS, corners: bad }).corners, JSON.stringify(bad)).toBe('boxy');
     }
-    expect(sanitizeThemePrefs({ corners: 'boxy' })).toEqual({ ...DEFAULT_THEME_PREFS, corners: 'boxy' });
-    expect(parseThemePrefs('{"corners":"boxy"}')).toEqual({ ...DEFAULT_THEME_PREFS, corners: 'boxy' });
+    expect(sanitizeThemePrefs({ corners: 'rounded' })).toEqual({ ...DEFAULT_THEME_PREFS, corners: 'rounded' });
+    expect(parseThemePrefs('{"corners":"rounded"}')).toEqual({ ...DEFAULT_THEME_PREFS, corners: 'rounded' });
     expect(parseThemePrefs('{"corners":"sharp"}')).toEqual(DEFAULT_THEME_PREFS);
   });
 
@@ -360,8 +360,8 @@ describe('saved theme choice', () => {
     expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, mode: 'dark' })).toBe(false);
     expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, light: 'paper' })).toBe(false);
     expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, dark: 'nord' })).toBe(false);
-    expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, corners: 'boxy' })).toBe(false); // Reset to default is offered for Boxy too
-    expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, corners: 'rounded' })).toBe(true);
+    expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, corners: 'rounded' })).toBe(false); // Reset to default is offered for Rounded too
+    expect(isDefaultThemePrefs({ ...DEFAULT_THEME_PREFS, corners: 'boxy' })).toBe(true);
   });
 });
 
@@ -392,9 +392,9 @@ describe('palette grid layout', () => {
 
 describe('smoke harness: theme seeding and page checks (src/theme-seed.ts)', () => {
   it('--theme pins the palette to its own side and leaves the other side at its default', () => {
-    expect(themePrefsFor('dracula')).toEqual({ mode: 'dark', light: DEFAULT_LIGHT_ID, dark: 'dracula', corners: 'rounded' });
-    expect(themePrefsFor('paper')).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: 'rounded' });
-    expect(themePrefsFor('paper', 'boxy')).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: 'boxy' });
+    expect(themePrefsFor('dracula')).toEqual({ mode: 'dark', light: DEFAULT_LIGHT_ID, dark: 'dracula', corners: DEFAULT_CORNERS });
+    expect(themePrefsFor('paper')).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: DEFAULT_CORNERS });
+    expect(themePrefsFor('paper', 'rounded')).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: 'rounded' });
     expect(themePrefsFor('nope')).toBeNull();
     for (const id of KNOWN_PALETTE_IDS) {
       const prefs = themePrefsFor(id)!;
@@ -408,12 +408,12 @@ describe('smoke harness: theme seeding and page checks (src/theme-seed.ts)', () 
 
   it('--corners and --theme decide what is seeded: neither seeds nothing, either one alone seeds a valid choice', () => {
     expect(themeSeedFor({})).toBeNull();
-    expect(themeSeedFor({ theme: 'dracula' })).toEqual({ mode: 'dark', light: DEFAULT_LIGHT_ID, dark: 'dracula', corners: 'rounded' });
+    expect(themeSeedFor({ theme: 'dracula' })).toEqual({ mode: 'dark', light: DEFAULT_LIGHT_ID, dark: 'dracula', corners: DEFAULT_CORNERS });
     // corners alone: Match system with the default palettes, only the corners differ
-    expect(themeSeedFor({ corners: 'boxy' })).toEqual({ mode: 'system', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: 'boxy' });
-    expect(themeSeedFor({ corners: 'rounded' })).toEqual(DEFAULT_THEME_PREFS);
-    expect(themeSeedFor({ theme: 'paper', corners: 'boxy' })).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: 'boxy' });
-    expect(themeSeedFor({ theme: 'nope', corners: 'boxy' })).toBeNull();
+    expect(themeSeedFor({ corners: 'rounded' })).toEqual({ mode: 'system', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: 'rounded' });
+    expect(themeSeedFor({ corners: 'boxy' })).toEqual(DEFAULT_THEME_PREFS);
+    expect(themeSeedFor({ theme: 'paper', corners: 'rounded' })).toEqual({ mode: 'light', light: 'paper', dark: DEFAULT_DARK_ID, corners: 'rounded' });
+    expect(themeSeedFor({ theme: 'nope', corners: 'rounded' })).toBeNull();
     for (const corners of KNOWN_CORNERS) {
       const seeded = themeSeedFor({ corners })!;
       expect(sanitizeThemePrefs(seeded)).toEqual(seeded); // survives the app's own sanitising unchanged

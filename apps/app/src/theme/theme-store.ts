@@ -27,7 +27,7 @@ export interface ThemeState extends ThemePrefs {
   setDark: (id: string) => void;
   /** Picks the corner style (Rounded or Boxy). Applies to the whole app at once. */
   setCorners: (corners: Corners) => void;
-  /** Back to Match system with the default palettes and rounded corners. */
+  /** Back to Match system with the default palettes and the default (boxy) corners. */
   reset: () => void;
   /** Native: reads the saved choice. Does nothing once the choice was read or changed. */
   hydrate: () => Promise<void>;

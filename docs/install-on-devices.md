@@ -112,5 +112,5 @@ press *Sync now*. A profile that was on *Static* is moved to *Device-adjusted* o
 it back; it will not be switched again). Under **More > Profile & targets** you can set the *Energy mode*:
 
 - **Static**: baseline activity only (plus exercise you log by hand). Ignores your watch.
-- **Device-adjusted (like Cronometer)**: your watch activity replaces the baseline during the day, and workouts are added.
+- **Device-adjusted**: your watch activity replaces the baseline during the day, and workouts are added.
 - **Device total**: the watch's own active + resting calories.

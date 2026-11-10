@@ -39,7 +39,7 @@ export interface ThemePrefs {
   light: string;
   /** Id of a dark palette. */
   dark: string;
-  /** Corner style: `rounded` is the original look, `boxy` has small, sharp corners everywhere. */
+  /** Corner style: `boxy` (the default) has small, sharp corners everywhere, `rounded` is the original look. */
   corners: Corners;
 }
 
@@ -51,7 +51,7 @@ export const THEME_STORAGE_KEY = 'cal-track.theme.v1';
 /**
  * Makes any value (parsed JSON, `null`, a stale object) a valid choice: an unknown mode becomes `system`, an unknown id, or
  * the id of a palette of the other appearance, becomes the default of that side, and a missing or unknown `corners` (a choice
- * saved before the Boxy look existed) becomes `rounded`.
+ * saved before the Boxy look existed) becomes the default corner style (`boxy`).
  */
 export function sanitizeThemePrefs(raw: unknown): ThemePrefs {
   const o = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};

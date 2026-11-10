@@ -2,7 +2,7 @@
   "name": "cal-track",
   "private": true,
   "version": "0.0.0",
-  "description": "Cronometer-style nutrition tracker (web, iOS, Android) with optional bring-your-own-key AI features.",
+  "description": "Nutrition tracker (web, iOS, Android) with optional bring-your-own-key AI features.",
   "packageManager": "pnpm@11.15.1",
   "engines": {
     "node": ">=22.13"

@@ -109,7 +109,15 @@ suite('apps/app data layer against the mock backend', () => {
     const { requireUserId } = await load('@/lib/auth-user');
     const { backend } = connect('not-onboarded');
     expect(await requireUserId()).toBe(USER.id);
-    const date = await insertBodyReadings({ weightKg: 82, bodyFatPct: 19.5 });
+    // "Today" comes from the clock: pin it to the harness's fixed day, or this assertion only holds on that calendar day.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(FIXED_NOW_MS);
+    let date: string;
+    try {
+      date = await insertBodyReadings({ weightKg: 82, bodyFatPct: 19.5 });
+    } finally {
+      vi.useRealTimers();
+    }
     expect(date).toBe(TODAY);
     await saveWeightGoalRow({ rateKgPerWeek: -0.5, targetWeightKg: 77, startWeightKg: 82, replace: true });
     await saveMacroTargetRow({ mode: 'ratios', proteinPct: 30, carbsPct: 40, fatPct: 30 });

@@ -25,7 +25,7 @@ export const KNOWN_PALETTE_IDS: readonly string[] = PALETTES.map((p) => p.id);
 
 /**
  * The saved choice that makes this palette show: pinned to its side (so the browser's prefers-color-scheme does not matter) with
- * the other side at its default, and the given corner style (default: rounded, the original look). `null` for an unknown id.
+ * the other side at its default, and the given corner style (default: the app's own default, boxy). `null` for an unknown id.
  */
 export function themePrefsFor(paletteId: string, corners: Corners = DEFAULT_CORNERS): ThemePrefs | null {
   const palette = getPalette(paletteId);
@@ -39,7 +39,7 @@ export function themePrefsFor(paletteId: string, corners: Corners = DEFAULT_CORN
 }
 
 /**
- * What a run seeds into localStorage for `--theme` and `--corners`: `--theme` alone pins that palette (rounded corners),
+ * What a run seeds into localStorage for `--theme` and `--corners`: `--theme` alone pins that palette (default corners),
  * `--corners` alone keeps Match system with the default palettes and only changes the corners, both flags combine, and neither
  * seeds nothing (`null`: the app starts with its own default). `null` as well for an unknown palette id.
  */

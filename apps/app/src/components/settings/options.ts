@@ -96,7 +96,7 @@ export const ENERGY_MODE_OPTIONS: readonly OptionDef<EnergyMode>[] = [
   },
   {
     value: 'device_adjusted',
-    label: 'Device-adjusted (like Cronometer)',
+    label: 'Device-adjusted',
     description: 'Your watch activity replaces the baseline during the day; workouts are added.',
   },
   {

@@ -21,7 +21,7 @@ export interface CliOptions {
   keepCache: boolean;
   /** Palette id the app starts with (seeded as the saved theme choice); default: nothing seeded, the app's own default. */
   theme?: string;
-  /** Corner style the app starts with (seeded as the saved theme choice); default: nothing seeded, the app's own default (rounded). */
+  /** Corner style the app starts with (seeded as the saved theme choice); default: nothing seeded, the app's own default (boxy). */
   corners?: Corners;
 }
 

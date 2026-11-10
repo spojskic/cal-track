@@ -274,13 +274,13 @@ describe('runScenario with a fake browser', () => {
     expect(ctx.initScripts).toHaveLength(3); // date shift, session, theme
     ctx.runInitScripts(APP_ORIGIN);
     // the palette's own side is pinned, the other side keeps its default
-    expect(JSON.parse(ctx.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'dark', light: 'kanagawa-lotus', dark: 'dracula', corners: 'rounded' });
+    expect(JSON.parse(ctx.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'dark', light: 'kanagawa-lotus', dark: 'dracula', corners: 'boxy' });
     expect(ctx.storage.has(STORAGE_KEY)).toBe(true);
 
     const light = new FakeBrowser();
     await runScenario(deps(light, { theme: 'github-light' }), scenario({ auth: 'signed-out' }), 1, 'phone-dark');
     light.contexts[0]!.runInitScripts(APP_ORIGIN);
-    expect(JSON.parse(light.contexts[0]!.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'light', light: 'github-light', dark: 'kanagawa-wave', corners: 'rounded' });
+    expect(JSON.parse(light.contexts[0]!.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'light', light: 'github-light', dark: 'kanagawa-wave', corners: 'boxy' });
 
     const plain = new FakeBrowser();
     await runScenario(deps(plain), scenario({ auth: 'signed-out' }), 1, 'phone');
@@ -290,16 +290,16 @@ describe('runScenario with a fake browser', () => {
 
   it('--corners seeds the corner style, alone (Match system, default palettes) or together with --theme', async () => {
     const alone = new FakeBrowser();
-    await runScenario(deps(alone, { corners: 'boxy' }), scenario(), 1, 'phone');
+    await runScenario(deps(alone, { corners: 'rounded' }), scenario(), 1, 'phone');
     const ctx = alone.contexts[0]!;
     expect(ctx.initScripts).toHaveLength(3); // date shift, session, theme
     ctx.runInitScripts(APP_ORIGIN);
-    expect(JSON.parse(ctx.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'system', light: 'kanagawa-lotus', dark: 'kanagawa-wave', corners: 'boxy' });
+    expect(JSON.parse(ctx.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'system', light: 'kanagawa-lotus', dark: 'kanagawa-wave', corners: 'rounded' });
 
     const both = new FakeBrowser();
-    await runScenario(deps(both, { theme: 'paper', corners: 'boxy' }), scenario({ auth: 'signed-out' }), 1, 'phone');
+    await runScenario(deps(both, { theme: 'paper', corners: 'rounded' }), scenario({ auth: 'signed-out' }), 1, 'phone');
     both.contexts[0]!.runInitScripts(APP_ORIGIN);
-    expect(JSON.parse(both.contexts[0]!.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'light', light: 'paper', dark: 'kanagawa-wave', corners: 'boxy' });
+    expect(JSON.parse(both.contexts[0]!.storage.get(THEME_STORAGE_KEY)!)).toEqual({ mode: 'light', light: 'paper', dark: 'kanagawa-wave', corners: 'rounded' });
   });
 
   it('signed-out scenarios get no session; the desktop viewport is used for desktop', async () => {

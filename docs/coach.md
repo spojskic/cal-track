@@ -4,7 +4,7 @@ A chat with a coach that knows your logs. It answers questions about food, suppl
 quotes your own numbers. It runs on **your own OpenRouter key** (see [AI and privacy](ai-and-privacy.md)); nothing is sent
 anywhere else.
 
-Design in one line, borrowed from the rules-first coach of a companion project: **code finds the facts, the model writes the
+Design in one line, a rules-first coach: **code finds the facts, the model writes the
 words.** The app computes *findings* from your data, each with the numbers it comes from and what was counted; the model is told to
 quote them, not to recompute them, and to say what it cannot see instead of guessing.
 
@@ -139,9 +139,9 @@ micronutrient questions that must be answered). `packages/ai/src/eval-cases.test
 evaluation needs your key (`packages/ai/eval/run-guard-eval.ts`). **How the models really behave has not been verified by tests**
 (no test calls a model); run the evaluation after changing a prompt.
 
-## What was borrowed from the reference project, and what was not
+## Design principles, and what is not built yet
 
-Borrowed:
+Built:
 
 - Rules find the facts, the model only writes the text; every statement shows its numbers and what was counted.
 - A finding that lacks its data does not fire; the gaps are listed so the model says "I cannot see X".
@@ -150,19 +150,19 @@ Borrowed:
 - Only the data a question needs, as summary rows, never the whole database.
 - Short, direct answers; at most one caveat.
 
-Not borrowed (yet):
+Not built (yet):
 
 - **A daily brief and notifications** (one brief a day, a notification only on important days). The findings are the building block; a
   scheduled brief needs background execution and a notification permission.
 - **Tools the model calls** (see below).
-- Bootstrap confidence intervals around findings (the reference has years of data; here a finding states how many days it counted).
+- Bootstrap confidence intervals around findings (a finding states how many days it counted instead).
 - Prompt caching of the fixed system prompt.
 - An MCP server for command-line agents.
 
 ## Next step: let the model ask for more data
 
-Today every turn carries the same fixed block. The reference project instead lets the model **call tools** that read bounded slices of
-the local data, and it never sends the rest. The same can be done here with OpenRouter tool calls answered from local queries:
+Today every turn carries the same fixed block. A better design lets the model **call tools** that read bounded slices of
+the local data, and never sends the rest. That can be done with OpenRouter tool calls answered from local queries:
 
 | Tool | Arguments | Answers from |
 | --- | --- | --- |

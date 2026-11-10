@@ -74,7 +74,7 @@ export function useEnergySummaryMode() {
 
 /** Shown to the user (once) when {@link enableDeviceEnergyMode} switched the mode. */
 export const DEVICE_ENERGY_MODE_NOTICE =
-  'Energy mode is now Device-adjusted: your budget follows your watch, like Cronometer. You can change it in Profile & targets.';
+  'Energy mode is now Device-adjusted: your budget follows your watch. You can change it in Profile & targets.';
 
 /**
  * - `switched`: the mode was Static and is now Device-adjusted (show {@link DEVICE_ENERGY_MODE_NOTICE}).

@@ -394,7 +394,7 @@ suite('data/energy-mode.ts', () => {
       expect(spies.setQueryData).toHaveBeenCalledTimes(1);
       expect(spies.invalidateQueries.mock.calls.length).toBeGreaterThanOrEqual(1);
       expect(DEVICE_ENERGY_MODE_NOTICE).toBe(
-        'Energy mode is now Device-adjusted: your budget follows your watch, like Cronometer. You can change it in Profile & targets.',
+        'Energy mode is now Device-adjusted: your budget follows your watch. You can change it in Profile & targets.',
       );
       // asking again changes nothing
       expect(await enableDeviceEnergyMode()).toBe('already');

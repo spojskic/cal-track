@@ -41,12 +41,12 @@ scheme do not matter; the other side stays at its default. Without the flag noth
 (Match system, Kanagawa Lotus / Kanagawa Wave). Ids are listed by `--help`; an unknown id is an error. The scenario `settings:
 appearance (theme picker)` starts by pressing *Reset to default*, so it also passes under `--theme`.
 
-`--corners=rounded|boxy` seeds the corner style the same way, so the whole smoke can run under Boxy
-(`smoke -- --corners=boxy`, and `--theme=dracula --corners=boxy` for both). Alone it keeps Match system with the default palettes;
-with `--theme` it adds the corners to that palette's choice. The theme picker scenario presses *Boxy*, checks the saved choice
-(`"corners":"boxy"`) and that the computed `border-top-left-radius` of the card around the *Appearance* heading dropped to 8 px or
-less, presses *Rounded*, checks it is back to the original value (12 px or more), and ends with *Reset to default*, which also brings
-back Rounded corners; so it passes under `--corners=boxy` too.
+`--corners=rounded|boxy` seeds the corner style the same way (Boxy is the app's default, so without the flag the run is Boxy), so
+the whole smoke can also run under the original look (`smoke -- --corners=rounded`, and `--theme=dracula --corners=rounded` for both). Alone it keeps Match system with the default palettes;
+with `--theme` it adds the corners to that palette's choice. The theme picker scenario first checks the default (computed `border-top-left-radius` of the card around the *Appearance* heading is
+8 px or less), presses *Rounded* and checks the saved choice (`"corners":"rounded"`) and a radius of 12 px or more, presses *Boxy*
+and checks it is back to the small value, and ends with *Reset to default*, which also brings back Boxy corners; so it passes under
+`--corners=rounded` too.
 
 Chrome is looked up in this order: `--chrome`, `$CHROME_PATH`, `/Applications/Google Chrome.app/...`, Playwright's
 own cache (`npx playwright-core install chromium`). The tool never downloads anything.

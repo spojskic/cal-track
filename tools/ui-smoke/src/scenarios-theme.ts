@@ -71,7 +71,7 @@ export const THEME_SCENARIOS: Scenario[] = [
       const osDark = ctx.viewport.endsWith('dark');
       const systemPalette = (light: string, dark: string): string => (osDark ? dark : light);
 
-      // A run started with --theme=<id> or --corners=boxy begins with a saved choice: go back to the defaults first.
+      // A run started with --theme=<id> or --corners=rounded begins with a saved choice: go back to the defaults first.
       await ctx.step('start from the defaults (Reset to default, only offered when the choice differs)', async () => {
         const reset = page.getByRole('button', { name: 'Reset to default', exact: true });
         if ((await reset.count()) > 0) await reset.first().click({ timeout: 6000 });
@@ -81,18 +81,18 @@ export const THEME_SCENARIOS: Scenario[] = [
       });
       await ctx.expectNoText('Reset to default', { exact: true });
 
-      // Corners: the default is Rounded; Boxy shrinks the radius of every card and Rounded brings the original value back.
-      const roundedRadius = await expectCardCorners(ctx, page, 'default corners are Rounded', 'rounded');
-      await stepThen(ctx, 'corners: Boxy', () => choose(page, 'Boxy', { exact: true }), async () => {
-        await expectTheme(ctx, page, 'Boxy is saved', { paletteId: systemPalette(DEFAULT_LIGHT_ID, DEFAULT_DARK_ID), stored: { corners: 'boxy' } });
-        await expectCardCorners(ctx, page, 'Boxy shrinks the corners of the cards', 'boxy');
-        await ctx.expectText('Reset to default', { exact: true });
-        await ctx.snapshot('boxy', { tall: false });
-      });
+      // Corners: the default is Boxy; Rounded brings back the original big radius and Boxy shrinks it again.
+      const boxyRadius = await expectCardCorners(ctx, page, 'default corners are Boxy', 'boxy');
       await stepThen(ctx, 'corners: Rounded', () => choose(page, 'Rounded', { exact: true }), async () => {
         await expectTheme(ctx, page, 'Rounded is saved', { paletteId: systemPalette(DEFAULT_LIGHT_ID, DEFAULT_DARK_ID), stored: { corners: 'rounded' } });
-        const back = await expectCardCorners(ctx, page, 'Rounded brings the original corners back', 'rounded');
-        if (roundedRadius !== null && back !== null && back !== roundedRadius) ctx.fail(`Rounded corners are ${back}px, they were ${roundedRadius}px before Boxy`);
+        await expectCardCorners(ctx, page, 'Rounded gives the cards big corners', 'rounded');
+        await ctx.expectText('Reset to default', { exact: true });
+        await ctx.snapshot('rounded', { tall: false });
+      });
+      await stepThen(ctx, 'corners: Boxy', () => choose(page, 'Boxy', { exact: true }), async () => {
+        await expectTheme(ctx, page, 'Boxy is saved', { paletteId: systemPalette(DEFAULT_LIGHT_ID, DEFAULT_DARK_ID), stored: { corners: 'boxy' } });
+        const back = await expectCardCorners(ctx, page, 'Boxy brings the small corners back', 'boxy');
+        if (boxyRadius !== null && back !== null && back !== boxyRadius) ctx.fail(`Boxy corners are ${back}px, they were ${boxyRadius}px before Rounded`);
         await ctx.expectNoText('Reset to default', { exact: true });
       });
 
@@ -122,17 +122,17 @@ export const THEME_SCENARIOS: Scenario[] = [
         });
       });
 
-      // Reset to default brings back everything, the corners included: switch to Boxy first so there is something to reset.
-      await stepThen(ctx, 'corners: Boxy (so Reset to default has corners to reset)', () => choose(page, 'Boxy', { exact: true }), async () => {
-        await expectCardCorners(ctx, page, 'Boxy is applied together with the other choices', 'boxy');
+      // Reset to default brings back everything, the corners included: switch to Rounded first so there is something to reset.
+      await stepThen(ctx, 'corners: Rounded (so Reset to default has corners to reset)', () => choose(page, 'Rounded', { exact: true }), async () => {
+        await expectCardCorners(ctx, page, 'Rounded is applied together with the other choices', 'rounded');
       });
 
       await stepThen(ctx, 'Reset to default', () => choose(page, 'Reset to default', { exact: true }), async () => {
-        await expectTheme(ctx, page, 'Reset to default brings back Match system, the Kanagawa palettes and Rounded corners', {
+        await expectTheme(ctx, page, 'Reset to default brings back Match system, the Kanagawa palettes and Boxy corners', {
           paletteId: systemPalette(DEFAULT_LIGHT_ID, DEFAULT_DARK_ID),
-          stored: { mode: 'system', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: 'rounded' },
+          stored: { mode: 'system', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: 'boxy' },
         });
-        await expectCardCorners(ctx, page, 'Reset to default brings back the original corners', 'rounded');
+        await expectCardCorners(ctx, page, 'Reset to default brings back the default (boxy) corners', 'boxy');
         await ctx.expectNoText('Reset to default', { exact: true });
       });
     },

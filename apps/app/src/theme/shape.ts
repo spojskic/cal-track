@@ -3,12 +3,13 @@
 // from a module-level constant any more, because a `StyleSheet.create` entry runs once at import time and could not follow the
 // setting. Add a rounded element: take `radius` / `shape` from `useTheme()` and put the number inline in the style.
 
-/** The corner style the user picked in Settings > Display > Appearance. `rounded` is the original look. */
+/** The corner style the user picked in Settings > Display > Appearance. `boxy` is the default, `rounded` the original look. */
 export type Corners = 'rounded' | 'boxy';
 
 export const CORNERS: readonly Corners[] = ['rounded', 'boxy'];
 
-export const DEFAULT_CORNERS: Corners = 'rounded';
+/** What a new install (and a saved choice without a corner style) gets: the boxy look. Rounded is still one tap away. */
+export const DEFAULT_CORNERS: Corners = 'boxy';
 
 /** The named corner sizes. `pill` is for things that were fully round (buttons, chips, segmented controls). */
 export interface Radii {

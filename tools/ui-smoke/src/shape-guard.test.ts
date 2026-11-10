@@ -36,7 +36,7 @@ const APP_SRC = join(here, '..', '..', '..', 'apps', 'app', 'src');
 
 describe('corner scales', () => {
   it('Rounded is exactly the old static scale (the default look does not change)', () => {
-    expect(DEFAULT_CORNERS).toBe('rounded');
+    expect(DEFAULT_CORNERS).toBe('boxy'); // Boxy is the default look; the Rounded scale below is still pinned to the old values
     expect(ROUNDED_RADII).toEqual({ sm: 8, md: 12, lg: 16, pill: 999 });
     expect(radiiFor('rounded')).toBe(ROUNDED_RADII);
   });
