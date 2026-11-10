@@ -15,8 +15,8 @@ recipe draft, a health-only coach) run on **your own OpenRouter key, which never
 - **Food database** built from USDA FoodData Central (about 14,000 generic foods with full micronutrients) and optionally the
   Canadian Nutrient File, plus barcode lookup (USDA branded, Open Food Facts) and your own custom foods and recipes.
 - **Targets that fit you**: BMR formulas, activity level, weight goal, macro modes (ratios, fixed, keto), intake targets by age and sex.
-- **Device data**: Apple Health and Health Connect sync (Garmin and other wearables feed into those). The calorie budget can use
-  your static estimate or your watch's numbers.
+- **Device data**: Apple Health and Health Connect sync, and a read-only **Garmin** link that your phone runs itself (no Garmin
+  developer approval, not an official Garmin integration). The calorie budget can use your static estimate or your watch's numbers.
 - **Optional AI**: photo log, describe a meal, AI recipe, and a coach that only talks health and training.
 - **Private by design**: invite-only accounts, per-user row-level security, no ads, AI key stored only on the device.
 
@@ -44,10 +44,7 @@ The full walk-through is in **[docs/getting-started.md](docs/getting-started.md)
 | [AI and privacy](docs/ai-and-privacy.md) | Connecting a key, what is sent where, coach limits, costs |
 | [Architecture](docs/architecture.md) | Repo layout, data model, how targets and energy are computed, design decisions |
 | [Development](docs/development.md) | Commands, tests, regenerating generated files, the browser smoke test |
-| [Garmin: what to do](docs/garmin-setup-guide.md) | Step-by-step checklist: apply to Garmin, publish the policy, secrets, deploy, connect |
-| [Garmin integration](docs/garmin-integration.md) | One-tap Connect Garmin: how it works, secrets, what to do after Garmin approves the app (ships switched off) |
-| [Garmin access request](docs/garmin-application.md) | Ready-to-paste answers for Garmin's developer access form |
-| [Privacy policy](docs/privacy-policy.md) | Plain-language policy to publish (Garmin asks for a public URL) |
+| [Privacy policy](docs/privacy-policy.md) | Plain-language policy: what is stored, who else handles data, how to disconnect and delete |
 
 Component guides: [database](supabase/README.md), [edge functions](supabase/functions/README.md),
 [food importer](tools/importer/README.md).

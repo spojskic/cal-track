@@ -13,6 +13,7 @@ describe('public API', () => {
       // energy
       'bmrMifflin', 'bmrKatchMcArdle', 'bmrHarrisBenedictRevised', 'bmrCunningham', 'leanMass', 'computeBmr',
       'baselineActivityKcal', 'exerciseKcalNetMet', 'tefKcal', 'computeExpenditure', 'dedupeExercises',
+      'AWAKE_HOURS', 'adjustedBaselineKcal', 'energyRemaining', 'energySummaryCaption', 'normalizeEnergySummaryMode', 'nextEnergySummaryMode',
       'dailyDeltaFromRate', 'maxSafeLossRateKgPerWeek', 'computeEnergyTarget', 'ageFromBirthdate',
       // macros, dri, exercises, recipe, score
       'computeMacroTargets', 'DRI_TABLE', 'selectTargets', 'applyOverrides', 'MET_ACTIVITIES',

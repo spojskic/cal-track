@@ -1,4 +1,12 @@
-import { DEFAULT_ACTIVITY_LEVEL, parseNumber, type ActivityLevel, type BmrFormula, type EnergyMode } from '@cal/core';
+import {
+  DEFAULT_ACTIVITY_LEVEL,
+  normalizeEnergySummaryMode,
+  parseNumber,
+  type ActivityLevel,
+  type BmrFormula,
+  type EnergyMode,
+  type EnergySummaryMode,
+} from '@cal/core';
 
 import type { Profile, ProfilePatch } from '@/data/profile';
 
@@ -12,6 +20,8 @@ export interface EnergyDraft {
   activity: ActivityLevel;
   tef: boolean;
   energyMode: EnergyMode;
+  /** What the third circle of the energy summary shows: Target or Balance. */
+  summaryMode: EnergySummaryMode;
   netCarbs: boolean;
 }
 
@@ -22,6 +32,7 @@ export function energyDraftFromProfile(p: Profile): EnergyDraft {
     activity: p.activity_level ?? DEFAULT_ACTIVITY_LEVEL,
     tef: p.tef_enabled,
     energyMode: p.energy_mode,
+    summaryMode: normalizeEnergySummaryMode(p.energy_summary_mode),
     netCarbs: p.net_carbs,
   };
 }
@@ -33,6 +44,7 @@ export function energyDraftEqual(a: EnergyDraft, b: EnergyDraft): boolean {
     a.activity === b.activity &&
     a.tef === b.tef &&
     a.energyMode === b.energyMode &&
+    a.summaryMode === b.summaryMode &&
     a.netCarbs === b.netCarbs
   );
 }
@@ -52,6 +64,7 @@ export function energyDraftToPatch(d: EnergyDraft): ProfilePatch {
     activity_level: d.activity,
     tef_enabled: d.tef,
     energy_mode: d.energyMode,
+    energy_summary_mode: d.summaryMode,
     net_carbs: d.netCarbs,
   };
   if (d.bmrFormula === 'manual') patch.bmr_override = parseManualBmr(d.manualBmr).value;

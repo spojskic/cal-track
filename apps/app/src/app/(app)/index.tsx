@@ -7,11 +7,13 @@ import { EnergySummary } from '@/components/charts/EnergySummary';
 import { AverageCard, CoachCard, QuickAddRow, StreakCard, WeightCard } from '@/components/diary/DashboardCards';
 import { ResponsiveGrid } from '@/components/diary/layout';
 import { go } from '@/components/diary/nav';
+import { energySummaryProps } from '@/components/diary/energy-view';
 import { buildMacroRows, consumedSplit, targetSplit } from '@/components/diary/targets-view';
 import { MacroBars } from '@/components/diary/TargetsPager';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { useDayNutrients, useRecentDays } from '@/data/diary';
 import { useDayEnergyFrom } from '@/data/energy';
+import { useEnergySummaryMode } from '@/data/energy-mode';
 import { useProfile } from '@/data/profile';
 import { useTargets } from '@/data/targets';
 import { useWeightHistory, type WeightPoint } from '@/data/weight';
@@ -28,6 +30,7 @@ export default function DashboardScreen() {
 
   const day = useDayNutrients(today);
   const energy = useDayEnergyFrom(today, day);
+  const summary = useEnergySummaryMode();
   const targetsQ = useTargets();
   const profileQ = useProfile();
   const gate = useAiGate();
@@ -87,11 +90,7 @@ export default function DashboardScreen() {
             <Button label="Open diary" variant="ghost" onPress={() => go('/diary')} />
           </View>
           <EnergySummary
-            consumed={day.kcal}
-            expenditure={energy.expenditureKcal}
-            target={energy.targetKcal}
-            exerciseBurned={energy.exerciseBurnedKcal}
-            remaining={energy.remainingKcal}
+            {...energySummaryProps(energy, summary.toggle)}
             split={{ target: targetSplit(targets), consumed: consumedSplit(day.totals) }}
             compact
           />

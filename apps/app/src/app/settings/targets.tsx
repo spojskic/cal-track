@@ -3,7 +3,7 @@ import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { NumberField, SwitchRow } from '@/components/forms';
+import { NumberField, Segmented, SwitchRow } from '@/components/forms';
 import { EnergyBreakdownTable } from '@/components/settings/energy-breakdown';
 import {
   energyDraftEqual,
@@ -34,6 +34,7 @@ import {
 import { CollapsibleHeader, Divider, NavRow, Note } from '@/components/settings/rows';
 import { SaveRow } from '@/components/settings/save-row';
 import { AppText, Button, Card, Screen } from '@/components/ui';
+import { ENERGY_SUMMARY_MODE_NOTE, ENERGY_SUMMARY_MODE_OPTIONS } from '@/data/energy-mode';
 import { useActiveWeightGoal, useSaveMacroTarget, useSaveWeightGoal, type WeightGoal } from '@/data/goals';
 import { useProfile, useUpdateProfile } from '@/data/profile';
 import { useTargets, type ResolvedTargets } from '@/data/targets';
@@ -255,6 +256,15 @@ function TargetsEditor({ targets, goal }: { targets: ResolvedTargets; goal: Weig
             options={ENERGY_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label, description: o.description }))}
           />
         ) : null}
+
+        <Divider />
+        <Segmented
+          label="Energy summary 3rd circle"
+          options={[...ENERGY_SUMMARY_MODE_OPTIONS]}
+          value={energy.summaryMode}
+          onChange={(summaryMode) => setEnergyEdit({ ...energy, summaryMode })}
+        />
+        <AppText variant="small" muted>{ENERGY_SUMMARY_MODE_NOTE}</AppText>
 
         <Divider />
         <SwitchRow

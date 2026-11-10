@@ -42,8 +42,8 @@ their privacy terms. OpenRouter lets you restrict providers in your account sett
 - **Describe a meal / AI recipe**: the text you typed.
 - **Coach**: your message, the recent conversation, and a compact summary of your data: sex, age, height, activity level,
   targets and goals, calorie and macro totals for the last 14 days, weight trend, and steps, active calories, workouts and sleep
-  duration of the last 14 days (from any connected source, including Garmin when it is connected). Heart rate, stress, body battery,
-  HRV and the text of diary notes are not sent. No name or email address.
+  duration of the last 14 days (from any connected source, including Garmin when it is connected: what your phone read from
+  Garmin and saved to your account). Heart rate, stress, body battery, HRV and the text of diary notes are not sent. No name or email address.
 
 ## How meals are estimated
 

@@ -52,8 +52,8 @@ export function EnergyBreakdownTable({
       <Divider />
       <KeyValueRow label="Energy Target" value={formatKcal(energy.target)} strong />
       <AppText variant="small" muted style={{ marginTop: spacing.xs }}>
-        Expenditure above baseline: + when logged. Exercise you log (and device activity, if enabled) adds to your
-        budget on top of this target.
+        Expenditure above baseline = adjusted baseline + tracker activity + exercise - baseline. It starts at 0 each
+        day and is added to this target as you burn more than your baseline, so the target itself stays put.
       </AppText>
     </View>
   );

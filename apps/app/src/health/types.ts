@@ -9,8 +9,11 @@ export interface DateRange {
   to: LocalDate;
 }
 
-/** `integrations.provider` / `*.source` values written by this feature. */
-export type HealthProviderId = 'apple_health' | 'health_connect';
+/**
+ * `integrations.provider` / `*.source` values written by this feature. 'garmin' is NOT a platform health store: it is read
+ * straight from Garmin by the phone (src/health/garmin*.ts) and has its own integration row and settings.
+ */
+export type HealthProviderId = 'apple_health' | 'health_connect' | 'garmin';
 
 /** The user-facing import categories (one checkbox each). */
 export const HEALTH_DATA_TYPES = [
@@ -40,7 +43,11 @@ export type BiometricRowType =
   | 'respiration_rate'
   | 'sleep'
   | 'bp_systolic'
-  | 'bp_diastolic';
+  | 'bp_diastolic'
+  // Written by the Garmin sync only (the platform health stores have no such type):
+  | 'sleep_score'
+  | 'stress'
+  | 'body_battery';
 
 export type MetaValue = string | number | boolean;
 

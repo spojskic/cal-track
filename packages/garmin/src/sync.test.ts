@@ -1,424 +1,319 @@
-import { describe, expect, it } from 'vitest';
-import { eachDate } from './dates';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { GarminConnectClient, type GarminReply } from './client';
+import { CONNECT_API_BASE, DEFAULT_CLIENT_ID, DI_TOKEN_URL } from './constants';
 import { GarminError } from './errors';
-import { fetchGarminData, type GarminSyncInclude, type GarminSyncProgress } from './sync';
-import { createFakeClient } from './test-utils';
+import { runGarminSync, type GarminBatch, type GarminSyncSource } from './sync';
+import { REFRESH_TOKEN, accessToken, createClock, createFakeFetch, json, reply } from './test-utils';
 
-type Route = Parameters<typeof createFakeClient>[0][number];
+const ok = (data: unknown): GarminReply => ({ status: 200, empty: false, data });
+const EMPTY: GarminReply = { status: 200, empty: true, data: null };
+const noData = () => new GarminError({ kind: 'http', status: 404 });
 
-const ALL: GarminSyncInclude = {
-  energy: true, workouts: true, weight: true, bodyFat: true, restingHr: true, hrv: true, spo2: true, respiration: true, sleep: true, bodyBattery: true, stress: true,
-};
-const FROM = '2026-11-03';
-const TO = '2026-11-09';
-
-const P = {
-  summaries: '/usersummary-service/v2/dailysummaries',
-  sleep: '/sleep-service/sleep/dailySleepSummariesByDate',
-  hrv: /^\/hrv-service\/hrv\/daily\//,
-  weight: /^\/weight-service\/weight\/all\//,
-  weightRange: /^\/weight-service\/weight\/range\//,
-  activities: '/activitylist-service/activities/search/activities',
-  bodyBattery: '/wellness-service/wellness/bodyBattery/reports/daily',
-  stress: /^\/usersummary-service\/stats\/stress\/daily\//,
-  steps: /^\/usersummary-service\/stats\/steps\/daily\//,
-  hr: '/wellness-service/wellness/dailyHeartRate',
-  spo2: /^\/wellness-service\/wellness\/daily\/spo2acclimation\//,
-};
-
-const summaryItem = (date: string, over: Record<string, unknown> = {}) => ({
-  calendarDate: date, totalKilocalories: 2600, activeKilocalories: 560, bmrKilocalories: 2040, totalSteps: 8000,
-  restingHeartRate: 52, averageStressLevel: 30, bodyBatteryHighestValue: 85, bodyBatteryLowestValue: 12,
-  avgWakingRespirationValue: 14, averageSpo2: 95, ...over,
+const SUMMARY = (steps: number) => ({
+  restingHeartRate: 52,
+  totalSteps: steps,
+  averageStressLevel: 31,
+  bodyBatteryHighestValue: 88,
+  bodyBatteryLowestValue: 14,
+  totalKilocalories: 2650,
+  activeKilocalories: 612,
+  bmrKilocalories: 2038,
 });
-const sleepItem = (date: string) => ({ calendarDate: date, sleepTimeSeconds: 27000, deepSleepSeconds: 5400, lightSleepSeconds: 14400, remSleepSeconds: 5400, awakeSleepSeconds: 1800, averageSpO2Value: 93, averageRespirationValue: 13 });
-const pathDates = (path: string): [string, string] => {
-  const m = /(\d{4}-\d{2}-\d{2})\/(\d{4}-\d{2}-\d{2})$/.exec(path)!;
-  return [m[1]!, m[2]!];
-};
+const SLEEP = { avgOvernightHrv: 70, dailySleepDTO: { sleepTimeSeconds: 27000, deepSleepSeconds: 3600, sleepScores: { overall: { value: 81 } } } };
+const HRV = { hrvSummary: { lastNightAvg: 64, status: 'BALANCED' } };
+const ACTIVITY = (id: number, date: string) => ({ activityId: id, activityName: 'Run', startTimeLocal: `${date} 07:00:00`, duration: 1800, calories: 300, activityType: { typeKey: 'running' } });
 
-function baseRoutes(): Route[] {
-  return [
-    [P.summaries, (c) => ({ data: eachDate(String(c.params!.startDate), String(c.params!.endDate)).map((d) => summaryItem(d)) })],
-    [P.sleep, (c) => eachDate(String(c.params!.startDate), String(c.params!.endDate)).map(sleepItem)],
-    [P.hrv, (c) => ({ hrvSummaries: eachDate(...pathDates(c.path)).map((d) => ({ calendarDate: d, lastNightAvg: 60, weeklyAvg: 58, status: 'BALANCED' })) })],
-    [P.weight, (c) => eachDate(...pathDates(c.path)).filter((_, i) => i % 3 === 0).map((d) => ({ calendarDate: d, weight: 72500, bodyFat: 18.5, timestampGMT: Date.parse(`${d}T06:00:00Z`) }))],
-    [P.activities, (c) => (c.params!.start === 0 ? [{ activityId: 1, activityName: 'Run', startTimeGMT: '2026-11-05 06:00:00', activityType: { typeKey: 'running' }, duration: 1800, calories: 300, distance: 5000 }] : [])],
-  ];
+interface Script {
+  profile?: () => GarminReply | Error;
+  summary?: (date: string) => GarminReply | Error;
+  sleep?: (date: string) => GarminReply | Error;
+  hrv?: (date: string) => GarminReply | Error;
+  weight?: () => GarminReply | Error;
+  activities?: (start: number) => GarminReply | Error;
 }
-const make = (...over: Route[]) => createFakeClient([...over, ...baseRoutes()]);
-const count = (c: { paths(): string[] }, p: string | RegExp): number => c.paths().filter((x) => (typeof p === 'string' ? x === p : p.test(x))).length;
 
-describe('request planning', () => {
-  it('fetches everything with the minimum number of calls (one per endpoint for 7 days)', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: ALL });
-    expect(c.paths()).toEqual([
-      P.summaries,
-      P.sleep,
-      '/hrv-service/hrv/daily/2026-11-03/2026-11-09',
-      '/weight-service/weight/all/2026-11-03/2026-11-09',
-      P.activities,
+function fakeClient(script: Script = {}) {
+  const log: string[] = [];
+  const run = async (label: string, fn: (() => GarminReply | Error) | undefined, dflt: GarminReply): Promise<GarminReply> => {
+    log.push(label);
+    const r = fn ? fn() : dflt;
+    if (r instanceof Error) throw r;
+    return r;
+  };
+  const client: GarminSyncSource = {
+    profile: () => run('profile', script.profile, ok({ displayName: 'user-1' })),
+    userSummary: (name, date) => run(`summary ${name} ${date}`, script.summary && (() => script.summary!(date)), ok(SUMMARY(9000))),
+    sleep: (name, date) => run(`sleep ${name} ${date}`, script.sleep && (() => script.sleep!(date)), ok(SLEEP)),
+    hrv: (date) => run(`hrv ${date}`, script.hrv && (() => script.hrv!(date)), ok(HRV)),
+    weightRange: (a, b) => run(`weight ${a} ${b}`, script.weight, ok({ dateWeightList: [{ samplePk: 1, calendarDate: b, weight: 81500 }] })),
+    activities: (start, limit) => run(`activities ${start} ${limit}`, script.activities && (() => script.activities!(start)), ok([])),
+  };
+  return { client, log };
+}
+
+async function run(script: Script, extra: Partial<Parameters<typeof runGarminSync>[0]> = {}) {
+  const { client, log } = fakeClient(script);
+  const batches: GarminBatch[] = [];
+  const outcome = await runGarminSync({
+    client,
+    range: { from: '2026-11-08', to: '2026-11-10' },
+    onBatch: async (b) => void batches.push(b),
+    now: () => 1_000,
+    ...extra,
+  });
+  return { outcome, log, batches };
+}
+
+describe('the walk', () => {
+  it('reads the profile first, then activities and weight, then each day newest first (3 requests a day)', async () => {
+    const { outcome, log } = await run({});
+    expect(log).toEqual([
+      'profile',
+      'activities 0 50',
+      'weight 2026-11-08 2026-11-10',
+      'summary user-1 2026-11-10',
+      'sleep user-1 2026-11-10',
+      'hrv 2026-11-10',
+      'summary user-1 2026-11-09',
+      'sleep user-1 2026-11-09',
+      'hrv 2026-11-09',
+      'summary user-1 2026-11-08',
+      'sleep user-1 2026-11-08',
+      'hrv 2026-11-08',
     ]);
-    expect(r.requestCount).toBe(5);
-    expect(r.errors).toEqual([]);
-    expect(r.energy).toHaveLength(7);
-    expect(r.energy[0]).toEqual({ date: '2026-11-03', activeKcal: 560, restingKcal: 2040, totalKcal: 2600, steps: 8000 });
-    const n = (t: string) => r.biometrics.filter((b) => b.type === t).length;
-    expect(['resting_heart_rate', 'stress', 'body_battery', 'respiration_rate', 'spo2', 'sleep', 'hrv'].map(n)).toEqual([7, 7, 7, 7, 7, 7, 7]);
-    expect(n('weight')).toBe(3);
-    expect(n('body_fat')).toBe(3);
-    expect(r.workouts).toHaveLength(1);
-    expect(r.workouts[0]).toMatchObject({ externalId: 'garmin:activity:1', typeKey: 'running', kcal: 300 });
+    expect(outcome.status).toBe('complete');
+    expect(outcome.counts.daysRead).toBe(3);
   });
-  it('issues the right query parameters', async () => {
-    const c = make();
-    await fetchGarminData(c, { from: FROM, to: TO, include: ALL });
-    expect(c.calls[0]!.params).toEqual({ startDate: FROM, endDate: TO });
-    expect(c.calls[1]!.params).toEqual({ startDate: FROM, endDate: TO });
-    expect(c.calls[4]!.params).toEqual({ start: 0, limit: 100, startDate: FROM, endDate: TO });
+
+  it('hands over the data as it goes: workouts, weigh-ins, then one batch per day with its energy', async () => {
+    const { outcome, batches } = await run({ activities: () => ok([ACTIVITY(1, '2026-11-09'), ACTIVITY(2, '2026-10-01')]) });
+    expect(batches.map((b) => b.label)).toEqual(['activities', 'weight', '2026-11-10', '2026-11-09', '2026-11-08']);
+    expect(batches[0]?.workouts.map((w) => w.externalId)).toEqual(['garmin:activity:1']); // the October one is outside the range
+    expect(batches[1]?.biometrics.map((b) => b.type)).toEqual(['weight']);
+    const day = batches[2] as GarminBatch;
+    expect(day.energy).toEqual([{ date: '2026-11-10', activeKcal: 612, restingKcal: 2038, totalKcal: 2650, steps: 9000 }]);
+    expect(day.biometrics.map((b) => b.type).sort()).toEqual(['body_battery', 'hrv', 'resting_heart_rate', 'sleep', 'sleep_score', 'stress']);
+    expect(outcome.counts).toMatchObject({ energyDays: 3, workouts: 1, daysRead: 3 });
+    expect(outcome.counts.biometrics).toMatchObject({ weight: 1, sleep: 3, hrv: 3, stress: 3, resting_heart_rate: 3 });
   });
-  it('only energy: a single daily-summaries call', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { energy: true } });
-    expect(c.paths()).toEqual([P.summaries]);
-    expect(r.energy).toHaveLength(7);
-    expect(r.biometrics).toEqual([]);
+
+  it('pages through the activities while they still reach into the range', async () => {
+    const page = (n: number, date: string, base: number) => ok(Array.from({ length: n }, (_, i) => ACTIVITY(base + i, date)));
+    const { log, batches } = await run({
+      activities: (start) => (start === 0 ? page(50, '2026-11-09', 100) : start === 50 ? page(50, '2026-11-08', 200) : page(10, '2026-10-01', 300)),
+    });
+    expect(log.filter((l) => l.startsWith('activities'))).toEqual(['activities 0 50', 'activities 50 50', 'activities 100 50']);
+    expect(batches[0]?.workouts).toHaveLength(100);
   });
-  it('summary-backed types share one call', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { restingHr: true, spo2: true, respiration: true, stress: true, bodyBattery: true } });
-    expect(c.paths()).toEqual([P.summaries]);
-    expect(r.energy).toEqual([]);
-    expect(new Set(r.biometrics.map((b) => b.type))).toEqual(new Set(['resting_heart_rate', 'spo2', 'respiration_rate', 'stress', 'body_battery']));
+
+  it('stops paging at a short page or once a page reaches back before the range', async () => {
+    const full = ok(Array.from({ length: 50 }, (_, i) => ACTIVITY(i + 1, '2026-10-01')));
+    const old = await run({ activities: () => full });
+    expect(old.log.filter((l) => l.startsWith('activities'))).toHaveLength(1);
+    const short = await run({ activities: () => ok([ACTIVITY(1, '2026-11-09')]) });
+    expect(short.log.filter((l) => l.startsWith('activities'))).toHaveLength(1);
   });
-  it('nothing included -> no requests', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: {} });
-    expect(c.calls).toHaveLength(0);
-    expect(r).toMatchObject({ energy: [], workouts: [], biometrics: [], diagnostics: [], errors: [], requestCount: 0 });
+
+  it('caps the activity pages', async () => {
+    const full = ok(Array.from({ length: 50 }, (_, i) => ACTIVITY(i + 1, '2026-11-09')));
+    const { log } = await run({ activities: () => full }, { maxActivityPages: 2 });
+    expect(log.filter((l) => l.startsWith('activities'))).toHaveLength(2);
   });
-  it('each include flag maps to exactly its endpoint', async () => {
-    const cases: Array<[keyof GarminSyncInclude, string | RegExp]> = [['sleep', P.sleep], ['hrv', P.hrv], ['weight', P.weight], ['bodyFat', P.weight], ['workouts', P.activities]];
-    for (const [flag, path] of cases) {
-      const c = make();
-      await fetchGarminData(c, { from: FROM, to: TO, include: { [flag]: true } });
-      expect(c.calls).toHaveLength(1);
-      expect(count(c, path)).toBe(1);
+
+  it('treats 404 / 403 and empty bodies as "no data": no batch, no problem', async () => {
+    const { outcome, batches, log } = await run({
+      summary: () => noData(),
+      sleep: () => new GarminError({ kind: 'http', status: 403 }),
+      hrv: () => EMPTY,
+      weight: () => EMPTY,
+      activities: () => EMPTY,
+    });
+    expect(outcome.status).toBe('complete');
+    expect(batches).toEqual([]);
+    expect(outcome.report.notes).toEqual([]);
+    expect(log).toHaveLength(12);
+    const hrv = outcome.report.endpoints.find((e) => e.endpoint === 'hrv');
+    expect(hrv).toMatchObject({ requests: 3, results: { empty: 3 }, records: 0 });
+    expect(outcome.report.endpoints.find((e) => e.endpoint === 'userSummary')?.results).toEqual({ 'HTTP 404': 3 });
+  });
+
+  it('falls back to the sleep reply\'s overnight HRV when the HRV endpoint has nothing for a night', async () => {
+    const { batches, outcome } = await run({ hrv: () => EMPTY });
+    const hrv = batches[2]?.biometrics.filter((b) => b.type === 'hrv') ?? [];
+    expect(hrv).toHaveLength(1);
+    expect(hrv[0]).toMatchObject({ value: 70, meta: { from: 'sleep' } });
+    expect(outcome.report.notes.join(' ')).toContain('overnight average of the sleep reply');
+  });
+
+  it('does not ask for summary / sleep without a displayName, but still reads hrv, weight and activities', async () => {
+    const { log, outcome } = await run({ profile: () => new GarminError({ kind: 'server', status: 500 }) });
+    expect(log.some((l) => l.startsWith('summary') || l.startsWith('sleep'))).toBe(false);
+    expect(log.filter((l) => l.startsWith('hrv'))).toHaveLength(3);
+    expect(outcome.status).toBe('complete');
+    expect(outcome.report.notes.join(' ')).toContain('no displayName');
+  });
+
+  it('an empty range (from after to) sends only the profile request', async () => {
+    const { log, outcome } = await run({}, { range: { from: '2026-11-10', to: '2026-11-09' } });
+    expect(log).toEqual(['profile']);
+    expect(outcome.report.days).toBe(0);
+  });
+
+  it('reports progress', async () => {
+    const seen: string[] = [];
+    await run({}, { onProgress: (p) => void seen.push(`${p.step}:${p.date ?? ''}:${p.daysDone}/${p.daysTotal}`) });
+    expect(seen[0]).toBe('profile::0/3');
+    expect(seen).toContain('day:2026-11-10:0/3');
+    expect(seen.at(-1)).toBe('day:2026-11-08:3/3');
+  });
+});
+
+describe('when the run has to stop', () => {
+  it('a 429 stops everything, remembers Retry-After, and keeps what was already delivered', async () => {
+    let days = 0;
+    const { outcome, batches, log } = await run({
+      summary: () => {
+        days += 1;
+        return days === 2 ? new GarminError({ kind: 'rate_limited', status: 429, retryAfterSeconds: 90 }) : ok(SUMMARY(5000));
+      },
+    });
+    expect(outcome.status).toBe('stopped');
+    expect(outcome.report.stop).toMatchObject({ kind: 'rate_limited', endpoint: 'userSummary', retryAfterSec: 90 });
+    expect(batches.map((b) => b.label)).toEqual(['weight', '2026-11-10']); // no activities batch: the list was empty
+    expect(log.filter((l) => l.startsWith('summary'))).toHaveLength(2);
+    expect(log.some((l) => l.includes('user-1 2026-11-08'))).toBe(false);
+  });
+
+  it('keeps what the stopped day already returned: its energy survives a 429 on the sleep request', async () => {
+    const { outcome, batches } = await run({ sleep: (d) => (d === '2026-11-09' ? new GarminError({ kind: 'rate_limited', status: 429 }) : ok(SLEEP)) });
+    expect(outcome.status).toBe('stopped');
+    expect(outcome.report.stop).toMatchObject({ kind: 'rate_limited', endpoint: 'sleep' });
+    expect(batches.map((b) => b.label)).toEqual(['weight', '2026-11-10', '2026-11-09']);
+    const partial = batches.at(-1) as GarminBatch;
+    expect(partial.energy).toHaveLength(1); // the user summary of 2026-11-09 was read before the sleep request failed
+    expect(partial.biometrics.some((b) => b.type === 'sleep')).toBe(false);
+  });
+
+  it('a dead session, an unauthorized token, a dropped network and a failed token save each end the run', async () => {
+    for (const kind of ['session_dead', 'unauthorized', 'network', 'timeout', 'storage'] as const) {
+      const { outcome, log } = await run({ sleep: () => new GarminError({ kind, status: kind === 'session_dead' ? 401 : undefined }) });
+      expect(outcome.status, kind).toBe('stopped');
+      expect(outcome.report.stop?.kind, kind).toBe(kind);
+      expect(log.filter((l) => l.startsWith('summary')), kind).toHaveLength(1);
     }
   });
-  it('chunks long ranges by each endpoint limit (90 days)', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: '2026-08-12', to: '2026-11-09', include: ALL });
-    expect(count(c, P.summaries)).toBe(1);
-    expect(count(c, P.sleep)).toBe(3);
-    expect(count(c, P.hrv)).toBe(4);
-    expect(count(c, P.weight)).toBe(3);
-    expect(count(c, P.activities)).toBe(1);
-    expect(r.requestCount).toBe(12);
-    expect(r.energy).toHaveLength(90);
-    expect(r.biometrics.filter((b) => b.type === 'sleep')).toHaveLength(90);
-    expect(r.biometrics.filter((b) => b.type === 'hrv')).toHaveLength(90);
+
+  it('one server error on one day is a note, not a stop', async () => {
+    const { outcome } = await run({ hrv: (d) => (d === '2026-11-09' ? new GarminError({ kind: 'server', status: 503 }) : ok(HRV)) });
+    expect(outcome.status).toBe('complete');
+    expect(outcome.report.endpoints.find((e) => e.endpoint === 'hrv')?.results).toEqual({ ok: 2, 'server error (HTTP 503)': 1 });
   });
-  it('splits daily summaries above one year', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: '2025-10-01', to: '2026-11-04', include: { energy: true } });
-    expect(count(c, P.summaries)).toBe(2);
-    expect(r.energy).toHaveLength(400);
+
+  it('three days in a row with a server error mean Garmin is down: stop', async () => {
+    const { outcome } = await run({ summary: () => new GarminError({ kind: 'server', status: 502 }) });
+    expect(outcome.status).toBe('stopped');
+    expect(outcome.report.stop?.kind).toBe('server');
+    expect(outcome.counts.daysRead).toBe(3);
   });
-  it('paginates workouts', async () => {
-    const page = (start: number, n: number) => Array.from({ length: n }, (_, i) => ({ activityId: start + i, startTimeGMT: '2026-11-05 06:00:00', duration: 600 }));
-    const c = make([P.activities, (call) => page(Number(call.params!.start), call.params!.start === 200 ? 50 : 100)]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { workouts: true } });
-    expect(count(c, P.activities)).toBe(3);
-    expect(r.workouts).toHaveLength(250);
-    expect(r.requestCount).toBe(3);
+
+  it('a day without a server error resets the streak', async () => {
+    const { outcome } = await run(
+      { summary: (d) => (d === '2026-11-09' ? ok(SUMMARY(1000)) : new GarminError({ kind: 'server', status: 502 })) },
+      { range: { from: '2026-11-07', to: '2026-11-10' } },
+    );
+    expect(outcome.status).toBe('complete');
   });
-  it('rejects from > to and invalid dates without any request', async () => {
-    const c = make();
-    await expect(fetchGarminData(c, { from: TO, to: FROM, include: ALL })).rejects.toMatchObject({ kind: 'bad_request' });
-    await expect(fetchGarminData(c, { from: 'x', to: TO, include: ALL })).rejects.toBeInstanceOf(GarminError);
-    expect(c.calls).toHaveLength(0);
+
+  it('can be cancelled between requests', async () => {
+    let n = 0;
+    const { outcome, log } = await run({}, { isCancelled: () => ++n > 4 });
+    expect(outcome.status).toBe('cancelled');
+    expect(log.length).toBeLessThan(12);
   });
-  it('a one-day range works', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: TO, to: TO, include: { energy: true, sleep: true } });
-    expect(r.energy).toHaveLength(1);
-    expect(c.calls).toHaveLength(2);
+
+  it('a failing sink ends the run (nothing more is requested) and the error is handed back', async () => {
+    const { client, log } = fakeClient({});
+    const boom = new Error('JWT expired');
+    const outcome = await runGarminSync({
+      client,
+      range: { from: '2026-11-08', to: '2026-11-10' },
+      onBatch: async () => {
+        throw boom;
+      },
+    });
+    expect(outcome.status).toBe('stopped');
+    expect(outcome.report.stop).toMatchObject({ kind: 'storage', endpoint: 'writer' });
+    expect(outcome.writeError).toBe(boom);
+    expect(log.length).toBeLessThan(12);
   });
 });
 
-describe('output', () => {
-  it('is sorted and de-duplicated', async () => {
-    const c = make(
-      [P.summaries, () => ({ data: [summaryItem('2026-11-05'), summaryItem('2026-11-03'), summaryItem('2026-11-05', { totalSteps: 9999 })] })],
-    );
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { energy: true, restingHr: true } });
-    expect(r.energy.map((e) => e.date)).toEqual(['2026-11-03', '2026-11-05']);
-    expect(r.energy[1]!.steps).toBe(9999);
-    expect(r.biometrics.map((b) => b.date)).toEqual(['2026-11-03', '2026-11-05']);
+describe('end to end with the real client and a fake fetch', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', () => {
+      throw new Error('the real fetch must never be called in tests');
+    });
   });
-  it('merges diagnostics across chunks (counts add up)', async () => {
-    const c = make([P.summaries, (call) => ({ data: eachDate(String(call.params!.startDate), String(call.params!.endDate)).map((d) => ({ calendarDate: d, totalSteps: 1 })) })]);
-    const r = await fetchGarminData(c, { from: '2025-10-01', to: '2026-11-04', include: { energy: true } });
-    const d = r.diagnostics.find((x) => x.field === 'activeKcal' && x.reason === 'missing')!;
-    expect(d.count).toBe(400);
-    expect(d.of).toBe(400);
-    expect(r.coverage.find((x) => x.field === 'steps')).toMatchObject({ total: 400, found: 400 });
-  });
-  it('never lets diagnostics from disabled groups leak in', async () => {
-    const c = make([P.summaries, () => ({ data: [{ calendarDate: FROM }] })]);
-    const r = await fetchGarminData(c, { from: FROM, to: FROM, include: { stress: true } });
-    expect(r.diagnostics.map((d) => d.field).filter((f) => f !== 'date')).toEqual(['stress']);
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('sends only sequential, paced GET requests to connectapi.garmin.com', async () => {
+    const clock = createClock();
+    const fake = createFakeFetch((c) => {
+      const path = c.url.slice(CONNECT_API_BASE.length);
+      if (path.startsWith('/userprofile-service/socialProfile')) return json(200, { displayName: 'user-1' });
+      if (path.startsWith('/usersummary-service/usersummary/daily/')) return json(200, SUMMARY(8000));
+      if (path.startsWith('/wellness-service/wellness/dailySleepData/')) return json(200, SLEEP);
+      if (path.startsWith('/hrv-service/hrv/')) return reply(200, '');
+      if (path.startsWith('/weight-service/weight/dateRange')) return json(200, { dateWeightList: [] });
+      if (path.startsWith('/activitylist-service/activities/search/activities')) return json(200, [ACTIVITY(5, '2026-11-10')]);
+      return reply(404);
+    });
+    const client = new GarminConnectClient({
+      fetch: fake.fetch,
+      tokens: { diToken: accessToken(3600), diRefreshToken: REFRESH_TOKEN, diClientId: DEFAULT_CLIENT_ID },
+      now: clock.now,
+      sleep: clock.sleep,
+    });
+    const batches: GarminBatch[] = [];
+    const outcome = await runGarminSync({
+      client,
+      range: { from: '2026-11-08', to: '2026-11-10' },
+      onBatch: async (b) => void batches.push(b),
+      now: clock.now,
+    });
+    expect(outcome.status).toBe('complete');
+    expect(fake.calls).toHaveLength(12); // profile + activities + weight + 3 days x 3
+    expect(fake.maxInFlight()).toBe(1);
+    for (const c of fake.calls) {
+      expect(c.init.method).toBe('GET');
+      expect(c.url.startsWith(`${CONNECT_API_BASE}/`)).toBe(true);
+      expect(c.url).not.toBe(DI_TOKEN_URL);
+    }
+    expect(clock.sleeps).toEqual(Array(11).fill(250));
+    expect(batches.at(0)?.workouts).toHaveLength(1);
+    // the empty HRV bodies were "no data": HRV comes from the sleep reply instead
+    expect(batches.at(-1)?.biometrics.some((b) => b.type === 'hrv')).toBe(true);
   });
 });
 
-describe('errors', () => {
-  it('collects a failing chunk and keeps the rest', async () => {
-    const c = make([P.sleep, (call) => (call.params!.startDate === '2026-09-12' ? new GarminError({ kind: 'server', status: 503 }) : eachDate(String(call.params!.startDate), String(call.params!.endDate)).map(sleepItem))]);
-    const r = await fetchGarminData(c, { from: '2026-08-12', to: '2026-11-09', include: { sleep: true, energy: true } });
-    expect(r.errors).toEqual([{ endpoint: 'sleep', start: '2026-09-12', end: '2026-10-12', kind: 'server', status: 503, retryable: true, message: expect.any(String) }]);
-    expect(r.biometrics.filter((b) => b.type === 'sleep')).toHaveLength(90 - 31);
-    expect(r.energy).toHaveLength(90);
+describe('the report', () => {
+  it('counts requests and outcomes per endpoint, and merges the field coverage over all days', async () => {
+    const { outcome } = await run({});
+    const byName = Object.fromEntries(outcome.report.endpoints.map((e) => [e.endpoint, e]));
+    expect(byName.profile).toMatchObject({ requests: 1, results: { ok: 1 }, records: 1 });
+    expect(byName.userSummary).toMatchObject({ requests: 3, results: { ok: 3 }, records: 3 });
+    expect(byName.sleep).toMatchObject({ requests: 3, records: 3 });
+    expect(byName.weight).toMatchObject({ requests: 1, records: 1 });
+    expect(outcome.report.endpoints.map((e) => e.endpoint)).toEqual(['profile', 'activities', 'weight', 'userSummary', 'sleep', 'hrv']);
+    const steps = outcome.report.coverage.find((c) => c.endpoint === 'userSummary' && c.field === 'steps');
+    expect(steps).toMatchObject({ total: 3, found: 3, matchedBy: { totalSteps: 3 } });
+    expect(outcome.report.range).toEqual({ from: '2026-11-08', to: '2026-11-10' });
   });
-  it('a 403 (missing scope) on one endpoint is collected, the sync goes on', async () => {
-    const c = make([P.hrv, () => new GarminError({ kind: 'unauthorized', status: 403 })]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { hrv: true, sleep: true, energy: true } });
-    expect(r.errors).toHaveLength(1);
-    expect(r.errors[0]).toMatchObject({ endpoint: 'hrv', kind: 'unauthorized', status: 403 });
-    expect(r.energy).toHaveLength(7);
-    expect(r.biometrics.some((b) => b.type === 'sleep')).toBe(true);
-  });
-  it('a bad key aborts immediately', async () => {
-    const err = new GarminError({ kind: 'invalid_key', status: 401 });
-    const c = make([P.summaries, () => err]);
-    await expect(fetchGarminData(c, { from: FROM, to: TO, include: ALL })).rejects.toBe(err);
-    expect(c.calls).toHaveLength(1);
-  });
-  it('a persistent 401 on a later endpoint aborts the rest', async () => {
-    const err = new GarminError({ kind: 'unauthorized', status: 401 });
-    const c = make([P.sleep, () => err]);
-    await expect(fetchGarminData(c, { from: FROM, to: TO, include: ALL })).rejects.toBe(err);
-    expect(c.paths()).toEqual([P.summaries, P.sleep]);
-  });
-  it('expired/revoked keys abort', async () => {
-    const c = make([P.activities, () => new GarminError({ kind: 'key_expired_or_revoked' })]);
-    await expect(fetchGarminData(c, { from: FROM, to: TO, include: ALL })).rejects.toMatchObject({ kind: 'key_expired_or_revoked' });
-  });
-  it('network and rate-limit failures are collected, not fatal', async () => {
-    const c = make([P.summaries, () => new GarminError({ kind: 'network' })], [P.sleep, () => new GarminError({ kind: 'rate_limited', status: 429, retryAfterSeconds: 30 })]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { energy: true, sleep: true, hrv: true }, fallbacks: { rangedEndpoints: false } });
-    expect(r.errors.map((e) => e.kind).sort()).toEqual(['network', 'rate_limited']);
-    expect(r.biometrics.filter((b) => b.type === 'hrv')).toHaveLength(7);
-  });
-  it('unexpected exceptions from the client are collected as unexpected errors', async () => {
-    const c = make([P.hrv, () => new TypeError('bug in transport')]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { hrv: true } });
-    expect(r.errors[0]).toMatchObject({ endpoint: 'hrv', kind: 'unexpected' });
-  });
-});
 
-describe('fallbacks', () => {
-  const noBodyBattery = (date: string) => summaryItem(date, { bodyBatteryHighestValue: undefined, bodyBatteryLowestValue: undefined });
-  const summariesWithout = (fields: string[]): Route => [
-    P.summaries,
-    (c) => ({
-      data: eachDate(String(c.params!.startDate), String(c.params!.endDate)).map((d) => {
-        const item: Record<string, unknown> = summaryItem(d);
-        for (const f of fields) delete item[f];
-        return item;
-      }),
-    }),
-  ];
-  const bbReport = (c: { params?: Record<string, unknown> }) =>
-    eachDate(String(c.params!.startDate), String(c.params!.endDate)).map((d) => ({ date: d, charged: 50, drained: 60, bodyBatteryValuesArray: [[1, 'M', 20, 2], [2, 'M', 90, 2]], bodyBatteryValueDescriptorDTOList: [{ bodyBatteryValueDescriptorIndex: 2, bodyBatteryValueDescriptorKey: 'bodyBatteryLevel' }] }));
-
-  it('does NOT call fallback endpoints when the summaries are complete', async () => {
-    const c = make();
-    await fetchGarminData(c, { from: FROM, to: TO, include: ALL, fallbacks: { perDayEndpoints: true } });
-    for (const p of [P.bodyBattery, P.stress, P.steps, P.hr, P.spo2]) expect(count(c, p)).toBe(0);
-  });
-  it('body battery comes from the ranged report when the summaries lack it', async () => {
-    const c = make(summariesWithout(['bodyBatteryHighestValue', 'bodyBatteryLowestValue']), [P.bodyBattery, bbReport]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { bodyBattery: true } });
-    expect(c.paths()).toEqual([P.summaries, P.bodyBattery]);
-    expect(c.calls[1]!.params).toEqual({ startDate: FROM, endDate: TO });
-    expect(r.biometrics.filter((b) => b.type === 'body_battery')).toHaveLength(7);
-    expect(r.biometrics[0]!.value).toBe(90);
-    expect(r.requestCount).toBe(2);
-  });
-  it('stress comes from the stats endpoint when missing', async () => {
-    const c = make(summariesWithout(['averageStressLevel']), [P.stress, (call) => eachDate(...pathDates(call.path)).map((d) => ({ calendarDate: d, values: { overallStressLevel: 33 } }))]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { stress: true } });
-    expect(c.paths()).toEqual([P.summaries, '/usersummary-service/stats/stress/daily/2026-11-03/2026-11-09']);
-    expect(r.biometrics.filter((b) => b.type === 'stress')).toHaveLength(7);
-  });
-  it('steps come from the stats endpoint when missing, merged into the same energy rows', async () => {
-    const c = make(summariesWithout(['totalSteps']), [P.steps, (call) => eachDate(...pathDates(call.path)).map((d) => ({ calendarDate: d, totalSteps: 7000 }))]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { energy: true } });
-    expect(count(c, P.steps)).toBe(1);
-    expect(r.energy).toHaveLength(7);
-    expect(r.energy[0]).toEqual({ date: '2026-11-03', activeKcal: 560, restingKcal: 2040, totalKcal: 2600, steps: 7000 });
-  });
-  it('ranged fallbacks can be disabled', async () => {
-    const c = make(summariesWithout(['bodyBatteryHighestValue']));
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { bodyBattery: true }, fallbacks: { rangedEndpoints: false } });
-    expect(c.paths()).toEqual([P.summaries]);
-    expect(r.diagnostics.some((d) => d.field === 'bodyBatteryHigh' && d.reason === 'missing')).toBe(true);
-  });
-  it('fallback chunking follows the fallback endpoint limit and skips chunks with no missing dates', async () => {
-    // 60 days, body battery missing only for the first and the last 3 days -> chunks of 31: [1..31] and [32..60]
-    const dates = eachDate('2026-09-11', '2026-11-09');
-    const c = make(
-      [P.summaries, () => ({ data: dates.map((d, i) => (i < 3 || i >= 57 ? noBodyBattery(d) : summaryItem(d))) })],
-      [P.bodyBattery, bbReport],
-    );
-    await fetchGarminData(c, { from: '2026-09-11', to: '2026-11-09', include: { bodyBattery: true } });
-    expect(count(c, P.bodyBattery)).toBe(2);
-    // missing only at the very start -> one fallback request
-    const c2 = make([P.summaries, () => ({ data: dates.map((d, i) => (i < 3 ? noBodyBattery(d) : summaryItem(d))) })], [P.bodyBattery, bbReport]);
-    await fetchGarminData(c2, { from: '2026-09-11', to: '2026-11-09', include: { bodyBattery: true } });
-    expect(count(c2, P.bodyBattery)).toBe(1);
-    expect(c2.calls[1]!.params).toEqual({ startDate: '2026-09-11', endDate: '2026-09-13' }); // only the span with missing days
-  });
-  it('per-day fallbacks are off by default', async () => {
-    const c = make(summariesWithout(['restingHeartRate', 'averageSpo2']));
-    await fetchGarminData(c, { from: FROM, to: TO, include: { restingHr: true, spo2: true } });
-    expect(c.paths()).toEqual([P.summaries]);
-  });
-  it('per-day fallbacks fetch only the dates that lack the field, when enabled', async () => {
-    const dates = eachDate(FROM, TO);
-    const c = make(
-      [P.summaries, () => ({ data: dates.map((d, i) => summaryItem(d, i % 2 === 0 ? { restingHeartRate: undefined } : {})) })],
-      [P.hr, (call) => ({ calendarDate: call.params!.date, restingHeartRate: 49 })],
-    );
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { restingHr: true }, fallbacks: { perDayEndpoints: true } });
-    expect(count(c, P.hr)).toBe(4);
-    expect(c.calls.filter((x) => x.path === P.hr).map((x) => x.params!.date)).toEqual(['2026-11-03', '2026-11-05', '2026-11-07', '2026-11-09']);
-    const rhr = r.biometrics.filter((b) => b.type === 'resting_heart_rate');
-    expect(rhr).toHaveLength(7);
-    expect(rhr.find((b) => b.date === '2026-11-03')!.value).toBe(49);
-    expect(rhr.find((b) => b.date === '2026-11-04')!.value).toBe(52);
-  });
-  it('caps per-day fallbacks', async () => {
-    const c = make(summariesWithout(['restingHeartRate']), [P.hr, (call) => ({ calendarDate: call.params!.date, restingHeartRate: 49 })]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { restingHr: true }, fallbacks: { perDayEndpoints: true, maxPerDayRequests: 3 } });
-    expect(count(c, P.hr)).toBe(3);
-    expect(r.biometrics.filter((b) => b.type === 'resting_heart_rate')).toHaveLength(3);
-    const none = make(summariesWithout(['restingHeartRate']));
-    await fetchGarminData(none, { from: FROM, to: TO, include: { restingHr: true }, fallbacks: { perDayEndpoints: true, maxPerDayRequests: 0 } });
-    expect(count(none, P.hr)).toBe(0);
-  });
-  it('SpO2 per-day fallback uses the spo2 endpoint', async () => {
-    const c = make(summariesWithout(['averageSpo2']), [P.spo2, (call) => ({ calendarDate: call.path.split('/').pop(), averageSpO2: 94 })]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { spo2: true }, fallbacks: { perDayEndpoints: true } });
-    expect(count(c, P.spo2)).toBe(7);
-    expect(r.biometrics.filter((b) => b.type === 'spo2').every((b) => b.value === 94)).toBe(true);
-  });
-  it('night-time SpO2 and respiration from the sleep response fill gaps for free (flagged)', async () => {
-    const c = make(summariesWithout(['averageSpo2', 'avgWakingRespirationValue']));
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { spo2: true, respiration: true, sleep: true }, fallbacks: { perDayEndpoints: true } });
-    expect(c.paths()).toEqual([P.summaries, P.sleep]);
-    const spo2 = r.biometrics.filter((b) => b.type === 'spo2');
-    expect(spo2).toHaveLength(7);
-    expect(spo2[0]).toMatchObject({ value: 93, meta: { source: 'sleep' }, externalId: 'garmin:spo2:2026-11-03' });
-    expect(r.biometrics.filter((b) => b.type === 'respiration_rate')).toHaveLength(7);
-    expect(r.diagnostics.some((d) => d.endpoint === 'sleep' && d.field === 'spo2' && d.reason === 'fallback_used' && d.count === 7)).toBe(true);
-  });
-  it('the sleep fallback does not override real daily values', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { spo2: true, sleep: true } });
-    expect(r.biometrics.filter((b) => b.type === 'spo2').every((b) => b.value === 95 && !b.meta)).toBe(true);
-  });
-  it('dates the summaries do not mention are not chased', async () => {
-    const dates = eachDate(FROM, TO);
-    const c = make([P.summaries, () => ({ data: dates.slice(0, 3).map((d) => summaryItem(d, { restingHeartRate: undefined })) })], [P.hr, (call) => ({ calendarDate: call.params!.date, restingHeartRate: 50 })]);
-    await fetchGarminData(c, { from: FROM, to: TO, include: { restingHr: true }, fallbacks: { perDayEndpoints: true } });
-    expect(count(c, P.hr)).toBe(3);
-  });
-  it('an empty (204) summary response triggers no fallbacks', async () => {
-    const c = make([P.summaries, () => null]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: ALL, fallbacks: { perDayEndpoints: true } });
-    for (const p of [P.bodyBattery, P.stress, P.steps, P.hr, P.spo2]) expect(count(c, p)).toBe(0);
-    expect(r.energy).toEqual([]);
-  });
-  it('a failed summaries chunk is retried through the ranged fallbacks', async () => {
-    const c = make([P.summaries, () => new GarminError({ kind: 'server', status: 500 })], [P.bodyBattery, bbReport], [P.stress, (call) => eachDate(...pathDates(call.path)).map((d) => ({ calendarDate: d, overallStressLevel: 40 }))]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { bodyBattery: true, stress: true } });
-    expect(r.errors).toHaveLength(1);
-    expect(count(c, P.bodyBattery)).toBe(1);
-    expect(count(c, P.stress)).toBe(1);
-    expect(r.biometrics.filter((b) => b.type === 'body_battery')).toHaveLength(7);
-    expect(r.biometrics.filter((b) => b.type === 'stress')).toHaveLength(7);
-  });
-  it('a failing fallback is collected too', async () => {
-    const c = make(summariesWithout(['bodyBatteryHighestValue']), [P.bodyBattery, () => new GarminError({ kind: 'server', status: 502 })]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { bodyBattery: true } });
-    expect(r.errors).toEqual([expect.objectContaining({ endpoint: 'bodyBattery', kind: 'server' })]);
-  });
-});
-
-describe('weight', () => {
-  it('bodyFat only: no weight rows', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { bodyFat: true } });
-    expect(r.biometrics.every((b) => b.type === 'body_fat')).toBe(true);
-    expect(r.biometrics).toHaveLength(3);
-  });
-  it('weight only: no body fat rows', async () => {
-    const c = make();
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { weight: true } });
-    expect(r.biometrics.every((b) => b.type === 'weight' && b.unit === 'kg' && b.value === 72.5)).toBe(true);
-  });
-  it('falls back to weight/range when weight/all fails with a 4xx', async () => {
-    const c = make(
-      [P.weight, () => new GarminError({ kind: 'bad_request', status: 404 })],
-      [P.weightRange, (call) => ({ dailyWeightSummaries: [{ summaryDate: pathDates(call.path)[0], allWeightMetrics: [{ calendarDate: pathDates(call.path)[0], weight: 80000, timestampGMT: 1_790_000_000_000 }] }] })],
-    );
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { weight: true } });
-    expect(c.calls[1]!.params).toEqual({ includeAll: true });
-    expect(r.biometrics).toHaveLength(1);
-    expect(r.biometrics[0]!.value).toBe(80);
-    expect(r.errors).toHaveLength(1); // the original failure stays visible
-    expect(r.diagnostics.some((d) => d.endpoint === 'weight' && d.reason === 'fallback_used')).toBe(true);
-  });
-  it('falls back to weight/range when weight/all returns an unrecognisable shape', async () => {
-    const c = make([P.weight, () => ({ foo: 'bar' })], [P.weightRange, () => ({ dateWeightList: [{ calendarDate: '2026-11-04', weight: 70100 }] })]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { weight: true } });
-    expect(count(c, P.weightRange)).toBe(1);
-    expect(r.biometrics.map((b) => b.value)).toEqual([70.1]);
-  });
-  it('does not call weight/range when ranged fallbacks are off', async () => {
-    const c = make([P.weight, () => new GarminError({ kind: 'bad_request', status: 404 })]);
-    await fetchGarminData(c, { from: FROM, to: TO, include: { weight: true }, fallbacks: { rangedEndpoints: false } });
-    expect(count(c, P.weightRange)).toBe(0);
-  });
-  it('an empty weight response is simply empty', async () => {
-    const c = make([P.weight, () => []]);
-    const r = await fetchGarminData(c, { from: FROM, to: TO, include: { weight: true } });
-    expect(r.biometrics).toEqual([]);
-    expect(count(c, P.weightRange)).toBe(0);
-  });
-});
-
-describe('progress', () => {
-  it('reports every request with a monotonically growing counter', async () => {
-    const c = make();
-    const events: GarminSyncProgress[] = [];
-    const r = await fetchGarminData(c, { from: '2026-08-12', to: '2026-11-09', include: ALL, onProgress: (p) => events.push(p) });
-    expect(events).toHaveLength(r.requestCount);
-    expect(events.map((e) => e.completedRequests)).toEqual(events.map((_, i) => i + 1));
-    expect(events.every((e) => e.plannedRequests >= e.completedRequests)).toBe(true);
-    expect(events[events.length - 1]!.plannedRequests).toBe(12);
-    expect(events[0]).toMatchObject({ endpoint: 'dailySummaries', completedRequests: 1 });
-  });
-  it('planned requests grow when fallbacks are scheduled', async () => {
-    const c = make(
-      [P.summaries, (call) => ({ data: eachDate(String(call.params!.startDate), String(call.params!.endDate)).map((d) => summaryItem(d, { bodyBatteryHighestValue: undefined })) })],
-    );
-    const events: GarminSyncProgress[] = [];
-    await fetchGarminData(c, { from: FROM, to: TO, include: { bodyBattery: true }, onProgress: (p) => events.push(p) });
-    expect(events[0]!.plannedRequests).toBe(1);
-    expect(events[events.length - 1]!.plannedRequests).toBe(2);
+  it('shows a field that matched nothing as found 0', async () => {
+    const { outcome } = await run({ summary: () => ok({ restingHeartRate: 50 }) });
+    const active = outcome.report.coverage.find((c) => c.endpoint === 'userSummary' && c.field === 'activeKcal');
+    expect(active).toMatchObject({ total: 3, found: 0 });
+    expect(active?.tried).toContain('activeKilocalories');
   });
 });

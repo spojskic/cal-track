@@ -1,13 +1,20 @@
-// Day energy: consumed vs expenditure vs target. Built from the resolved targets, the profile's energy mode,
-// logged exercise, device energy rows and the thermic effect of food, using the core expenditure model.
+// Day energy: consumed vs expenditure vs target, the way Cronometer does it. Built from the resolved targets, the
+// profile's energy mode, logged exercise, device energy rows and the thermic effect of food, using the core model:
+//   Burned = BMR + adjusted baseline + tracker activity + exercise (+ TEF)
+//   Target view : remaining = (target + energy burned above the baseline) - consumed
+//   Balance view: remaining = Burned - consumed
 import { useMemo } from 'react';
 import {
   computeExpenditure,
   dedupeExercises,
+  energyRemaining,
   isDeviceDayComplete,
+  normalizeEnergySummaryMode,
   type DeviceWorkout,
   type EnergyBreakdown,
   type EnergyMode,
+  type EnergyRemaining,
+  type EnergySummaryMode,
 } from '@cal/core';
 
 import { addDays, todayISO } from '@/state/selected-date';
@@ -27,19 +34,23 @@ export interface DayEnergy {
   targetKcal: number | undefined;
   /** Expenditure split per component; undefined until targets resolve. */
   breakdown: EnergyBreakdown | undefined;
-  /** `breakdown.total` (BMR + activity + exercise + TEF). */
+  /** `breakdown.total` (BMR + adjusted baseline + tracker activity + exercise + TEF). */
   expenditureKcal: number | undefined;
   /**
-   * Energy burned ABOVE the planned maintenance (BMR + baseline activity), excluding TEF: counted exercise and,
-   * in device modes, device activity above baseline. This is what widens the day's budget.
+   * Energy burned ABOVE the baseline (`breakdown.aboveBaseline`: adjusted baseline + tracker activity + exercise -
+   * baseline), TEF excluded. This is what widens the day's budget in the Target view.
    */
   exerciseBurnedKcal: number;
   /** targetKcal + exerciseBurnedKcal. */
   budgetKcal: number | undefined;
   /** consumed - exerciseBurned (what Cronometer shows as "net"). */
   netKcal: number;
-  /** budget - consumed; negative = over. Undefined without targets. */
+  /** The view of the third circle (profile.energy_summary_mode). */
+  summaryMode: EnergySummaryMode;
+  /** Remaining for the current `summaryMode`; negative = over (Target) / surplus (Balance). Undefined without targets. */
   remainingKcal: number | undefined;
+  /** Remaining for both views: target = budget - consumed, balance = expenditure (incl. TEF) - consumed. */
+  remainingByMode: EnergyRemaining | undefined;
   /** All exercise rows of the day (manual and device). */
   exercise: ExerciseEntry[];
   /** Device energy row used for the calculation (preferred source), if any. */
@@ -82,17 +93,31 @@ const toMs = (iso: string | null): number | undefined => {
   return Number.isFinite(ms) ? ms : undefined;
 };
 
+/** Minutes of an exercise row: its duration column, else the span between its start and end, else 0 (unknown). */
+export function exerciseMinutesOf(e: Pick<ExerciseEntry, 'minutes' | 'started_at' | 'ended_at'>): number {
+  const minutes = Number(e.minutes);
+  if (Number.isFinite(minutes) && minutes > 0) return minutes;
+  const startMs = toMs(e.started_at);
+  const endMs = toMs(e.ended_at);
+  return startMs !== undefined && endMs !== undefined && endMs > startMs ? (endMs - startMs) / 60_000 : 0;
+}
+
+const sumBy = <T>(items: readonly T[], value: (item: T) => number): number => items.reduce((s, item) => s + value(item), 0);
+
 /** Pure core of {@link useDayEnergy}. */
 export function computeDayEnergy(input: Inputs) {
   const { mode, tefEnabled, consumedKcal, targets, exercise, deviceRows, deviceDayComplete = true } = input;
   const device = pickDeviceEnergy(deviceRows);
-  const hasDeviceActive = device !== undefined;
   const counted = exercise.filter((e) => e.counts_toward_energy);
 
-  // Device modes already measured device activity (workouts included): only manual entries that do not overlap a
-  // device workout may be added on top. Without device data (or in static mode) every counted entry is used.
+  // Without device data (or in static mode) every counted entry is used. Device modes with a device row: the device's
+  // daily active energy already contains its workouts, so they are NOT added as exercise kcal; they are only told
+  // apart from the general movement (tracker activity), and only manual entries that do not overlap a device workout
+  // may be added on top.
   let exerciseForEnergy: readonly ExerciseEntry[] = counted;
-  if (mode !== 'static' && hasDeviceActive) {
+  let deviceWorkoutKcal = 0;
+  let deviceWorkoutMinutes = 0;
+  if (mode !== 'static' && device !== undefined) {
     // Device workouts are stored with counts_toward_energy = false (their kcal is already inside the
     // device's daily active energy), so they must come from ALL entries, not only the counted ones.
     const workouts: DeviceWorkout[] = exercise
@@ -106,14 +131,21 @@ export function computeDayEnergy(input: Inputs) {
       .filter((e) => e.source === 'manual')
       .map((e) => ({ entry: e, startMs: toMs(e.started_at), endMs: toMs(e.ended_at) }));
     exerciseForEnergy = dedupeExercises(manual, workouts).map((m) => m.entry);
+    // Only the workouts of the source whose daily total is used are inside that total; the same session recorded by a
+    // second source (Garmin and Apple Health) must not be counted twice.
+    const own = exercise.filter((e) => e.source !== 'manual' && e.source === device.source);
+    deviceWorkoutKcal = sumBy(own, (e) => Number(e.kcal) || 0);
+    deviceWorkoutMinutes = sumBy(own, exerciseMinutesOf);
   }
-  const manualExerciseKcal = exerciseForEnergy.reduce((s, e) => s + (Number(e.kcal) || 0), 0);
+  const manualExerciseKcal = sumBy(exerciseForEnergy, (e) => Number(e.kcal) || 0);
+  const exerciseMinutes = deviceWorkoutMinutes + sumBy(exerciseForEnergy, exerciseMinutesOf);
 
   if (!targets) {
     return {
       breakdown: undefined,
       targetKcal: undefined,
       exerciseBurnedKcal: manualExerciseKcal,
+      remaining: undefined as EnergyRemaining | undefined,
     };
   }
 
@@ -123,16 +155,23 @@ export function computeDayEnergy(input: Inputs) {
     baselineActivityKcal: targets.baselineActivityKcal,
     manualExerciseKcal,
     deviceActiveKcal: device?.active_kcal ?? null,
+    deviceWorkoutKcal,
     deviceRestingKcal: device?.resting_kcal ?? null,
+    exerciseMinutes,
     deviceDayComplete,
     intakeKcal: consumedKcal,
     tefEnabled,
   });
-  const extra = breakdown.total - breakdown.tef - targets.energy.maintenance;
   return {
     breakdown,
     targetKcal: targets.energy.target,
-    exerciseBurnedKcal: Math.max(0, extra),
+    exerciseBurnedKcal: breakdown.aboveBaseline,
+    remaining: energyRemaining({
+      targetKcal: targets.energy.target,
+      aboveBaselineKcal: breakdown.aboveBaseline,
+      expenditureKcal: breakdown.total,
+      consumedKcal,
+    }),
   };
 }
 
@@ -157,6 +196,7 @@ export function useDayEnergyFrom(date: string, day: DayNutrients): DayEnergy {
   const targets = targetsQ.data;
   const mode: EnergyMode = profileQ.data?.energy_mode ?? targets?.profile.energy_mode ?? 'static';
   const tefEnabled = profileQ.data?.tef_enabled ?? targets?.profile.tef_enabled ?? true;
+  const summaryMode = normalizeEnergySummaryMode(profileQ.data?.energy_summary_mode ?? targets?.profile.energy_summary_mode);
   const exercise = exerciseQ.data ?? EMPTY_EXERCISE;
   const deviceRows = deviceQ.data ?? EMPTY_ENERGY_ROWS;
   const consumedKcal = day.kcal;
@@ -188,7 +228,9 @@ export function useDayEnergyFrom(date: string, day: DayNutrients): DayEnergy {
     exerciseBurnedKcal: computed.exerciseBurnedKcal,
     budgetKcal,
     netKcal: consumedKcal - computed.exerciseBurnedKcal,
-    remainingKcal: budgetKcal === undefined ? undefined : budgetKcal - consumedKcal,
+    summaryMode,
+    remainingKcal: computed.remaining?.[summaryMode],
+    remainingByMode: computed.remaining,
     exercise,
     deviceEnergy: device,
     deviceEnergyRows: deviceRows as DailyEnergyRow[],

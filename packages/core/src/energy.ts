@@ -1,12 +1,13 @@
-import type { ActivityLevel, BmrFormula, EnergyMode, Sex } from './types';
+import type { ActivityLevel, BmrFormula, EnergyMode, EnergySummaryMode, Sex } from './types';
 
 /*
- * Energy balance model
- * ====================
- *   total daily expenditure (TDEE) =
+ * Energy balance model (the way Cronometer computes "Energy Expenditure")
+ * ======================================================================
+ *   total daily expenditure (Burned) =
  *       BMR                              (resting, from a formula or the device)
- *     + baseline activity                (everyday movement, a fraction of BMR)
- *     + exercise                         (logged workouts, NET of resting energy)
+ *     + adjusted baseline activity       (everyday movement, a fraction of BMR; shrinks as the day is measured)
+ *     + tracker activity                 (general activity from a device, outside workouts)
+ *     + exercise                         (workouts, NET of resting energy)
  *     + thermic effect of food (TEF)     (optional, % of intake)
  *
  * Everything is kcal/day unless stated otherwise. Weights in kg, heights in cm.
@@ -202,6 +203,12 @@ export function tefKcal(intakeKcal: number, enabled: boolean, pct: number = DEFA
 
 // ------------------------------------------------------ expenditure modes
 
+/**
+ * Waking hours over which the baseline activity is spread (Cronometer: 16). Every hour of exercise "uses up" one
+ * sixteenth of the baseline: the baseline is what you do in the rest of the day, not during the workout.
+ */
+export const AWAKE_HOURS = 16;
+
 /** Inputs for {@link computeExpenditure}. All energy values in kcal/day. */
 export interface ExpenditureInput {
   mode: EnergyMode;
@@ -210,14 +217,28 @@ export interface ExpenditureInput {
   /** Baseline activity from our activity level ({@link baselineActivityKcal}). */
   baselineActivityKcal: number;
   /**
-   * Sum of manual exercise net kcal. For `device_adjusted` the caller must have
-   * already removed entries overlapping device workouts ({@link dedupeExercises}).
+   * Sum of manual exercise kcal. When a device is in use the caller must have already removed entries overlapping
+   * device workouts ({@link dedupeExercises}), otherwise the same workout would be counted twice.
    */
   manualExerciseKcal: number;
-  /** Active energy measured by a device (Apple Health / Health Connect). */
+  /**
+   * Active energy measured by a device (Apple Health / Health Connect / Garmin): the day-so-far running total. It
+   * INCLUDES the device's workouts.
+   */
   deviceActiveKcal?: number | null;
+  /**
+   * Sum of the kcal of the device-recorded workouts of the day (already inside `deviceActiveKcal`). Only read together
+   * with `deviceActiveKcal`; it is what separates "tracker activity" (general movement) from "exercise".
+   */
+  deviceWorkoutKcal?: number | null;
   /** Resting/basal energy measured by a device. */
   deviceRestingKcal?: number | null;
+  /**
+   * Minutes of exercise of the day: device workouts plus manual entries, de-duplicated by the caller with
+   * {@link dedupeExercises}. An entry without a duration counts as 0. Each hour removes `baseline / AWAKE_HOURS` from the
+   * baseline.
+   */
+  exerciseMinutes?: number | null;
   /** Calories eaten that day (only used for TEF). */
   intakeKcal: number;
   tefEnabled: boolean;
@@ -233,93 +254,196 @@ export interface ExpenditureInput {
 }
 
 /**
- * Daily expenditure split into components. Invariant:
- * `total = bmr + baselineActivity + exercise + deviceAboveBaseline + tef`.
+ * Daily expenditure split into components (Cronometer's "Energy Expenditure"). Invariant, in every mode:
+ * `total = bmr + adjustedBaseline + trackerActivity + exercise + tef`.
  */
 export interface EnergyBreakdown {
   mode: EnergyMode;
+  /** Resting energy that was used (our formula; the device's own figure in `device_total`). */
   bmr: number;
-  baselineActivity: number;
-  /** Manual (logged) exercise energy that was counted. */
-  exercise: number;
+  /** The baseline activity as configured (a fraction of BMR), before anything replaced part of it. */
+  baselineKcal: number;
   /**
-   * `device_adjusted`: device active energy ABOVE our baseline estimate.
-   * `device_total`: the full device active energy.
-   * 0 otherwise.
+   * What is left of the baseline: `baseline - trackerActivity - baseline / AWAKE_HOURS * exerciseHours`, never below 0.
+   * It also covers the time the watch was not worn. 0 once tracker activity and exercise replaced all of it.
    */
-  deviceAboveBaseline: number;
+  adjustedBaseline: number;
+  /** General activity imported from a device OUTSIDE its workouts. 0 without a device. */
+  trackerActivity: number;
+  /** Exercise counted: device workouts plus manual (de-duplicated) entries; manual only without a device. */
+  exercise: number;
   tef: number;
   total: number;
+  /**
+   * Energy burned above the planned maintenance (`bmr + baseline`), TEF excluded and never negative:
+   * `adjustedBaseline + trackerActivity + exercise - baseline` (plus the difference between the device's resting energy
+   * and our BMR in `device_total`). It is what widens the day's budget in the Target view.
+   */
+  aboveBaseline: number;
+  /** @deprecated Same as {@link adjustedBaseline}. */
+  baselineActivity: number;
+  /** @deprecated Same as {@link trackerActivity} (the device's general activity). */
+  deviceAboveBaseline: number;
 }
 
 const isNum = (v: number | null | undefined): v is number =>
   typeof v === 'number' && Number.isFinite(v);
 
+const nonNeg = (v: number | null | undefined): number => (isNum(v) ? Math.max(0, v) : 0);
+
 /**
- * Assembles daily energy expenditure for one of three modes.
+ * The part of the baseline that is left after tracker activity and exercise TIME replaced some of it:
+ * `max(0, baseline - trackerActivity - baseline / AWAKE_HOURS * exerciseMinutes / 60)`.
  *
- * Double-counting rules (the reason the modes differ):
+ * Cronometer's example: baseline 279 kcal, one hour of exercise -> `279 - 279 / 16 = 261.5625`.
+ * Not rounded: round only for display.
+ */
+export function adjustedBaselineKcal(baselineKcal: number, trackerActivityKcal: number, exerciseMinutes: number): number {
+  const baseline = nonNeg(baselineKcal);
+  const lostToExerciseTime = (baseline / AWAKE_HOURS) * (nonNeg(exerciseMinutes) / 60);
+  return Math.max(0, baseline - nonNeg(trackerActivityKcal) - lostToExerciseTime);
+}
+
+/**
+ * Assembles daily energy expenditure the way Cronometer does, for one of three modes.
  *
- * - `static`: `bmr + baseline + manualExercise (+ tef)`. Nothing from a device
- *   is used.
- * - `device_adjusted`: the device's ACTIVE energy already contains everyday
- *   movement AND workouts, so adding it to our baseline would count movement
- *   twice. We keep our BMR + baseline as the floor and add only the part of the
- *   device's active energy that exceeds the baseline:
- *   `bmr + baseline + max(0, deviceActive - baseline) + manualExercise (+ tef)`.
- *   Manual exercise logged during a device-recorded workout would be counted
- *   by both, so the caller must pass `manualExerciseKcal` computed from
- *   {@link dedupeExercises} output. Without device data it equals `static`.
- * - `device_total`: trust the device completely:
- *   `deviceActive + deviceResting (+ tef)`. Our BMR/baseline and manual exercise
- *   are NOT used (the device already measured them). If the device reports no
- *   resting energy, our BMR is used instead. If it reports no active energy,
- *   we fall back to `baseline + manualExercise`.
- *   While the device's day is not finished (`deviceDayComplete === false`) its
- *   resting energy is a day-so-far counter, i.e. a LOWER BOUND of the day's
- *   resting energy, so the resting part is `max(our BMR, device resting so far)`
- *   instead of the device figure alone. The device's active energy so far is
- *   still counted in full (it is real, only incomplete).
+ * `total = bmr + adjustedBaseline + trackerActivity + exercise + tef`
  *
- * `static` never reads device numbers. `device_adjusted` reads only the device's
- * ACTIVE energy, never its resting or total energy, so a partial day can only
- * under-count there, never double count.
+ * - `static` and `device_adjusted` share one model. The baseline activity is the budget for the part of the day the
+ *   user is not exercising and is not measured: at 0 a.m. Burned is `bmr + baseline`, so meals can be planned before
+ *   anything was recorded. Then
+ *   - `trackerActivity = max(0, deviceActive - deviceWorkoutKcal)`: movement outside workouts. It REPLACES the baseline
+ *     one-for-one, so a small amount does not change the total.
+ *   - `exercise = deviceWorkoutKcal + manualExerciseKcal`
+ *   - `adjustedBaseline = max(0, baseline - trackerActivity - baseline / AWAKE_HOURS * exerciseMinutes / 60)`
+ *   - `aboveBaseline = max(0, adjustedBaseline + trackerActivity + exercise - baseline)`
  *
- * TEF (when enabled) is `intakeKcal * tefPct` and is added in every mode.
+ *   `static` never reads device numbers (tracker 0, exercise = manual only). `device_adjusted` without a device active
+ *   figure is the same as `static`: workouts are only counted when the day's active energy is known too (the caller
+ *   stores device workouts as informational, "their energy is inside the daily active energy").
+ *   Manual exercise logged during a device-recorded workout would be counted by both, so the caller must pass
+ *   `manualExerciseKcal` and `exerciseMinutes` computed from {@link dedupeExercises} output.
+ * - `device_total`: trust the device completely: `deviceActive + deviceResting (+ tef)`. Our BMR/baseline and manual
+ *   exercise are NOT used (the device already measured them). If the device reports no resting energy, our BMR is used
+ *   instead. If it reports no active energy, we fall back to `baseline + manualExercise`.
+ *   While the device's day is not finished (`deviceDayComplete === false`) its resting energy is a day-so-far counter,
+ *   i.e. a LOWER BOUND of the day's resting energy, so the resting part is `max(our BMR, device resting so far)`. The
+ *   active energy is split into `exercise = min(deviceWorkoutKcal, active)` and `trackerActivity = active - exercise`
+ *   for display only, the total is unchanged.
+ *   `aboveBaseline` there is whatever the device measured beyond our `bmr + baseline` (never negative).
+ *
+ * `device_adjusted` reads only the device's ACTIVE energy, never its resting or total energy, so a partial day can only
+ * under-count, never double count: while the watch has recorded little, the total stays at `bmr + baseline` minus the
+ * baseline hours spent exercising, plus the exercise itself.
+ *
+ * TEF (when enabled) is `intakeKcal * tefPct` and is added in every mode. Nothing is rounded here.
  */
 export function computeExpenditure(input: ExpenditureInput): EnergyBreakdown {
   const { mode, bmr, intakeKcal, tefEnabled } = input;
   const tef = tefKcal(intakeKcal, tefEnabled, input.tefPct ?? DEFAULT_TEF_PCT);
-  const baseline = input.baselineActivityKcal;
-  const manual = Math.max(0, input.manualExerciseKcal);
+  const baseline = nonNeg(input.baselineActivityKcal);
+  const manual = nonNeg(input.manualExerciseKcal);
+  const minutes = nonNeg(input.exerciseMinutes);
+  const workoutKcal = nonNeg(input.deviceWorkoutKcal);
   const active = isNum(input.deviceActiveKcal) ? Math.max(0, input.deviceActiveKcal) : undefined;
 
-  let parts: Omit<EnergyBreakdown, 'mode' | 'tef' | 'total'>;
+  let resting = bmr;
+  let adjustedBaseline: number;
+  let trackerActivity = 0;
+  let exercise: number;
   switch (mode) {
     case 'static':
-      parts = { bmr, baselineActivity: baseline, exercise: manual, deviceAboveBaseline: 0 };
+      exercise = manual;
+      adjustedBaseline = adjustedBaselineKcal(baseline, 0, minutes);
       break;
     case 'device_adjusted':
-      parts = {
-        bmr,
-        baselineActivity: baseline,
-        exercise: manual,
-        deviceAboveBaseline: active === undefined ? 0 : Math.max(0, active - baseline),
-      };
+      if (active === undefined) {
+        exercise = manual;
+        adjustedBaseline = adjustedBaselineKcal(baseline, 0, minutes);
+      } else {
+        trackerActivity = Math.max(0, active - workoutKcal);
+        exercise = workoutKcal + manual;
+        adjustedBaseline = adjustedBaselineKcal(baseline, trackerActivity, minutes);
+      }
       break;
     case 'device_total': {
       const deviceResting = isNum(input.deviceRestingKcal) ? Math.max(0, input.deviceRestingKcal) : undefined;
-      const resting =
+      resting =
         deviceResting === undefined ? bmr : input.deviceDayComplete === false ? Math.max(bmr, deviceResting) : deviceResting;
-      parts =
-        active === undefined
-          ? { bmr: resting, baselineActivity: baseline, exercise: manual, deviceAboveBaseline: 0 }
-          : { bmr: resting, baselineActivity: 0, exercise: 0, deviceAboveBaseline: active };
+      if (active === undefined) {
+        adjustedBaseline = baseline;
+        exercise = manual;
+      } else {
+        adjustedBaseline = 0;
+        exercise = Math.min(workoutKcal, active);
+        trackerActivity = active - exercise;
+      }
       break;
     }
   }
-  const total = parts.bmr + parts.baselineActivity + parts.exercise + parts.deviceAboveBaseline + tef;
-  return { mode, ...parts, tef, total };
+  const total = resting + adjustedBaseline + trackerActivity + exercise + tef;
+  const aboveBaseline = Math.max(0, resting + adjustedBaseline + trackerActivity + exercise - (bmr + baseline));
+  return {
+    mode,
+    bmr: resting,
+    baselineKcal: baseline,
+    adjustedBaseline,
+    trackerActivity,
+    exercise,
+    tef,
+    total,
+    aboveBaseline,
+    baselineActivity: adjustedBaseline,
+    deviceAboveBaseline: trackerActivity,
+  };
+}
+
+// ------------------------------------------------------- summary (third circle)
+
+/** Default of the third circle. */
+export const DEFAULT_ENERGY_SUMMARY_MODE: EnergySummaryMode = 'target';
+
+/** Anything stored as the summary mode (or missing in an old cached profile) as a valid mode. */
+export function normalizeEnergySummaryMode(value: unknown): EnergySummaryMode {
+  return value === 'balance' ? 'balance' : DEFAULT_ENERGY_SUMMARY_MODE;
+}
+
+/** The other view: Target <-> Balance. */
+export function nextEnergySummaryMode(mode: EnergySummaryMode): EnergySummaryMode {
+  return mode === 'balance' ? 'target' : 'balance';
+}
+
+/** Remaining energy for both display modes of the third circle; positive = still available / burned more than eaten. */
+export interface EnergyRemaining {
+  /** `(target + aboveBaseline) - consumed`: what is left of the day's budget; negative = over. */
+  target: number;
+  /** `expenditure - consumed` (expenditure incl. TEF), whatever the weight goal: positive = deficit, negative = surplus. */
+  balance: number;
+}
+
+/**
+ * Both values of the energy summary's third circle (Cronometer's "Target" and "Balance"):
+ * - Target: `targetKcal + aboveBaselineKcal - consumedKcal`. The target is the goal-adjusted maintenance (or the custom
+ *   target); it only grows when more than the baseline was burned.
+ * - Balance: `expenditureKcal - consumedKcal`, a plain deficit / surplus view that ignores the weight goal.
+ */
+export function energyRemaining(input: {
+  targetKcal: number;
+  aboveBaselineKcal: number;
+  expenditureKcal: number;
+  consumedKcal: number;
+}): EnergyRemaining {
+  return {
+    target: input.targetKcal + nonNeg(input.aboveBaselineKcal) - input.consumedKcal,
+    balance: input.expenditureKcal - input.consumedKcal,
+  };
+}
+
+/** Caption under the third circle: 'Remaining' / 'Over' (Target) or 'Deficit' / 'Surplus' (Balance). */
+export function energySummaryCaption(mode: EnergySummaryMode, value: number | undefined): string {
+  if (value === undefined || !Number.isFinite(value)) return mode === 'balance' ? 'Balance' : 'Remaining';
+  if (mode === 'balance') return value < 0 ? 'Surplus' : 'Deficit';
+  return value < 0 ? 'Over' : 'Remaining';
 }
 
 /**

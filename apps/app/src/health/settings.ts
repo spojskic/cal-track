@@ -43,6 +43,7 @@ export const defaultBackfillDate = (today: LocalDate): LocalDate => addDays(toda
 export const PROVIDER_LABELS: Record<HealthProviderId, string> = {
   apple_health: 'Apple Health',
   health_connect: 'Health Connect',
+  garmin: 'Garmin',
 };
 
 export const DATA_TYPE_INFO: Record<HealthDataType, { label: string; description: string }> = {
@@ -64,7 +65,7 @@ export const DATA_TYPE_INFO: Record<HealthDataType, { label: string; description
 };
 
 export const GARMIN_NOTE =
-  'Garmin Connect can sync into Apple Health / Health Connect: enable that sharing in the Garmin Connect app and Cal Track picks it up.';
+  'Garmin Connect can also sync into Apple Health / Health Connect, and Cal Track picks that up. The Garmin card below reads Garmin directly instead; if both are on, the Garmin numbers are used for the day.';
 
 export const WEB_NOTE = 'Health sync runs in the iOS/Android app; your data appears here after syncing.';
 

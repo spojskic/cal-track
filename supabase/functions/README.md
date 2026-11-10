@@ -7,8 +7,7 @@ on the Supabase **free** plan.
 | ---------------- | ------------------------------------------------------------------------------------------------------------- |
 | `barcode-lookup` | barcode -> food. Local DB first, then USDA FDC Branded, then Open Food Facts; remote hits are saved globally. |
 | `online-search`  | text search in FDC Branded + Open Food Facts (Search-a-licious first, the classic search only as fallback: the classic `cgi/search.pl` answers 503 to Supabase's cloud IPs). Returns summaries only (nothing is saved). |
-| `sign-up` | invite-code registration: validates, throttles, consumes the owner's invite code and creates the account with the admin API (no e-mail, public sign-up stays disabled). The only function that is called without a signed-in user (besides the Garmin callback and webhook). |
-| `garmin-oauth-start`, `garmin-oauth-callback`, `garmin-webhook`, `garmin-disconnect` | "Connect Garmin" (OAuth2 PKCE + push webhooks). Dormant until Garmin approves the app; see [docs/garmin-integration.md](../../docs/garmin-integration.md). |
+| `sign-up` | invite-code registration: validates, throttles, consumes the owner's invite code and creates the account with the admin API (no e-mail, public sign-up stays disabled). The only function that is called without a signed-in user. |
 
 ```
 functions/
@@ -24,16 +23,10 @@ functions/
     http.ts                      CORS, JSON helpers, JWT claims, upstream fetch
     signup.ts                    sign-up flow: validation, throttle, invite code, create user (all I/O injected), hashed client key
     signup-store.ts              adapters: invite-code RPCs and auth.admin.createUser (error classification)
-    garmin-flows.ts              the four Garmin flows (all I/O injected)
-    garmin-oauth.ts              Garmin config, PKCE, token/authorize requests, redirects, webhook secret compare
-    garmin-push.ts               Garmin push payload -> daily_energy / exercise / biometrics rows
-    garmin-store.ts              adapters for the service-role-only garmin_* RPCs
-    garmin-http.ts               large/gzip body reader and redirect responses (webhook, callback)
     nutrient-map.generated.ts    GENERATED from packages/core (see below)
   barcode-lookup/index.ts        thin Deno.serve wiring
   online-search/index.ts         thin Deno.serve wiring
   sign-up/index.ts               thin Deno.serve wiring (verify_jwt = false, see config.toml)
-  garmin-*/index.ts              thin Deno.serve wiring (callback and webhook run with verify_jwt = false, see config.toml)
 ```
 
 Edge code cannot import workspace packages (`@cal/core`), hence the generated nutrient map.
@@ -47,10 +40,10 @@ Apply the migrations first (`npx supabase db push --remote`):
 - `20261110000012_upsert_branded_food.sql`: `public.upsert_branded_food()` (used by `barcode-lookup`).
 - `20261110000100_invite_codes.sql`: `private.invite_codes` + `consume_invite_code()` / `release_invite_code()` (used by `sign-up`) and the owner's `create_invite_code()` / `list_invite_codes()` / `revoke_invite_code()`.
 
-All of them are executable by `service_role` only (the owner's SQL editor runs as `postgres`, which can execute them too). The four `garmin-*` functions additionally need
-`20261110000013_garmin_integration.sql` (tables and RPCs, also service-role only) and their own secrets (`GARMIN_CLIENT_ID`,
-`GARMIN_CLIENT_SECRET`, `GARMIN_WEBHOOK_SECRET`, `APP_URL`, ...): see [docs/garmin-integration.md](../../docs/garmin-integration.md).
-Until those are set they answer `503 garmin_not_configured`.
+All of them are executable by `service_role` only (the owner's SQL editor runs as `postgres`, which can execute them too).
+
+There is no Garmin function any more: Garmin data is read by the phone itself (see [docs/features.md](../../docs/features.md)),
+and `20261110000101_drop_garmin_push.sql` removes the database objects of the old push design.
 
 ## Secrets
 
@@ -78,8 +71,7 @@ npx supabase functions deploy barcode-lookup online-search --use-api   # --use-a
 npx supabase functions deploy sign-up --use-api                        # invite-code registration (verify_jwt = false)
 ```
 
-`verify_jwt = true` is set for `barcode-lookup` and `online-search` in `config.toml`; `sign-up` (like the Garmin callback and
-webhook) has `verify_jwt = false` because its caller has no account yet. **Do not deploy the signed-in functions with
+`verify_jwt = true` is set for `barcode-lookup` and `online-search` in `config.toml`; `sign-up` has `verify_jwt = false` because its caller has no account yet. **Do not deploy the signed-in functions with
 `--no-verify-jwt`**: they read the caller from the JWT claims and rely on the gateway to have verified the signature
 (they additionally refuse the project's anon key, which is also a valid JWT). If the project moves to
 asymmetric JWT signing keys and the gateway check starts failing, verify in the function instead

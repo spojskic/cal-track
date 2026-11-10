@@ -1,136 +1,104 @@
-// react-query hooks for the direct Garmin Connect link (OAuth). Everything is behind GARMIN_ENABLED
-// (EXPO_PUBLIC_GARMIN_ENABLED=true): with the flag off no query is enabled and nothing Garmin related is called.
-// The server side is supabase/functions/garmin-* ; the app never sees a Garmin token, only the connection status.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Constants from 'expo-constants';
-import * as WebBrowser from 'expo-web-browser';
+// react-query hooks for the Garmin link. The phone reads Garmin itself (src/health/garmin*.ts, packages/garmin); there is no
+// server side. On the web nothing runs: no query is enabled and no Garmin code is called.
+import { useMutation, useQuery } from '@tanstack/react-query';
+import * as Clipboard from 'expo-clipboard';
 import { Platform } from 'react-native';
 
 import {
-  GARMIN_ENABLED,
-  describeGarminFunctionError,
-  parseGarminReturnUrl,
-  parseGarminStatus,
-  type GarminReturn,
-  type GarminStatus,
+  GARMIN_NO_REPORT,
+  EMPTY_LOCAL_STATE,
+  deriveGarminState,
+  parseGarminSettings,
+  type GarminConnectionState,
+  type GarminLocalState,
 } from '@/health/garmin';
-import { requireUserId } from '@/lib/auth-user';
-import { supabase } from '@/lib/supabase';
+import { signOutGarmin } from '@/health/garmin-actions';
+import { loadLocalState } from '@/health/garmin-local';
+import { runGarminSync } from '@/health/garmin-runner';
+import { useGarminSyncStore } from '@/health/garmin-status';
+import { hasGarminTokens } from '@/health/garmin-tokens';
 
+import { useIntegration } from './health';
 import { useUserId } from './profile';
 
-export type { GarminStatus };
+const NATIVE = Platform.OS === 'ios' || Platform.OS === 'android';
 
-/** Includes the user id so a cached status never leaks across accounts (same convention as profileKey). */
-export const garminStatusKey = (userId: string | undefined) => ['garmin', 'status', userId ?? 'anon'] as const;
+/** Includes the user id so a cached answer never leaks across accounts (same convention as integrationKey). */
+export const garminTokensKey = (userId: string | undefined) => ['garmin', 'tokens', userId ?? 'anon'] as const;
+export const garminLocalKey = ['garmin', 'local'] as const;
 
-/** The signed-in user's Garmin connection (rpc garmin_connection_status: four columns, never a token). */
-export function useGarminStatus() {
+export interface GarminConnection {
+  state: GarminConnectionState;
+  isLoading: boolean;
+  error: unknown;
+  refetch: () => void;
+  /** `integrations.last_sync_at` of the Garmin row: only a run that finished moves it. */
+  lastSyncAt: Date | null;
+  /** Sentence of the last run that wrote something, e.g. '14 days of energy, 3 workouts'. */
+  summary: string | null;
+  /** Kept on this phone only: last problem, rate-limit time, last sync report. */
+  local: GarminLocalState;
+}
+
+/** What the card shows: the integration row of the signed-in user, the tokens of THIS phone, and the phone-local state. */
+export function useGarminConnection(): GarminConnection {
   const userId = useUserId();
-  return useQuery({
-    queryKey: garminStatusKey(userId),
-    enabled: GARMIN_ENABLED && Boolean(userId),
-    queryFn: async (): Promise<GarminStatus> => {
-      const { data, error } = await supabase.rpc('garmin_connection_status');
-      if (error) throw error;
-      return parseGarminStatus(data);
+  const row = useIntegration(NATIVE ? 'garmin' : null);
+  const tokens = useQuery({
+    queryKey: garminTokensKey(userId),
+    enabled: NATIVE && Boolean(userId),
+    queryFn: async () => (userId ? hasGarminTokens(userId) : false),
+  });
+  const local = useQuery({ queryKey: garminLocalKey, enabled: NATIVE, queryFn: loadLocalState });
+
+  const state = deriveGarminState({ native: NATIVE, row: row.data ?? null, hasTokens: tokens.data === true });
+  const settings = parseGarminSettings(row.data?.settings);
+  return {
+    state,
+    isLoading: NATIVE && (row.isLoading || tokens.isLoading),
+    error: row.error ?? tokens.error,
+    refetch: () => {
+      void row.refetch();
+      void tokens.refetch();
+      void local.refetch();
+    },
+    lastSyncAt: row.data?.last_sync_at ? new Date(row.data.last_sync_at) : null,
+    summary: settings.lastSummary,
+    local: local.data ?? EMPTY_LOCAL_STATE,
+  };
+}
+
+/** Live progress / last outcome of the Garmin sync (also reflects foreground and background runs of this session). */
+export function useGarminSyncStatus() {
+  return useGarminSyncStore();
+}
+
+/** Runs an incremental sync now. Rejects with a readable message when nothing synced (or only part of it did). */
+export function useGarminSyncNow() {
+  return useMutation({
+    mutationFn: async () => {
+      const outcome = await runGarminSync({ mode: 'incremental', trigger: 'manual' });
+      if (outcome.status === 'done') return outcome;
+      throw new Error(outcome.status === 'failed' ? outcome.error : outcome.message);
     },
   });
 }
 
 /**
- * Where the callback sends the browser back to on a phone: `<app scheme>://settings/integrations` (scheme from app.json,
- * `caltrack`). It must match the server's GARMIN_APP_REDIRECT, whose default is exactly this. Built from the config instead of
- * Linking.createURL(), which returns a different scheme inside development clients and would never match.
+ * Removes the Garmin token from this phone and switches the integration off. With `deleteData` the rows imported from Garmin
+ * are deleted from the account too; otherwise they stay in the diary.
  */
-function nativeReturnUrl(): string {
-  const scheme = Constants.expoConfig?.scheme;
-  return `${(Array.isArray(scheme) ? scheme[0] : scheme) ?? 'caltrack'}://settings/integrations`;
+export function useGarminSignOut() {
+  return useMutation({ mutationFn: (input: { deleteData: boolean }) => signOutGarmin(input) });
 }
 
-interface FunctionFailure {
-  status: number | null;
-  error: string | null;
-}
-
-/** supabase-js wraps non-2xx answers in FunctionsHttpError with the Response in `context`. */
-async function readFunctionFailure(error: unknown): Promise<FunctionFailure> {
-  const e = error as { name?: string; context?: unknown } | null;
-  const ctx = e?.context as Response | undefined;
-  if (e?.name === 'FunctionsHttpError' && ctx && typeof ctx.status === 'number') {
-    let code: string | null = null;
-    try {
-      const body: unknown = await ctx.json();
-      if (body && typeof body === 'object' && typeof (body as { error?: unknown }).error === 'string') {
-        code = (body as { error: string }).error;
-      }
-    } catch {
-      code = null;
-    }
-    return { status: ctx.status, error: code };
-  }
-  return { status: null, error: null };
-}
-
-async function invokeGarmin(name: 'garmin-oauth-start' | 'garmin-disconnect', body: Record<string, unknown>): Promise<unknown> {
-  let res: { data: unknown; error: unknown };
-  try {
-    res = await supabase.functions.invoke(name, { body });
-  } catch {
-    throw new Error(describeGarminFunctionError({ status: null }));
-  }
-  if (res.error) throw new Error(describeGarminFunctionError(await readFunctionFailure(res.error)));
-  return res.data;
-}
-
-/**
- * One tap: asks `garmin-oauth-start` for Garmin's authorize page and opens it.
- *  - web: this page is replaced by Garmin's; afterwards the browser returns to /settings/integrations?garmin=connected|error
- *    (the screen reads the params).
- *  - iOS / Android: an in-app auth session; it ends when Garmin's callback redirects to the app's deep link, and the
- *    mutation resolves with what the redirect said (null when the user closed the browser).
- */
-export function useConnectGarmin() {
-  const qc = useQueryClient();
-  const userId = useUserId();
+/** Copies the plain-text report of the last sync (endpoints, HTTP outcomes, fields found / not found; no values, no tokens). */
+export function useCopyGarminReport() {
   return useMutation({
-    mutationFn: async (): Promise<GarminReturn | null> => {
-      await requireUserId();
-      const data = await invokeGarmin('garmin-oauth-start', { platform: Platform.OS === 'web' ? 'web' : 'native' });
-      const url = (data as { url?: unknown } | null)?.url;
-      if (typeof url !== 'string' || !url) throw new Error('Garmin did not return a sign-in address. Please try again.');
-
-      if (Platform.OS === 'web') {
-        window.location.assign(url); // leaves the page; the screen finishes the flow when Garmin sends the browser back
-        return null;
-      }
-      const result = await WebBrowser.openAuthSessionAsync(url, nativeReturnUrl());
-      return result.type === 'success' ? parseGarminReturnUrl(result.url) : null;
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: garminStatusKey(userId) }),
-  });
-}
-
-/**
- * Deregisters at Garmin (best effort) and deletes the server-side link and tokens. With `deleteData` the rows imported from
- * Garmin (source = 'garmin') are removed too; otherwise they stay in the diary.
- */
-export function useDisconnectGarmin() {
-  const qc = useQueryClient();
-  const userId = useUserId();
-  return useMutation({
-    mutationFn: async (input: { deleteData: boolean }): Promise<{ deregistered: boolean }> => {
-      await requireUserId();
-      const data = await invokeGarmin('garmin-disconnect', { deleteData: input.deleteData });
-      return { deregistered: (data as { deregistered?: unknown } | null)?.deregistered === true };
-    },
-    onSuccess: (_result, input) => {
-      void qc.invalidateQueries({ queryKey: garminStatusKey(userId) });
-      // Imported Garmin rows feed the diary, energy and biometric queries.
-      if (input.deleteData) {
-        void qc.invalidateQueries({ queryKey: ['day'] });
-        void qc.invalidateQueries({ queryKey: ['biometrics'] });
-      }
+    mutationFn: async (): Promise<boolean> => {
+      const local = await loadLocalState();
+      await Clipboard.setStringAsync(local.report ?? GARMIN_NO_REPORT);
+      return local.report !== null;
     },
   });
 }

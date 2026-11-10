@@ -1,128 +1,154 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Platform, View } from 'react-native';
 
 import { Badge, Divider, KeyValueRow, Note } from '@/components/settings/rows';
 import { errorMessage } from '@/components/settings/save-row';
 import { AppText, Button, Card } from '@/components/ui';
-import { garminStatusKey, useConnectGarmin, useDisconnectGarmin, useGarminStatus } from '@/data/garmin';
-import { useUserId } from '@/data/profile';
+import { useCopyGarminReport, useGarminConnection, useGarminSignOut, useGarminSyncNow, useGarminSyncStatus } from '@/data/garmin';
 import {
-  GARMIN_PAST_DATA_NOTE,
-  GARMIN_PRIVACY_NOTE,
-  describeGarminReturn,
-  describeLastError,
-  describeLastPush,
-  parseGarminReturn,
+  GARMIN_HOW_IT_WORKS,
+  GARMIN_IMPORTS_NOTE,
+  GARMIN_SIGNED_OUT_NOTE,
+  GARMIN_UNOFFICIAL_NOTE,
+  GARMIN_WEB_NOTE,
 } from '@/health/garmin';
 import { spacing } from '@/theme';
 
 import { formatRelativeTime } from './format';
 
-const formatDay = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+const SIGN_IN_ROUTE = '/settings/garmin-sign-in';
+
+const Header = ({ badge }: { badge?: string }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+    <AppText variant="heading" style={{ flex: 1 }}>Garmin</AppText>
+    {badge ? <Badge label={badge} tone={badge === 'Connected' ? 'primary' : 'neutral'} /> : null}
+  </View>
+);
 
 /**
- * "Garmin Connect" card of Connected Apps & Devices. Rendered only when EXPO_PUBLIC_GARMIN_ENABLED=true (see
- * app/settings/integrations.tsx): one tap on Connect opens Garmin's sign-in, the server stores the link, and Garmin then
- * pushes data whenever the watch syncs. There is no key to paste anywhere.
+ * "Garmin" card of Connected Apps & Devices. The phone reads Garmin itself (same private interface as Garmin's own mobile app),
+ * so it only works in the iPhone and Android app; in a browser the card just says so. Nothing is ever written to Garmin.
  */
 export function GarminCard() {
-  const userId = useUserId();
-  const queryClient = useQueryClient();
-  const status = useGarminStatus();
-  const connect = useConnectGarmin();
-  const disconnect = useDisconnectGarmin();
+  return Platform.OS === 'ios' || Platform.OS === 'android' ? <GarminNativeCard /> : <GarminWebCard />;
+}
+
+function GarminWebCard() {
+  return (
+    <Card>
+      <Header />
+      <Note>{GARMIN_WEB_NOTE}</Note>
+      <AppText variant="small" muted>{GARMIN_HOW_IT_WORKS}</AppText>
+      <Note>{GARMIN_UNOFFICIAL_NOTE}</Note>
+    </Card>
+  );
+}
+
+function GarminNativeCard() {
+  const connection = useGarminConnection();
+  const status = useGarminSyncStatus();
+  const sync = useGarminSyncNow();
+  const signOut = useGarminSignOut();
+  const copy = useCopyGarminReport();
   const [confirming, setConfirming] = useState(false);
 
-  // Web: Garmin sends the browser back to .../settings/integrations?garmin=connected | error&reason=...
-  const params = useLocalSearchParams<{ garmin?: string; reason?: string }>();
-  const fromUrl = parseGarminReturn(params);
-  const returned = connect.data ?? fromUrl;
-  const message = returned ? describeGarminReturn(returned) : null;
+  const { state } = connection;
+  const syncing = status.running || sync.isPending;
+  const busy = syncing || signOut.isPending;
+  const signIn = () => router.push(SIGN_IN_ROUTE);
 
-  const returnedStatus = fromUrl?.status;
-  const refetchStatus = status.refetch;
-  useEffect(() => {
-    if (returnedStatus) void refetchStatus();
-  }, [returnedStatus, refetchStatus]);
+  const onSignOut = (deleteData: boolean) =>
+    signOut.mutate({ deleteData }, { onSuccess: () => setConfirming(false) });
 
-  const data = status.data;
-  const busy = connect.isPending || disconnect.isPending;
+  const signOutControls = confirming ? (
+    <View style={{ gap: spacing.sm }}>
+      <AppText variant="body">Sign out of Garmin?</AppText>
+      <AppText variant="small" muted>
+        Cal Track removes the Garmin token from this phone and stops reading Garmin. Choose whether the Garmin data already imported stays in your diary. To end the session on Garmin&apos;s side too, remove it in your Garmin account settings.
+      </AppText>
+      <Button label="Sign out, keep imported data" variant="secondary" onPress={() => onSignOut(false)} loading={signOut.isPending} disabled={busy} />
+      <Button label="Sign out and delete Garmin data" variant="primary" onPress={() => onSignOut(true)} disabled={busy} />
+      <Button label="Cancel" variant="ghost" onPress={() => setConfirming(false)} disabled={busy} />
+    </View>
+  ) : (
+    <Button label="Sign out" variant="ghost" onPress={() => setConfirming(true)} disabled={busy} />
+  );
 
-  const onConnect = () => {
-    setConfirming(false);
-    router.setParams({ garmin: undefined, reason: undefined });
-    connect.mutate();
-  };
-
-  const onDisconnect = (deleteData: boolean) => {
-    disconnect.mutate(
-      { deleteData },
-      {
-        onSuccess: () => {
-          setConfirming(false);
-          connect.reset();
-          router.setParams({ garmin: undefined, reason: undefined });
-          // show "not connected" immediately instead of waiting for the refetch
-          queryClient.setQueryData(garminStatusKey(userId), { connected: false, connectedAt: null, lastPushAt: null, lastError: null });
-        },
-      },
-    );
-  };
-
-  const lastError = describeLastError(data?.lastError ?? null);
+  const copyReport = (
+    <View style={{ gap: spacing.xs }}>
+      <Button
+        label="Copy sync report"
+        variant="secondary"
+        onPress={() => copy.mutate()}
+        loading={copy.isPending}
+        disabled={busy}
+      />
+      <AppText variant="small" muted>
+        A plain-text report of the last sync: which Garmin requests worked and which fields were found. No health values and no tokens. Paste it back if something is missing.
+      </AppText>
+      {copy.isSuccess ? (
+        <AppText variant="small" style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">
+          {copy.data ? 'Report copied.' : 'Nothing to copy yet. Run a sync first.'}
+        </AppText>
+      ) : null}
+      {copy.error ? <Note tone="danger">{errorMessage(copy.error)}</Note> : null}
+    </View>
+  );
 
   return (
     <Card>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <AppText variant="heading" style={{ flex: 1 }}>Garmin Connect</AppText>
-        {data?.connected ? <Badge label="Connected" tone="primary" /> : null}
-      </View>
+      <Header badge={state === 'connected' ? 'Connected' : state === 'needs_sign_in' ? 'Sign-in needed' : undefined} />
 
-      {message ? <Note tone={message.tone}>{message.text}</Note> : null}
-
-      {status.isLoading ? (
+      {connection.isLoading ? (
         <ActivityIndicator accessibilityLabel="Checking Garmin" />
-      ) : status.error ? (
-        <Note tone="danger">{errorMessage(status.error)}</Note>
-      ) : data?.connected ? (
+      ) : connection.error ? (
         <>
-          <KeyValueRow label="Connected since" value={formatDay(data.connectedAt)} />
-          <KeyValueRow label="Last data received" value={describeLastPush(data.lastPushAt, formatRelativeTime)} />
-          {lastError ? <Note tone="warning">{lastError}</Note> : null}
-          <Note>{GARMIN_PAST_DATA_NOTE}</Note>
-
-          {confirming ? (
-            <View style={{ gap: spacing.sm }}>
-              <AppText variant="body">Disconnect Garmin?</AppText>
-              <AppText variant="small" muted>
-                Cal Track stops receiving data and deletes the link to your Garmin account. Choose whether the Garmin data already imported stays in your diary.
-              </AppText>
-              <Button label="Disconnect, keep imported data" variant="secondary" onPress={() => onDisconnect(false)} loading={disconnect.isPending} disabled={busy} />
-              <Button label="Disconnect and delete Garmin data" variant="primary" onPress={() => onDisconnect(true)} disabled={busy} />
-              <Button label="Cancel" variant="ghost" onPress={() => setConfirming(false)} disabled={busy} />
+          <Note tone="danger">{errorMessage(connection.error)}</Note>
+          <Button label="Try again" variant="secondary" onPress={connection.refetch} />
+        </>
+      ) : state === 'connected' ? (
+        <>
+          <KeyValueRow label="Last sync" value={connection.lastSyncAt ? formatRelativeTime(connection.lastSyncAt) : 'Never'} />
+          {syncing ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }} accessibilityLiveRegion="polite">
+              <ActivityIndicator accessibilityLabel="Syncing Garmin" />
+              <AppText variant="small" muted style={{ flex: 1 }}>{status.message ?? 'Syncing Garmin...'}</AppText>
             </View>
+          ) : connection.summary ? (
+            <Note tone={connection.local.lastIssue ? 'warning' : 'success'}>{`Last result: ${connection.summary}.`}</Note>
           ) : (
-            <Button label="Disconnect" variant="ghost" onPress={() => setConfirming(true)} disabled={busy} />
+            <Note>{status.lastOutcome ? 'Last result: no new data.' : 'No result yet. Tap Sync now.'}</Note>
           )}
+          {!syncing && connection.local.lastIssue ? <Note tone="warning">{connection.local.lastIssue}</Note> : null}
+          <Button label="Sync now" onPress={() => sync.mutate()} loading={syncing} disabled={busy} />
+          {sync.error && !connection.local.lastIssue ? <Note tone="danger">{errorMessage(sync.error)}</Note> : null}
+          {copyReport}
+          <Divider />
+          {signOutControls}
+          <Note>{GARMIN_UNOFFICIAL_NOTE}</Note>
+        </>
+      ) : state === 'needs_sign_in' ? (
+        <>
+          <Note tone="warning">{GARMIN_SIGNED_OUT_NOTE}</Note>
+          <Button label="Sign in to Garmin again" onPress={signIn} disabled={busy} />
+          {copyReport}
+          <Divider />
+          {signOutControls}
         </>
       ) : (
         <>
           <AppText variant="small" muted>
-            See the calories your Garmin watch burned, steps, heart rate, sleep, stress and body battery next to what you eat.
+            See the calories your Garmin watch burned, steps, heart rate, sleep, stress and weight next to what you eat.
           </AppText>
-          <Button label="Connect Garmin" onPress={onConnect} loading={connect.isPending} disabled={busy} />
-          <Note>{GARMIN_PAST_DATA_NOTE}</Note>
+          <Note>{GARMIN_HOW_IT_WORKS}</Note>
+          <Button label="Connect Garmin" onPress={signIn} disabled={busy} />
+          <AppText variant="small" muted>{GARMIN_IMPORTS_NOTE}</AppText>
+          <Note>{GARMIN_UNOFFICIAL_NOTE}</Note>
         </>
       )}
 
-      {connect.error ? <Note tone="danger">{errorMessage(connect.error)}</Note> : null}
-      {disconnect.error ? <Note tone="danger">{errorMessage(disconnect.error)}</Note> : null}
-
-      <Divider />
-      <Note>{GARMIN_PRIVACY_NOTE}</Note>
+      {signOut.error ? <Note tone="danger">{errorMessage(signOut.error)}</Note> : null}
     </Card>
   );
 }

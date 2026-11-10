@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import { Badge, Divider, KeyValueRow, Note } from '@/components/settings/rows';
 import { errorMessage } from '@/components/settings/save-row';
 import { AppText, Button, Card } from '@/components/ui';
+import { switchToDeviceEnergyMode } from '@/data/energy-mode-notice';
 import {
   useConnectIntegration,
   useDisconnectIntegration,
@@ -93,6 +94,7 @@ export function IntegrationCard({ providerId }: { providerId: HealthProviderId }
         return;
       }
       sync.mutate({ mode: 'backfill', backfillDate: validation.value ?? undefined });
+      void switchToDeviceEnergyMode();
     } catch {
       // shown through connect.error
     }

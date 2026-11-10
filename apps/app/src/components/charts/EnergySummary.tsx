@@ -1,6 +1,8 @@
+import { energySummaryCaption, type EnergyBreakdown, type EnergySummaryMode } from '@cal/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { EnergyBreakdownSheet } from '@/components/diary/EnergyBreakdownSheet';
 import { AppText } from '@/components/ui';
 import { radius, spacing, useTheme } from '@/theme';
 
@@ -15,10 +17,21 @@ export interface EnergySummaryProps {
   expenditure?: number;
   /** Plan target without exercise (kcal). */
   target?: number;
-  /** Exercise/device energy above maintenance that widens today's budget (kcal). */
-  exerciseBurned?: number;
-  /** budget - consumed (kcal), negative = over. Derived from target + exerciseBurned when omitted. */
+  /** Energy burned above the baseline (kcal): widens today's budget in the Target view. */
+  aboveBaseline?: number;
+  /**
+   * The third circle's value for `summaryMode`: Target = (target + aboveBaseline) - consumed (negative = Over),
+   * Balance = expenditure - consumed (negative = Surplus). Derived from the other props when omitted.
+   */
   remaining?: number;
+  /** What the third circle shows (default Target). */
+  summaryMode?: EnergySummaryMode;
+  /** Makes the label under the third circle a button that switches between Target and Balance. */
+  onToggleSummaryMode?: () => void;
+  /** Parts of the expenditure; makes the Expenditure circle open the breakdown. */
+  breakdown?: EnergyBreakdown;
+  /** A watch / health app supplies tracker activity (the breakdown lists it). */
+  hasDevice?: boolean;
   /** Calorie split by macro for the Target / Consumed toggle. */
   split?: { target?: MacroKcal; consumed?: MacroKcal };
   compact?: boolean;
@@ -27,27 +40,47 @@ export interface EnergySummaryProps {
 
 type SplitView = 'target' | 'consumed';
 
-/** Three donuts (Consumed / Expenditure / Remaining-or-Over) and an optional target-vs-consumed macro split. */
+/**
+ * Three donuts (Consumed / Expenditure / third circle) and an optional target-vs-consumed macro split. The third
+ * circle is Remaining or Over (Target view) or Deficit or Surplus (Balance view); its label switches the view.
+ */
 export function EnergySummary({
   consumed,
   expenditure,
   target,
-  exerciseBurned = 0,
+  aboveBaseline = 0,
   remaining,
+  summaryMode = 'target',
+  onToggleSummaryMode,
+  breakdown,
+  hasDevice = false,
   split,
   compact = false,
   animated = true,
 }: EnergySummaryProps) {
   const { colors } = useTheme();
   const [view, setView] = useState<SplitView>('consumed');
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const size = compact ? 76 : 100;
+  const balance = summaryMode === 'balance';
 
-  const budget = target === undefined ? undefined : target + exerciseBurned;
-  const left = remaining ?? (budget === undefined ? undefined : budget - consumed);
-  const isOver = left !== undefined && left < 0;
+  const budget = target === undefined ? undefined : target + aboveBaseline;
+  const left =
+    remaining ??
+    (balance
+      ? expenditure === undefined
+        ? undefined
+        : expenditure - consumed
+      : budget === undefined
+        ? undefined
+        : budget - consumed);
+  const negative = left !== undefined && left < 0; // Over (Target) / Surplus (Balance)
+  const thirdCaption = energySummaryCaption(summaryMode, left);
 
-  const consumedFraction = budget && budget > 0 ? consumed / budget : 0;
-  const leftFraction = budget && budget > 0 && left !== undefined ? Math.abs(left) / budget : 0;
+  // Consumed is drawn against the budget (Target) or against what was burned (Balance).
+  const scale = balance ? expenditure : budget;
+  const consumedFraction = scale && scale > 0 ? consumed / scale : 0;
+  const leftFraction = scale && scale > 0 && left !== undefined ? Math.abs(left) / scale : 0;
 
   const rings = [
     {
@@ -68,46 +101,99 @@ export function EnergySummary({
     },
     {
       key: 'left',
-      caption: left === undefined ? 'Remaining' : isOver ? 'Over' : 'Remaining',
+      caption: thirdCaption,
       label: left === undefined ? '-' : formatNumber(Math.abs(left)),
-      fraction: isOver ? 1 : leftFraction,
-      color: isOver ? colors.danger : colors.success,
+      fraction: negative && !balance ? 1 : leftFraction,
+      color: balance ? (negative ? colors.warning : colors.success) : negative ? colors.danger : colors.success,
       overColor: undefined,
     },
   ];
 
   const activeSplit = view === 'target' ? split?.target : split?.consumed;
 
+  const ringView = (ring: (typeof rings)[number]) => (
+    <ProgressRing
+      value={ring.fraction}
+      size={size}
+      color={ring.color}
+      overColor={ring.overColor}
+      label={ring.label}
+      sublabel="kcal"
+      animated={animated}
+    />
+  );
+  const ringLabel = (ring: (typeof rings)[number]) =>
+    `${ring.caption} ${ring.label === '-' ? 'unknown' : `${ring.label} kilocalories`}`;
+
   return (
     <View style={styles.wrap}>
       <View style={styles.rings}>
-        {rings.map((ring) => (
-          <View
-            key={ring.key}
-            accessible
-            accessibilityLabel={`${ring.caption} ${ring.label === '-' ? 'unknown' : `${ring.label} kilocalories`}`}
-            style={styles.ringCell}>
-            <ProgressRing
-              value={ring.fraction}
-              size={size}
-              color={ring.color}
-              overColor={ring.overColor}
-              label={ring.label}
-              sublabel="kcal"
-              animated={animated}
-            />
-            <AppText variant="small" muted style={styles.caption}>
-              {ring.caption}
-            </AppText>
-          </View>
-        ))}
+        {rings.map((ring) => {
+          if (ring.key === 'expenditure' && breakdown) {
+            return (
+              <Pressable
+                key={ring.key}
+                accessibilityRole="button"
+                accessibilityLabel={`${ringLabel(ring)}, show how it adds up`}
+                onPress={() => setShowBreakdown(true)}
+                style={styles.ringCell}>
+                {ringView(ring)}
+                <AppText variant="small" muted style={[styles.caption, styles.link]}>
+                  {ring.caption}
+                </AppText>
+              </Pressable>
+            );
+          }
+          if (ring.key === 'left' && onToggleSummaryMode) {
+            return (
+              <View key={ring.key} style={styles.ringCell}>
+                <View accessible accessibilityLabel={ringLabel(ring)}>
+                  {ringView(ring)}
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Switch between Target and Balance"
+                  hitSlop={8}
+                  onPress={onToggleSummaryMode}>
+                  <AppText variant="small" muted style={[styles.caption, styles.link]}>
+                    {ring.caption}
+                  </AppText>
+                </Pressable>
+              </View>
+            );
+          }
+          return (
+            <View key={ring.key} accessible accessibilityLabel={ringLabel(ring)} style={styles.ringCell}>
+              {ringView(ring)}
+              <AppText variant="small" muted style={styles.caption}>
+                {ring.caption}
+              </AppText>
+            </View>
+          );
+        })}
       </View>
 
-      {target !== undefined ? (
+      {balance ? (
+        expenditure !== undefined ? (
+          <AppText variant="small" muted style={styles.center}>
+            Expenditure {formatNumber(expenditure)} kcal - Consumed {formatNumber(consumed)} kcal
+          </AppText>
+        ) : null
+      ) : target !== undefined ? (
         <AppText variant="small" muted style={styles.center}>
           Target {formatNumber(target)} kcal
-          {exerciseBurned > 0 ? ` + ${formatNumber(exerciseBurned)} exercise = ${formatNumber(budget)} kcal` : ''}
+          {aboveBaseline >= 0.5 ? ` + ${formatNumber(aboveBaseline)} above baseline = ${formatNumber(budget)} kcal` : ''}
         </AppText>
+      ) : null}
+
+      {breakdown ? (
+        <EnergyBreakdownSheet
+          visible={showBreakdown}
+          onClose={() => setShowBreakdown(false)}
+          breakdown={breakdown}
+          hasDevice={hasDevice}
+          target={target}
+        />
       ) : null}
 
       {!compact && split ? (
@@ -148,6 +234,7 @@ const styles = StyleSheet.create({
   rings: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-start', gap: spacing.sm },
   ringCell: { alignItems: 'center', gap: spacing.xs + 2, flexShrink: 1 },
   caption: { textAlign: 'center' },
+  link: { textDecorationLine: 'underline' },
   center: { textAlign: 'center' },
   splitSection: { gap: spacing.sm },
   splitHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

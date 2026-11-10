@@ -96,27 +96,6 @@ verify_jwt = true
 enabled = true
 verify_jwt = true
 
-# Garmin Connect integration (dormant until the Garmin Developer Program approves the app and the secrets below are set;
-# see docs/garmin-integration.md). Secrets: npx supabase secrets set GARMIN_CLIENT_ID=... GARMIN_CLIENT_SECRET=...
-# GARMIN_WEBHOOK_SECRET=... APP_URL=...
-[functions.garmin-oauth-start]
-enabled = true
-verify_jwt = true
-
-# Garmin redirects the user's BROWSER here: there is no Cal Track JWT, the single-use PKCE `state` identifies the user.
-[functions.garmin-oauth-callback]
-enabled = true
-verify_jwt = false
-
-# Garmin's servers push health data here: authenticated with GARMIN_WEBHOOK_SECRET (constant-time compare), not a JWT.
-[functions.garmin-webhook]
-enabled = true
-verify_jwt = false
-
-[functions.garmin-disconnect]
-enabled = true
-verify_jwt = true
-
 # Invite-code registration (docs/getting-started.md section 5). The caller has no account yet, so there is no user JWT to
 # verify: verify_jwt = false. The gate is the invite code (consumed atomically in Postgres) plus per-client and global rate
 # limits that run BEFORE the code table is touched. [auth] enable_signup stays false on purpose: the function creates the

@@ -95,18 +95,22 @@ best-effort background schedule. To try it, set `"background": true` for the Hea
 
 ## Connecting a Garmin watch
 
-Cal Track reads from Apple Health and Health Connect; it does **not** log in to Garmin directly. Open the Garmin Connect
-app and enable sharing with Apple Health (iPhone) or Health Connect (Android); the menu name and location vary by
-Garmin Connect version, and *what* gets shared is decided there. Cal Track then picks up what arrives: daily active and resting
-energy, steps, workouts, weight, sleep and heart data. Garmin-only scores such as Body Battery or Sleep Score do not come
-through this route. A direct, one-tap Garmin connection exists in the code but stays hidden until Garmin approves the app, see
-[Garmin integration](garmin-integration.md).
+There are two routes, and they can be on at the same time (for the calorie budget the Garmin numbers of a day win):
+
+1. **Through Apple Health / Health Connect.** Open the Garmin Connect app and enable sharing with Apple Health (iPhone) or Health
+   Connect (Android); the menu name and location vary by Garmin Connect version, and *what* gets shared is decided there. Cal
+   Track then picks up what arrives. Garmin-only scores such as Body Battery or Sleep Score do not come through this route.
+2. **Directly from the phone.** In **Connected Apps & Devices > Garmin** tap **Connect Garmin** and sign in on Garmin's own page
+   inside the app. Needs a build that contains the web view (`react-native-webview`), so install a fresh build once; the web
+   build cannot do it. Cal Track never sees your password; the token stays in the phone's secure storage. This is
+   Garmin's private mobile-app interface, not an official integration. See [Features](features.md#garmin-read-only-from-the-phone).
 
 ## Turning on health sync
 
 In the app: **More > Connected apps & devices**. Choose the data types you want, grant the system permission prompt, and
-press *Sync now*. Then, under **More > Profile & targets**, set the *Energy mode*:
+press *Sync now*. A profile that was on *Static* is moved to *Device-adjusted* once the first time you connect (you can change
+it back; it will not be switched again). Under **More > Profile & targets** you can set the *Energy mode*:
 
-- **Static**: BMR + activity level + exercise you log by hand.
-- **Device-adjusted**: your estimate plus whatever the watch measured above your baseline.
+- **Static**: baseline activity only (plus exercise you log by hand). Ignores your watch.
+- **Device-adjusted (like Cronometer)**: your watch activity replaces the baseline during the day, and workouts are added.
 - **Device total**: the watch's own active + resting calories.

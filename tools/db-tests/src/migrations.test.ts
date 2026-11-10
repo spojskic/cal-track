@@ -36,6 +36,11 @@ describe('migrations', () => {
     // 20261110000090_pg_cron_supabase_only.sql is already applied on the real project: a migration that sorts before it
     // would make `supabase db push` ask for --include-all, so the invite-code migration must come after it.
     expect(all.filter((f) => f > skipped[0]!)).toContain('20261110000100_invite_codes.sql');
+    // ...and the one that removes the Garmin push objects must sort after the invite-code migration, for the same reason.
+    const afterInvites = all.filter((f) => f > '20261110000100_invite_codes.sql');
+    expect(afterInvites[0]).toBe('20261110000101_drop_garmin_push.sql');
+    // the profile preferences of the energy summary come after those, again so `supabase db push` needs no --include-all.
+    expect(afterInvites).toContain('20261110000103_energy_summary_mode.sql');
   });
 
   it('applies all non-Supabase migrations cleanly', async () => {

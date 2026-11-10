@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACTIVITY_FRACTIONS,
+  AWAKE_HOURS,
+  DEFAULT_ENERGY_SUMMARY_MODE,
+  adjustedBaselineKcal,
   ageFromBirthdate,
   baselineActivityKcal,
   bmrCunningham,
@@ -13,7 +16,11 @@ import {
   dailyDeltaFromRate,
   dedupeExercises,
   energyFloor,
+  energyRemaining,
+  energySummaryCaption,
   isDeviceDayComplete,
+  nextEnergySummaryMode,
+  normalizeEnergySummaryMode,
   exerciseKcalGrossMet,
   exerciseKcalNetMet,
   leanMass,
@@ -130,7 +137,7 @@ describe('exercise and TEF', () => {
 });
 
 describe('computeExpenditure - worked examples', () => {
-  // Shared day: BMR 1780, sedentary baseline 356, 300 kcal manual exercise, ate 2000 kcal (TEF 200).
+  // Shared day: BMR 1780, sedentary baseline 356, 300 kcal manual exercise (no duration), ate 2000 kcal (TEF 200).
   const base: ExpenditureInput = {
     mode: 'static',
     bmr: 1780,
@@ -140,39 +147,197 @@ describe('computeExpenditure - worked examples', () => {
     tefEnabled: true,
   };
 
-  it('static = bmr + baseline + manual exercise + TEF', () => {
+  it('static = bmr + baseline + manual exercise + TEF (an exercise without a duration takes no baseline time)', () => {
     const r = computeExpenditure(base);
     expect(r).toEqual({
       mode: 'static',
       bmr: 1780,
-      baselineActivity: 356,
+      baselineKcal: 356,
+      adjustedBaseline: 356,
+      trackerActivity: 0,
       exercise: 300,
-      deviceAboveBaseline: 0,
       tef: 200,
-      total: 2636, // 1780 + 356 + 300 + 200
+      total: 2636, // 1780 + 356 + 300 + 200 (unchanged: 0 minutes remove nothing from the baseline)
+      aboveBaseline: 300, // 356 + 0 + 300 - 356
+      baselineActivity: 356,
+      deviceAboveBaseline: 0,
     });
   });
 
   it('static ignores device numbers and respects TEF off', () => {
-    const r = computeExpenditure({ ...base, tefEnabled: false, deviceActiveKcal: 900, deviceRestingKcal: 2000 });
+    const r = computeExpenditure({
+      ...base,
+      tefEnabled: false,
+      deviceActiveKcal: 900,
+      deviceWorkoutKcal: 400,
+      deviceRestingKcal: 2000,
+    });
     expect(r.total).toBe(2436);
     expect(r.tef).toBe(0);
+    expect(r.trackerActivity).toBe(0);
   });
 
-  it('device_adjusted adds only the device active energy above baseline', () => {
-    // device active 700 -> above baseline = 344 ; total = 1780 + 356 + 344 + 300 + 200
-    const r = computeExpenditure({ ...base, mode: 'device_adjusted', deviceActiveKcal: 700 });
-    expect(r.deviceAboveBaseline).toBe(344);
-    expect(r.exercise).toBe(300);
-    expect(r.total).toBe(2980);
+  it('static now takes baseline time for the exercise minutes (the same rule as with a device)', () => {
+    // CHANGED vs the old formulas: 45 min of exercise remove 45/60 * 356/16 = 16.6875 kcal of baseline, so the total is
+    // 1780 + 339.3125 + 300 + 200 = 2619.3125 where it used to be 2636.
+    const r = computeExpenditure({ ...base, exerciseMinutes: 45 });
+    expect(r.adjustedBaseline).toBeCloseTo(339.3125, 10);
+    expect(r.total).toBeCloseTo(2619.3125, 10);
+    expect(r.aboveBaseline).toBeCloseTo(283.3125, 10); // 339.3125 + 300 - 356
   });
 
-  it('device_adjusted never goes below the static result', () => {
-    const low = computeExpenditure({ ...base, mode: 'device_adjusted', deviceActiveKcal: 200 });
-    expect(low.deviceAboveBaseline).toBe(0);
-    expect(low.total).toBe(2636);
-    const none = computeExpenditure({ ...base, mode: 'device_adjusted' });
-    expect(none.total).toBe(2636);
+  describe("Cronometer's own example (BMR 1394, baseline 279, a 60 minute 500 kcal road bike ride)", () => {
+    const cronometer: ExpenditureInput = {
+      mode: 'static',
+      bmr: 1394,
+      baselineActivityKcal: 279,
+      manualExerciseKcal: 500,
+      exerciseMinutes: 60,
+      intakeKcal: 0,
+      tefEnabled: false,
+    };
+
+    it('static: adjusted baseline 261.5625, total 2155.5625, above baseline 482.5625', () => {
+      const r = computeExpenditure(cronometer);
+      expect(r.adjustedBaseline).toBe(261.5625); // 279 - 279 / 16 (they show 261)
+      expect(r.exercise).toBe(500);
+      expect(r.total).toBe(2155.5625); // 1394 + 261.5625 + 500 (they show 2155)
+      expect(r.aboveBaseline).toBe(482.5625); // (500 + 261.5625) - 279
+      expect(Math.floor(r.adjustedBaseline)).toBe(261);
+      expect(Math.floor(r.total)).toBe(2155);
+    });
+
+    it('the energy target of a maintain-weight goal is 1673 and the budget 1673 + 482.5625 = Burned', () => {
+      const energy = computeEnergyTarget({ bmr: 1394, baselineActivityKcal: 279, rateKgPerWeek: 0, sex: 'female' });
+      expect(energy.target).toBe(1673);
+      const r = computeExpenditure(cronometer);
+      expect(energy.target + r.aboveBaseline).toBe(2155.5625);
+      expect(energy.target + r.aboveBaseline).toBe(r.total);
+    });
+
+    it('device_adjusted with the ride recorded by the watch gives the same numbers (workout only, no extra tracker)', () => {
+      const r = computeExpenditure({
+        ...cronometer,
+        mode: 'device_adjusted',
+        manualExerciseKcal: 0,
+        deviceActiveKcal: 500,
+        deviceWorkoutKcal: 500,
+      });
+      expect(r.trackerActivity).toBe(0);
+      expect(r.exercise).toBe(500);
+      expect(r.adjustedBaseline).toBe(261.5625);
+      expect(r.total).toBe(2155.5625);
+      expect(r.aboveBaseline).toBe(482.5625);
+    });
+  });
+
+  describe('device_adjusted (Cronometer: the baseline is replaced by tracker activity and exercise time)', () => {
+    const day: ExpenditureInput = {
+      mode: 'device_adjusted',
+      bmr: 1394,
+      baselineActivityKcal: 279,
+      manualExerciseKcal: 0,
+      intakeKcal: 0,
+      tefEnabled: false,
+    };
+
+    it('no exercise and no device: total = bmr + baseline (the start of the day)', () => {
+      const r = computeExpenditure(day);
+      expect(r.total).toBe(1394 + 279);
+      expect(r.adjustedBaseline).toBe(279);
+      expect(r.trackerActivity).toBe(0);
+      expect(r.exercise).toBe(0);
+      expect(r.aboveBaseline).toBe(0);
+      expect(computeExpenditure({ ...day, deviceActiveKcal: 0, deviceWorkoutKcal: 0 }).total).toBe(1673);
+    });
+
+    it('tracker activity replaces the baseline one-for-one: 100 kcal of steps -> adjusted baseline 179, same total', () => {
+      const r = computeExpenditure({ ...day, deviceActiveKcal: 100 });
+      expect(r.trackerActivity).toBe(100);
+      expect(r.adjustedBaseline).toBe(179);
+      expect(r.total).toBe(1673); // unchanged
+      expect(r.aboveBaseline).toBe(0);
+    });
+
+    it('tracker activity larger than the baseline: adjusted baseline 0 (hidden), total = bmr + tracker', () => {
+      const r = computeExpenditure({ ...day, deviceActiveKcal: 400 });
+      expect(r.trackerActivity).toBe(400);
+      expect(r.adjustedBaseline).toBe(0);
+      expect(r.total).toBe(1394 + 400);
+      expect(r.aboveBaseline).toBe(121); // 400 - 279
+    });
+
+    it('a device workout is exercise, not tracker activity (the daily active total includes it)', () => {
+      // active 800 = 300 of general movement + a 500 kcal / 60 min workout.
+      const r = computeExpenditure({ ...day, deviceActiveKcal: 800, deviceWorkoutKcal: 500, exerciseMinutes: 60 });
+      expect(r.trackerActivity).toBe(300);
+      expect(r.exercise).toBe(500);
+      expect(r.adjustedBaseline).toBe(0); // 279 - 300 - 17.4375 -> clamped
+      expect(r.total).toBe(1394 + 300 + 500);
+      expect(r.aboveBaseline).toBe(521); // 300 + 500 - 279
+    });
+
+    it('tracker activity and exercise time both reduce the baseline', () => {
+      // active 380 = 80 tracker + a 300 kcal / 90 min workout: 279 - 80 - 279/16*1.5 = 172.84375
+      const r = computeExpenditure({ ...day, deviceActiveKcal: 380, deviceWorkoutKcal: 300, exerciseMinutes: 90 });
+      expect(r.trackerActivity).toBe(80);
+      expect(r.adjustedBaseline).toBeCloseTo(172.84375, 10);
+      expect(r.total).toBeCloseTo(1394 + 172.84375 + 80 + 300, 10);
+    });
+
+    it('manual exercise on top of a device day (the caller removed entries that overlap a device workout)', () => {
+      // The 07:00-07:30 run is not in the watch's workouts, the 09:00 strength session is; the manual 09:10 entry that
+      // overlaps it is dropped by dedupeExercises before it reaches computeExpenditure.
+      const manual = [
+        { kcal: 320, minutes: 30, startMs: 7 * 3_600_000, endMs: 7.5 * 3_600_000 },
+        { kcal: 210, minutes: 20, startMs: 9.2 * 3_600_000, endMs: 9.5 * 3_600_000 },
+      ];
+      const watch = [{ startMs: 9 * 3_600_000, endMs: 9.75 * 3_600_000 }]; // 45 min strength session, 250 kcal
+      const kept = dedupeExercises(manual, watch);
+      expect(kept).toHaveLength(1);
+      const manualKcal = kept.reduce((sum, m) => sum + m.kcal, 0);
+      const minutes = 45 + kept.reduce((sum, m) => sum + m.minutes, 0);
+      const r = computeExpenditure({
+        ...day,
+        manualExerciseKcal: manualKcal,
+        deviceActiveKcal: 250 + 120,
+        deviceWorkoutKcal: 250,
+        exerciseMinutes: minutes,
+      });
+      expect(r.exercise).toBe(250 + 320); // the strength session is counted once
+      expect(r.trackerActivity).toBe(120);
+      expect(r.adjustedBaseline).toBeCloseTo(279 - 120 - (279 / 16) * 1.25, 10); // 75 min of exercise
+    });
+
+    it('without a device active figure it is the same as static: workouts need the day total to be counted', () => {
+      const withWorkouts = computeExpenditure({ ...day, manualExerciseKcal: 100, exerciseMinutes: 30, deviceWorkoutKcal: 500 });
+      const asStatic = computeExpenditure({ ...day, mode: 'static', manualExerciseKcal: 100, exerciseMinutes: 30 });
+      expect(withWorkouts).toEqual({ ...asStatic, mode: 'device_adjusted' });
+    });
+
+    it('a small, partial-day device total never drops the total below bmr + baseline - the baseline spent on exercise', () => {
+      for (const minutes of [0, 30, 60, 150]) {
+        const lostToExerciseTime = (279 / 16) * (minutes / 60);
+        for (const tracker of [0, 1, 50, 150, 278, 279]) {
+          const r = computeExpenditure({
+            ...day,
+            deviceActiveKcal: tracker,
+            exerciseMinutes: minutes,
+            deviceDayComplete: false,
+          });
+          expect(r.total).toBeGreaterThanOrEqual(1394 + 279 - lostToExerciseTime - 1e-9);
+          // while the baseline is not used up, the tracker only moves kcal from the baseline to tracker activity
+          if (tracker + lostToExerciseTime <= 279) expect(r.total).toBeCloseTo(1394 + 279 - lostToExerciseTime, 9);
+          // once it is used up the tracker activity itself keeps the total from falling
+          else expect(r.total).toBeCloseTo(1394 + tracker, 9);
+        }
+      }
+    });
+
+    it('stays at or above bmr + baseline - baseline lost to exercise time once exercise kcal count too', () => {
+      const r = computeExpenditure({ ...day, deviceActiveKcal: 5, deviceWorkoutKcal: 0, manualExerciseKcal: 200, exerciseMinutes: 40 });
+      expect(r.total).toBeGreaterThanOrEqual(1394 + 279 - (279 / 16) * (40 / 60));
+    });
   });
 
   it('device_total uses device active + resting energy and ignores our BMR/baseline/exercise', () => {
@@ -186,12 +351,40 @@ describe('computeExpenditure - worked examples', () => {
     expect(r).toEqual({
       mode: 'device_total',
       bmr: 1850,
-      baselineActivity: 0,
+      baselineKcal: 356,
+      adjustedBaseline: 0,
+      trackerActivity: 700,
       exercise: 0,
-      deviceAboveBaseline: 700,
       tef: 200,
-      total: 2750,
+      total: 2750, // unchanged
+      aboveBaseline: 414, // 1850 + 700 - (our bmr 1780 + baseline 356)
+      baselineActivity: 0,
+      deviceAboveBaseline: 700,
     });
+  });
+
+  it('device_total splits the device active energy into tracker activity and workouts without changing the total', () => {
+    const r = computeExpenditure({
+      ...base,
+      mode: 'device_total',
+      deviceActiveKcal: 700,
+      deviceRestingKcal: 1850,
+      deviceWorkoutKcal: 450,
+    });
+    expect(r.exercise).toBe(450);
+    expect(r.trackerActivity).toBe(250);
+    expect(r.total).toBe(2750);
+    // workouts larger than the day's active energy (a device that reports workout totals incl. rest) are capped
+    const capped = computeExpenditure({
+      ...base,
+      mode: 'device_total',
+      deviceActiveKcal: 400,
+      deviceRestingKcal: 1850,
+      deviceWorkoutKcal: 450,
+    });
+    expect(capped.exercise).toBe(400);
+    expect(capped.trackerActivity).toBe(0);
+    expect(capped.total).toBe(400 + 1850 + 200);
   });
 
   it('device_total falls back to our BMR when the device has no resting energy', () => {
@@ -202,6 +395,8 @@ describe('computeExpenditure - worked examples', () => {
   it('device_total falls back to baseline + manual exercise without active energy', () => {
     const r = computeExpenditure({ ...base, mode: 'device_total', deviceRestingKcal: 1850 });
     expect(r.total).toBe(2706); // 1850 + 356 + 300 + 200
+    expect(r.adjustedBaseline).toBe(356);
+    expect(r.exercise).toBe(300);
   });
 
   describe('a device day that is not finished (cumulative counters, e.g. Garmin resting 801 kcal at midday)', () => {
@@ -209,14 +404,15 @@ describe('computeExpenditure - worked examples', () => {
 
     it('device_total does not treat the resting-so-far as a whole day of BMR: our BMR stands in', () => {
       const r = computeExpenditure({ ...midday, deviceDayComplete: false });
-      expect(r).toEqual({
+      expect(r).toMatchObject({
         mode: 'device_total',
         bmr: 1780, // not 801
-        baselineActivity: 0,
+        adjustedBaseline: 0,
+        trackerActivity: 150,
         exercise: 0,
-        deviceAboveBaseline: 150,
         tef: 200,
         total: 2130, // 1780 + 150 + 200
+        aboveBaseline: 0,
       });
       // the same row on a finished day is used as measured
       expect(computeExpenditure({ ...midday, deviceDayComplete: true }).total).toBe(1151); // 801 + 150 + 200
@@ -231,9 +427,9 @@ describe('computeExpenditure - worked examples', () => {
 
     it('does not double count with our own BMR / baseline / manual exercise', () => {
       const r = computeExpenditure({ ...midday, deviceDayComplete: false });
-      expect(r.baselineActivity).toBe(0);
+      expect(r.adjustedBaseline).toBe(0);
       expect(r.exercise).toBe(0); // manual 300 and baseline 356 are not added on top of the device's active energy
-      expect(r.total).toBeCloseTo(r.bmr + r.deviceAboveBaseline + r.tef, 10);
+      expect(r.total).toBeCloseTo(r.bmr + r.trackerActivity + r.tef, 10);
     });
 
     it('static and device_adjusted ignore the flag (they never read resting energy)', () => {
@@ -244,34 +440,164 @@ describe('computeExpenditure - worked examples', () => {
       }
     });
 
-    it('device_adjusted counts only ACTIVE energy above the baseline, so a partial day can only under-count', () => {
+    it('device_adjusted: tracker activity so far only takes over part of the baseline, so a partial day cannot under-count', () => {
       const early = computeExpenditure({ ...base, mode: 'device_adjusted', deviceActiveKcal: 150, deviceRestingKcal: 801, deviceDayComplete: false });
-      expect(early.deviceAboveBaseline).toBe(0); // 150 < baseline 356
+      // CHANGED: the 150 kcal of tracker activity used to be ignored below the baseline (deviceAboveBaseline 0) and the
+      // baseline stayed whole. Now it REPLACES 150 kcal of the baseline: same total, the breakdown shows the tracker.
+      expect(early.trackerActivity).toBe(150);
+      expect(early.adjustedBaseline).toBe(206); // 356 - 150
       expect(early.bmr).toBe(1780);
       expect(early.total).toBe(2636);
     });
   });
 
-  it('always satisfies total = sum of components', () => {
+  it('TEF is added in every mode', () => {
+    for (const mode of ['static', 'device_adjusted', 'device_total'] as const) {
+      const input: ExpenditureInput = { ...base, mode, deviceActiveKcal: 650, deviceRestingKcal: 1900, deviceWorkoutKcal: 200 };
+      const without = computeExpenditure({ ...input, tefEnabled: false });
+      const withTef = computeExpenditure(input);
+      expect(withTef.tef, mode).toBe(200);
+      expect(withTef.total - without.total, mode).toBe(200);
+      // TEF is never part of the energy that widens the budget
+      expect(withTef.aboveBaseline, mode).toBe(without.aboveBaseline);
+    }
+  });
+
+  it('always satisfies total = bmr + adjustedBaseline + trackerActivity + exercise + tef (and the deprecated aliases)', () => {
     for (const mode of ['static', 'device_adjusted', 'device_total'] as const) {
       for (const deviceDayComplete of [true, false]) {
-        const r = computeExpenditure({
-          ...base,
-          mode,
-          deviceActiveKcal: 650,
-          deviceRestingKcal: 1900,
-          deviceDayComplete,
-        });
-        expect(r.total).toBeCloseTo(
-          r.bmr + r.baselineActivity + r.exercise + r.deviceAboveBaseline + r.tef,
-          10,
-        );
+        for (const minutes of [0, 45, 600]) {
+          const r = computeExpenditure({
+            ...base,
+            mode,
+            deviceActiveKcal: 650,
+            deviceWorkoutKcal: 200,
+            deviceRestingKcal: 1900,
+            exerciseMinutes: minutes,
+            deviceDayComplete,
+          });
+          expect(r.total).toBeCloseTo(r.bmr + r.adjustedBaseline + r.trackerActivity + r.exercise + r.tef, 10);
+          expect(r.total).toBeCloseTo(r.bmr + r.baselineActivity + r.exercise + r.deviceAboveBaseline + r.tef, 10);
+          expect(r.aboveBaseline).toBeGreaterThanOrEqual(0);
+          expect(r.adjustedBaseline).toBeGreaterThanOrEqual(0);
+          expect(r.adjustedBaseline).toBeLessThanOrEqual(r.baselineKcal);
+        }
       }
     }
   });
 
+  it('clamps negative and non-finite inputs and never lets the adjusted baseline go negative', () => {
+    const r = computeExpenditure({
+      ...base,
+      mode: 'device_adjusted',
+      manualExerciseKcal: -50,
+      deviceActiveKcal: -10,
+      deviceWorkoutKcal: Number.NaN,
+      exerciseMinutes: -30,
+    });
+    expect(r.exercise).toBe(0);
+    expect(r.trackerActivity).toBe(0);
+    expect(r.adjustedBaseline).toBe(356);
+    expect(r.total).toBe(1780 + 356 + 200);
+
+    // 30 hours of exercise would remove more than the whole baseline: it stops at 0
+    const long = computeExpenditure({ ...base, exerciseMinutes: 30 * 60 });
+    expect(long.adjustedBaseline).toBe(0);
+    expect(long.total).toBe(1780 + 300 + 200);
+    // device_adjusted: a NaN / missing device figure is "no device"
+    const nan = computeExpenditure({ ...base, mode: 'device_adjusted', deviceActiveKcal: Number.NaN, deviceWorkoutKcal: 100 });
+    expect(nan.trackerActivity).toBe(0);
+    expect(nan.total).toBe(2636);
+  });
+
+  it('does not round: only the display does', () => {
+    const r = computeExpenditure({
+      ...base,
+      mode: 'device_adjusted',
+      bmr: 1523.4,
+      baselineActivityKcal: 1523.4 * 0.375,
+      manualExerciseKcal: 123.456,
+      deviceActiveKcal: 77.7,
+      deviceWorkoutKcal: 10.1,
+      exerciseMinutes: 37,
+      tefEnabled: false,
+    });
+    const baseline = 1523.4 * 0.375;
+    const tracker = 77.7 - 10.1;
+    const adjusted = baseline - tracker - (baseline / 16) * (37 / 60);
+    expect(r.trackerActivity).toBeCloseTo(tracker, 12);
+    expect(r.adjustedBaseline).toBeCloseTo(adjusted, 12);
+    expect(r.total).toBeCloseTo(1523.4 + adjusted + tracker + 10.1 + 123.456, 10);
+    expect(Number.isInteger(r.total)).toBe(false);
+  });
+
   it('uses a custom TEF percentage', () => {
     expect(computeExpenditure({ ...base, tefPct: 0.05 }).tef).toBeCloseTo(100, 10);
+  });
+});
+
+describe('adjustedBaselineKcal', () => {
+  it('is the baseline minus tracker activity minus 1/16 of it per hour of exercise, never below 0', () => {
+    expect(AWAKE_HOURS).toBe(16);
+    expect(adjustedBaselineKcal(279, 0, 0)).toBe(279);
+    expect(adjustedBaselineKcal(279, 0, 60)).toBe(261.5625);
+    expect(adjustedBaselineKcal(279, 100, 0)).toBe(179);
+    expect(adjustedBaselineKcal(279, 100, 120)).toBeCloseTo(279 - 100 - 34.875, 12);
+    expect(adjustedBaselineKcal(279, 279, 0)).toBe(0);
+    expect(adjustedBaselineKcal(279, 1000, 0)).toBe(0);
+    expect(adjustedBaselineKcal(279, 0, 16 * 60)).toBe(0); // 16 hours of exercise use up all of it
+    expect(adjustedBaselineKcal(279, 0, 99 * 60)).toBe(0);
+    expect(adjustedBaselineKcal(0, 10, 10)).toBe(0);
+    expect(adjustedBaselineKcal(-5, 0, 0)).toBe(0);
+  });
+});
+
+describe('energyRemaining and the third circle', () => {
+  it("Target = (target + above baseline) - consumed, Balance = expenditure - consumed (Cronometer's example)", () => {
+    const r = energyRemaining({ targetKcal: 1673, aboveBaselineKcal: 482.5625, expenditureKcal: 2155.5625, consumedKcal: 1800 });
+    expect(r.target).toBe(1673 + 482.5625 - 1800);
+    expect(r.target).toBe(355.5625);
+    expect(r.balance).toBe(355.5625);
+  });
+
+  it('they differ for a weight-loss goal: Target keeps the deficit in the budget, Balance shows the plain deficit', () => {
+    // target 1861 (maintenance 2136 - 275), expenditure 2136 + 0 above baseline, ate 1700
+    const r = energyRemaining({ targetKcal: 1861, aboveBaselineKcal: 0, expenditureKcal: 2136, consumedKcal: 1700 });
+    expect(r.target).toBe(161);
+    expect(r.balance).toBe(436);
+  });
+
+  it('Balance includes TEF while Target does not', () => {
+    // expenditure 2336 = 2136 + 200 TEF
+    const r = energyRemaining({ targetKcal: 2136, aboveBaselineKcal: 0, expenditureKcal: 2336, consumedKcal: 2000 });
+    expect(r.target).toBe(136);
+    expect(r.balance).toBe(336);
+  });
+
+  it('goes negative when over the budget / in surplus; a negative above-baseline never reduces the target', () => {
+    expect(energyRemaining({ targetKcal: 2000, aboveBaselineKcal: 0, expenditureKcal: 2100, consumedKcal: 2300 })).toEqual({
+      target: -300,
+      balance: -200,
+    });
+    expect(energyRemaining({ targetKcal: 2000, aboveBaselineKcal: -50, expenditureKcal: 2000, consumedKcal: 0 }).target).toBe(2000);
+  });
+
+  it('names the circle', () => {
+    expect(energySummaryCaption('target', 10)).toBe('Remaining');
+    expect(energySummaryCaption('target', 0)).toBe('Remaining');
+    expect(energySummaryCaption('target', -1)).toBe('Over');
+    expect(energySummaryCaption('target', undefined)).toBe('Remaining');
+    expect(energySummaryCaption('balance', 10)).toBe('Deficit');
+    expect(energySummaryCaption('balance', -1)).toBe('Surplus');
+    expect(energySummaryCaption('balance', undefined)).toBe('Balance');
+    expect(DEFAULT_ENERGY_SUMMARY_MODE).toBe('target');
+  });
+
+  it('toggles and normalises the stored mode', () => {
+    expect(nextEnergySummaryMode('target')).toBe('balance');
+    expect(nextEnergySummaryMode('balance')).toBe('target');
+    expect(normalizeEnergySummaryMode('balance')).toBe('balance');
+    for (const v of ['target', 'remaining', '', null, undefined, 3]) expect(normalizeEnergySummaryMode(v)).toBe('target');
   });
 });
 

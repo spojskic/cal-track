@@ -1,8 +1,8 @@
-// Test helpers (not exported from index.ts).
+// Test helpers (not exported from index.ts). Nothing here ever touches the network: every `fetch` is a fake.
 
-import type { FetchInit, FetchLike, ResponseLike } from './client';
+import type { FetchInit, FetchLike, ResponseLike } from './http';
 
-/** base64url of a UTF-8 string (test-only; uses the DOM btoa available in Node 22). */
+/** base64url of a UTF-8 string (test-only; uses the btoa available in Node 22). */
 export function b64url(s: string): string {
   return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -10,6 +10,10 @@ export function b64url(s: string): string {
 export function makeJwt(payload: Record<string, unknown>): string {
   return `${b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${b64url(JSON.stringify(payload))}.c2lnbmF0dXJlLXNpZ25hdHVyZQ`;
 }
+
+/** 2026-11-10 12:00:00 UTC */
+export const NOW_MS = Date.UTC(2026, 10, 10, 12, 0, 0);
+export const NOW_SEC = NOW_MS / 1000;
 
 export interface FakeCall {
   url: string;
@@ -36,22 +40,35 @@ export function toResponse(r: { status: number; body?: string; headers?: Record<
   };
 }
 
+/** A fake fetch that records every call and how many were in flight at once. */
 export function createFakeFetch(handler: (call: FakeCall) => FakeReply | Promise<FakeReply>): {
   fetch: FetchLike;
   calls: FakeCall[];
+  maxInFlight: () => number;
 } {
   const calls: FakeCall[] = [];
+  let inFlight = 0;
+  let max = 0;
   const fetch: FetchLike = async (url, init) => {
     const call: FakeCall = { url, init, n: calls.length };
     calls.push(call);
-    const r = await handler(call);
-    if (r instanceof Error) throw r;
-    return toResponse(r);
+    inFlight += 1;
+    max = Math.max(max, inFlight);
+    try {
+      // Yield once so overlapping calls would really overlap.
+      await Promise.resolve();
+      const r = await handler(call);
+      if (r instanceof Error) throw r;
+      return toResponse(r);
+    } finally {
+      inFlight -= 1;
+    }
   };
-  return { fetch, calls };
+  return { fetch, calls, maxInFlight: () => max };
 }
 
-export function createClock(startMs = Date.UTC(2026, 10, 10, 12, 0, 0)) {
+/** A clock whose sleep() advances time instantly and records every pause. */
+export function createClock(startMs = NOW_MS) {
   const clock = {
     t: startMs,
     sleeps: [] as number[],
@@ -67,33 +84,26 @@ export function createClock(startMs = Date.UTC(2026, 10, 10, 12, 0, 0)) {
   return clock;
 }
 
-export const KEY = 'GCDC_SUPERSECRETKEY0123456789';
-
-import type { GarminDataClient, QueryParams } from './client';
-
-export interface FakeClientCall {
-  path: string;
-  params: QueryParams | undefined;
-  n: number;
+/** An access token that expires `inSec` seconds after NOW. */
+export function accessToken(inSec: number, extra: Record<string, unknown> = {}): string {
+  return makeJwt({ exp: NOW_SEC + inSec, client_id: 'GARMIN_CONNECT_MOBILE_ANDROID_DI_2025Q2', ...extra });
 }
 
-type Route = [match: string | RegExp, handler: (call: FakeClientCall) => unknown];
+export const REFRESH_TOKEN = 'refresh-token-SECRET-0123456789';
+export const TICKET = 'ST-1234567-aBcDeFgHiJkLmNoPqRs-cas';
 
-/** A GarminDataClient with scripted responses. A handler may return a value, or an Error to make the call fail. */
-export function createFakeClient(routes: Route[]): GarminDataClient & { calls: FakeClientCall[]; paths(): string[] } {
-  const calls: FakeClientCall[] = [];
-  const client = {
-    calls,
-    paths: () => calls.map((c) => c.path),
-    get: async <T = unknown>(path: string, params?: QueryParams): Promise<T | null> => {
-      const call: FakeClientCall = { path, params, n: calls.length };
-      calls.push(call);
-      const route = routes.find(([m]) => (typeof m === 'string' ? m === path : m.test(path)));
-      if (!route) return null;
-      const v = route[1](call);
-      if (v instanceof Error) throw v;
-      return (v ?? null) as T | null;
-    },
-  };
-  return client;
+/** Parses an application/x-www-form-urlencoded body into an object. */
+export function parseForm(body: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const pair of (body ?? '').split('&')) {
+    if (pair === '') continue;
+    const eq = pair.indexOf('=');
+    out[decodeURIComponent(pair.slice(0, eq))] = decodeURIComponent(pair.slice(eq + 1));
+  }
+  return out;
+}
+
+/** Reference base64 of a UTF-8 string, computed with the platform's btoa. */
+export function referenceBase64(text: string): string {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(text)));
 }

@@ -93,6 +93,27 @@ async function waitUntil(page: Page, label: string, condition: () => boolean, ti
   }
 }
 
+// ------------------------------------------------------------------------------------------ energy summary helpers
+
+/** The button under the energy summary's third circle (Remaining / Over in Target, Deficit / Surplus in Balance). */
+const thirdCircleButton = (page: Page) => page.getByRole('button', { name: 'Switch between Target and Balance', exact: true }).first();
+
+/** FAIL unless the label under the third circle reads like the pattern (it re-renders a moment after a tap). */
+async function expectThirdCircle(ctx: ScenarioContext, page: Page, pattern: RegExp): Promise<boolean> {
+  return ctx.check(`the third energy circle reads ${String(pattern)}`, async () => {
+    const deadline = Date.now() + 5000;
+    for (;;) {
+      const text = (await thirdCircleButton(page).innerText({ timeout: 6000 })).trim();
+      if (pattern.test(text)) return;
+      if (Date.now() > deadline) throw new Error(`it reads "${text}"`);
+      await page.waitForTimeout(150);
+    }
+  });
+}
+
+const TARGET_VIEW = /^(Remaining|Over)$/;
+const BALANCE_VIEW = /^(Deficit|Surplus)$/;
+
 /** Top edge of the first button with this accessible name (to compare the order of rows on screen). */
 async function rowTop(page: Page, name: RegExp): Promise<number> {
   const box = await page.getByRole('button', { name }).first().boundingBox({ timeout: 6000 });
@@ -445,8 +466,79 @@ export const SCENARIOS: Scenario[] = [
       await stepThen(ctx, 'open the diary from the dashboard', () => clickButton(page, 'Open diary'), () => ctx.expectUrl(/\/diary/));
     },
   },
+  {
+    // Cronometer's "Energy Summary 3rd Circle Display": the label under the third circle is a button that switches
+    // between Target (Remaining / Over) and Balance (Deficit / Surplus) and remembers the choice in the profile.
+    name: 'dashboard: the third energy circle switches between Target and Balance',
+    route: '/',
+    path: '/',
+    auth: 'signed-in',
+    expect: ['Dashboard', 'Today', 'Expenditure'],
+    async after(page, ctx) {
+      const profileUpdates = () => ctx.backend.mutationsOf('profiles', 'update');
+      await expectThirdCircle(ctx, page, TARGET_VIEW);
+      await stepThen(ctx, 'tap the label under the third circle', () => thirdCircleButton(page).click({ timeout: 6000 }), async () => {
+        await expectThirdCircle(ctx, page, BALANCE_VIEW);
+        await ctx.expectMutation('profiles', 'update', (m) => payloadOf(m).energy_summary_mode === 'balance');
+        await ctx.check('switching views is exactly one request that only changes the preference', () => {
+          if (profileUpdates().length !== 1) throw new Error(`${profileUpdates().length} profile updates`);
+          const keys = Object.keys(payloadOf(profileUpdates()[0]!));
+          if (keys.join() !== 'energy_summary_mode') throw new Error(`the update sends ${keys.join(', ')}`);
+        });
+        await ctx.expectText(/Expenditure [\d,]+ kcal - Consumed [\d,]+ kcal/);
+        await ctx.snapshot('balance', { tall: false });
+        // the choice is remembered: a reload still shows Deficit / Surplus
+        await stepThen(ctx, 'reload the dashboard', async () => {
+          await page.reload();
+          await ctx.settle();
+        }, () => expectThirdCircle(ctx, page, BALANCE_VIEW));
+        await stepThen(ctx, 'tap it again to go back to Target', () => thirdCircleButton(page).click({ timeout: 6000 }), async () => {
+          await expectThirdCircle(ctx, page, TARGET_VIEW);
+          await ctx.expectMutation('profiles', 'update', (m) => payloadOf(m).energy_summary_mode === 'target');
+          await ctx.check('two taps are two requests', () => {
+            if (profileUpdates().length !== 2) throw new Error(`${profileUpdates().length} profile updates`);
+          });
+        });
+      });
+    },
+  },
+  {
+    // The Expenditure circle opens the parts that add up to it: BMR, adjusted baseline activity, exercise, TEF.
+    name: 'dashboard: the expenditure circle lists what it is made of',
+    route: '/',
+    path: '/',
+    auth: 'signed-in',
+    expect: ['Dashboard', 'Expenditure'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'open the expenditure breakdown', () => clickButton(page, /Expenditure .* show how it adds up/), async () => {
+        for (const text of ['Energy expenditure', 'Basal metabolic rate (BMR)', 'Adjusted baseline activity', 'Thermic effect of food', 'Total expenditure']) {
+          await ctx.expectText(text);
+        }
+        await ctx.expectNoText('Tracker activity', { timeout: 1500 }); // the default fixtures use the Static energy mode: no tracker
+        await ctx.snapshot('breakdown', { tall: false });
+        await closeSheet(page, 'Total expenditure');
+      });
+    },
+  },
   { name: 'dashboard: imperial units', route: '/', path: '/', auth: 'signed-in', fixtures: 'imperial', expect: ['Dashboard'] },
   { name: 'dashboard: empty diary', route: '/', path: '/', auth: 'signed-in', fixtures: 'empty-diary', expect: ['Dashboard'] },
+  {
+    // The same rings in the diary (the Energy page of the targets on phones, the Energy Summary card on wide screens).
+    name: 'diary: the energy summary switches between Target and Balance',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Lunch', 'Dinner', 'Snacks'],
+    async after(page, ctx) {
+      if (ctx.isPhone) await ctx.step('open the Energy page of the targets', () => clickTab(page, /^Energy/));
+      await expectThirdCircle(ctx, page, TARGET_VIEW);
+      await stepThen(ctx, 'tap the label under the third circle', () => thirdCircleButton(page).click({ timeout: 6000 }), async () => {
+        await expectThirdCircle(ctx, page, BALANCE_VIEW);
+        await ctx.expectMutation('profiles', 'update', (m) => payloadOf(m).energy_summary_mode === 'balance');
+        await ctx.snapshot('balance', { tall: false });
+      });
+    },
+  },
   {
     name: 'diary: entries, entry sheet, edit and delete',
     route: '/diary',
@@ -1845,6 +1937,40 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    // The energy modes are named after what they do, and the third circle of the energy summary can be set here too.
+    name: 'settings: energy mode wording and the 3rd circle (Target | Balance)',
+    route: '/settings/targets',
+    path: '/settings/targets',
+    auth: 'signed-in',
+    expect: ['Energy calculation', 'Energy summary 3rd circle'],
+    async after(page, ctx) {
+      await ctx.step('scroll to the energy mode', () => scrollToText(page, /Energy mode:/));
+      await stepThen(ctx, 'open the energy modes', () => clickButton(page, /Energy mode: Static/), async () => {
+        for (const text of [
+          'Baseline activity only. Ignores your watch.',
+          'Device-adjusted (like Cronometer)',
+          'Your watch activity replaces the baseline during the day; workouts are added.',
+          'Device total',
+          "Uses your watch's active + resting calories only.",
+        ]) {
+          await ctx.expectText(text);
+        }
+        await ctx.snapshot('modes', { tall: false });
+        await choose(page, 'Device-adjusted (like Cronometer)', { exact: true });
+      });
+      await stepThen(ctx, 'show Balance in the third circle and save', async () => {
+        await choose(page, 'Balance', { exact: true });
+        await clickButton(page, 'Save energy settings', { exact: true });
+      }, () =>
+        ctx.expectMutation(
+          'profiles',
+          'update',
+          (m) => payloadOf(m).energy_summary_mode === 'balance' && payloadOf(m).energy_mode === 'device_adjusted',
+        ),
+      );
+    },
+  },
+  {
     name: 'settings: targets for a user without onboarding',
     route: '/settings/targets',
     path: '/settings/targets',
@@ -1937,7 +2063,29 @@ export const SCENARIOS: Scenario[] = [
     route: '/settings/integrations',
     path: '/settings/integrations',
     auth: 'signed-in',
-    expect: ['Connected Apps & Devices', 'Energy mode'],
+    // The Garmin card on the web: it only explains that Garmin sync needs the phone app.
+    expect: ['Connected Apps & Devices', 'Energy mode', 'Garmin sync runs in the iPhone and Android app'],
+    async after(page, ctx) {
+      await ctx.expectText('Garmin sync runs in the iPhone and Android app');
+      await ctx.expectText('Nothing is written to Garmin');
+      await ctx.check('the web build has no Connect Garmin / Sync now / Copy sync report button', async () => {
+        for (const name of [/Connect Garmin/i, /Sync now/i, /Copy sync report/i, /Sign in to Garmin/i]) {
+          const n = await buttonCount(page, name);
+          if (n > 0) throw new Error(`found ${n} button(s) named ${String(name)}`);
+        }
+      });
+      await ctx.check('the web build never calls a Garmin function or rpc', () => {
+        const touched = ctx.backend.calls.filter((c) => /garmin/i.test(c.target));
+        if (touched.length > 0) throw new Error(`unexpected backend calls: ${touched.map((c) => c.target).join(', ')}`);
+      });
+    },
+  },
+  {
+    name: 'settings: sign in to Garmin (web: explains it needs the phone app)',
+    route: '/settings/garmin-sign-in',
+    path: '/settings/garmin-sign-in',
+    auth: 'signed-in',
+    expect: ['Sign in to Garmin', 'Garmin sync runs in the iPhone and Android app'],
   },
 
   // ------------------------------------------------------------------------------------------ coach and AI screens (no key: gated)

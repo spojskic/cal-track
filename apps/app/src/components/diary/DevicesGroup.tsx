@@ -2,62 +2,13 @@ import { StyleSheet, View } from 'react-native';
 
 import { formatNumber } from '@/components/charts/format';
 import { AppText } from '@/components/ui';
-import type { BiometricEntry, DailyEnergyRow, ExerciseEntry } from '@/data/activity';
 import { spacing, useTheme } from '@/theme';
 
-import { prettifyType, sourceName } from './activity-rows';
+import { sourceName } from './activity-rows';
+import type { DeviceRow } from './device-rows';
 
-export interface DeviceRow {
-  key: string;
-  name: string;
-  /** Secondary text ("45 min", "8,543 steps", "62 bpm"). */
-  detail?: string;
-  /** Burned energy (positive number); shown as a negative kcal value. */
-  burnedKcal?: number;
-}
-
-/** Device-sourced exercise, daily activity and biometrics shown in the "Garmin and Misc" style group. */
-export function buildDeviceRows(
-  exercise: readonly ExerciseEntry[],
-  energyRows: readonly DailyEnergyRow[],
-  biometrics: readonly BiometricEntry[],
-): { rows: DeviceRow[]; sources: string[] } {
-  const rows: DeviceRow[] = [];
-  const sources = new Set<string>();
-
-  for (const e of energyRows) {
-    if (e.source === 'manual') continue;
-    sources.add(e.source);
-    if (e.active_kcal !== null && e.active_kcal > 0) {
-      rows.push({
-        key: `energy-${e.source}`,
-        name: 'Daily Activity',
-        detail: e.steps ? `${formatNumber(e.steps)} steps` : undefined,
-        burnedKcal: e.active_kcal,
-      });
-    }
-  }
-  for (const e of exercise) {
-    if (e.source === 'manual') continue;
-    sources.add(e.source);
-    rows.push({
-      key: `exercise-${e.id}`,
-      name: e.name,
-      detail: e.minutes ? `${formatNumber(e.minutes, 0, true)} min` : undefined,
-      burnedKcal: e.kcal,
-    });
-  }
-  for (const b of biometrics) {
-    if (b.source === 'manual') continue;
-    sources.add(b.source);
-    rows.push({
-      key: `bio-${b.id}`,
-      name: prettifyType(b.type),
-      detail: `${formatNumber(b.value, 1, true)}${b.unit ? ` ${b.unit}` : ''}`,
-    });
-  }
-  return { rows, sources: [...sources] };
-}
+// The rows themselves (and the rule that each thing is listed once, from the best-ranked source) are in device-rows.ts.
+export { buildDeviceRows, type DeviceRow } from './device-rows';
 
 /** Device group above the meals: a flat section, burned energy as negative kcal like Cronometer. */
 export function DevicesGroup({ rows, sources }: { rows: DeviceRow[]; sources: string[] }) {

@@ -42,5 +42,12 @@ export type BmrFormula = 'mifflin' | 'katch_mcardle' | 'harris_benedict' | 'cunn
 /** How daily energy expenditure is assembled. */
 export type EnergyMode = 'static' | 'device_adjusted' | 'device_total';
 
+/**
+ * What the third circle of the energy summary shows (Cronometer's "Energy Summary 3rd Circle Display"):
+ * - `target`: target (plus energy burned above the baseline) minus consumed: Remaining / Over.
+ * - `balance`: expenditure minus consumed, ignoring the weight goal: Deficit / Surplus.
+ */
+export type EnergySummaryMode = 'target' | 'balance';
+
 /** Macro nutrient kinds. */
 export type MacroKind = 'protein' | 'carbs' | 'fat';

@@ -380,7 +380,7 @@ export async function fetchCoachGrounding(today: string): Promise<CoachGrounding
       .order('recorded_at', { ascending: true }),
     supabase
       .from('exercise_entries')
-      .select('entry_date,name,minutes,kcal')
+      .select('entry_date,name,minutes,kcal,source,started_at,ended_at')
       .gte('entry_date', activityFrom)
       .lte('entry_date', today)
       .order('entry_date', { ascending: true }),
@@ -391,7 +391,7 @@ export async function fetchCoachGrounding(today: string): Promise<CoachGrounding
       .lte('local_date', today),
     supabase
       .from('biometrics')
-      .select('entry_date,type,value,unit')
+      .select('entry_date,type,value,unit,source')
       .in('type', [...SLEEP_BIOMETRIC_TYPES])
       .gte('entry_date', activityFrom)
       .lte('entry_date', today),
@@ -438,6 +438,9 @@ export async function fetchCoachGrounding(today: string): Promise<CoachGrounding
           name: String(r.name ?? 'Workout'),
           minutes: numOrNull(r.minutes),
           kcal: num(r.kcal),
+          source: typeof r.source === 'string' ? r.source : null,
+          startedAt: typeof r.started_at === 'string' ? r.started_at : null,
+          endedAt: typeof r.ended_at === 'string' ? r.ended_at : null,
         }))
       : null,
     deviceEnergy: energyRows
@@ -454,6 +457,7 @@ export async function fetchCoachGrounding(today: string): Promise<CoachGrounding
           type: String(r.type),
           value: num(r.value),
           unit: typeof r.unit === 'string' ? r.unit : null,
+          source: typeof r.source === 'string' ? r.source : null,
         }))
       : null,
   };

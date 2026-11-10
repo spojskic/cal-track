@@ -29,6 +29,8 @@ describe('handle_new_user', () => {
       bmr_override: null,
       tef_enabled: true,
       energy_mode: 'static',
+      energy_summary_mode: 'target',
+      energy_mode_auto_switched_at: null,
       net_carbs: true,
       pregnant: false,
       lactating: false,

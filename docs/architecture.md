@@ -46,12 +46,33 @@ All in `packages/core`, tested with golden values.
 
 1. **Energy target** = BMR + baseline activity (a fraction of BMR, not a multiplier on top of exercise) + weight-goal delta,
    never below a floor. Resolved in one pure function (`resolveTargets`) from profile, weight, goal and overrides.
-2. **Expenditure for a day** depends on the *energy mode*:
-   - *static*: BMR + baseline + exercise you logged (net MET calories, because BMR already includes resting burn) + TEF.
-   - *device-adjusted*: BMR + baseline + (watch active calories above the baseline) + TEF.
-   - *device total*: watch active + resting calories + TEF.
-   Watch workouts are stored with `counts_toward_energy = false` because they are already inside the watch's daily total;
-   they only cancel overlapping manual entries.
+2. **Expenditure for a day** ("Burned") is assembled the way Cronometer does it, and depends on the *energy mode*:
+   `Burned = BMR + adjusted baseline activity + tracker activity + exercise (+ TEF)`. The baseline activity is a fraction of
+   BMR chosen by the activity level; it is the allowance for everything that is not exercise and not measured, so at the
+   start of the day `Burned = BMR + baseline` and meals can be planned before the watch recorded anything. It is then used up:
+   - *static* and *device-adjusted* (Cronometer's model; `AWAKE_HOURS = 16`):
+     `trackerActivity = max(0, deviceActive - deviceWorkoutKcal)` (watch movement outside workouts; 0 in static),
+     `exercise = deviceWorkoutKcal + manualExerciseKcal` (manual only in static; net MET calories, because BMR already
+     includes resting burn),
+     `adjustedBaseline = max(0, baseline - trackerActivity - baseline / 16 * exerciseHours)`.
+     Tracker activity replaces the baseline one for one, and every hour of exercise (watch workouts plus manual entries
+     with a duration) removes one sixteenth of it, because you were not doing everyday movement then. Once both used it up the
+     adjusted baseline is 0 and disappears from the breakdown.
+   - *device total*: watch active + resting calories (+ TEF); no baseline.
+
+   Example (Cronometer's): BMR 1394, baseline 279, a 60 minute ride of 500 kcal -> adjusted baseline `279 - 279/16 = 261.5625`,
+   `Burned = 1394 + 261.5625 + 500 = 2155.5625`.
+
+   Watch workouts are stored with `counts_toward_energy = false` because they are already inside the watch's daily active
+   total; they are not added again, they only split that total into tracker activity and exercise, supply exercise minutes,
+   and cancel overlapping manual entries. Only the workouts of the source whose daily total is used are read (a session
+   recorded by two apps is not counted twice). Without a daily total from the watch, device-adjusted behaves like static.
+
+   The third circle of the energy summary has two views, switched by tapping its label (stored in
+   `profiles.energy_summary_mode`): *Target* shows `(energy target + energy burned above the baseline) - consumed`
+   (Remaining or Over), with `above baseline = max(0, adjusted baseline + tracker activity + exercise - baseline)`, e.g.
+   `1673 + 482.5625` in the example above; TEF is not added to the budget. *Balance* shows `Burned (incl. TEF) - consumed`
+   (Deficit or Surplus) and ignores the weight goal. The macro targets always use the energy target.
 3. **Per-entry nutrients** = food per-100 g amounts x grams / 100, then derived values (net carbs, omega-3/6, an energy
    fallback) honouring the food's carb convention. Day totals sum entries; unknown stays unknown.
 4. **Nutrient targets** come from intake tables by age, sex and pregnancy/lactation, plus macro-driven targets, plus your overrides.
@@ -71,7 +92,8 @@ All in `packages/core`, tested with golden values.
 - The app ships only the Supabase URL and the anon key. All protection is row-level security (tested, including cross-user checks).
 - Accounts are created by the owner, or by a friend with an invite code the owner generated (the `sign-up` Edge Function creates the account on the server); public sign-up stays off in Supabase.
 - The OpenRouter key never leaves the device. Health data goes only to your own rows.
-- Edge functions require a signed-in user (except `sign-up`, which is gated by an invite code, and the Garmin callback and webhook), have per-user, per-client and global rate limits, and use the service key only inside Supabase.
+- Edge functions require a signed-in user (except `sign-up`, which is gated by an invite code), have per-user, per-client and global rate limits, and use the service key only inside Supabase.
+- Garmin has no server side at all: the phone signs in on Garmin's own page, keeps the token in its secure storage (never in Supabase), reads Garmin itself and saves the result through the normal owner-only tables.
 
 ## Decisions worth knowing
 
@@ -83,7 +105,7 @@ All in `packages/core`, tested with golden values.
 | Entries store grams, not copied nutrients; foods immutable once logged | Small database and stable history |
 | AI picks foods and weights, the database supplies nutrients | LLM nutrient numbers are unreliable; matched numbers are auditable |
 | Key on the device, calls straight to OpenRouter | No server holds anyone's key |
-| Apple Health / Health Connect first, a direct Garmin link second | Health sync needs no Garmin approval and covers other watches; the OAuth link ([Garmin integration](garmin-integration.md)) adds Garmin-only metrics but needs Garmin's approval, so it ships switched off |
+| Garmin is read by the phone itself (`packages/garmin`), next to Apple Health / Health Connect | Garmin's Developer Program (OAuth + webhooks) needs Garmin's approval. The phone signs in on Garmin's own page in a web view and then reads the same undocumented interface Garmin's own mobile app uses, with the user's token in secure storage: no server, no webhook, read-only, but unofficial, so it can break when Garmin changes it. Health sync stays the stable route and covers other watches |
 | No over-the-air updates | Needs an Expo account; every change is a rebuild for now |
 
 ## Known limits

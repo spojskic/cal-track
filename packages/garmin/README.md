@@ -1,51 +1,84 @@
 # @cal/garmin
 
-> **Developer-only.** This package and `tools/garmin-probe` talk to the *Personal API* with a key that one person pastes into an
-> environment variable. **No app screen offers a paste-a-key flow**, and none should be added: users connect Garmin with the
-> one-tap OAuth button (Garmin Connect Developer Program, push webhooks), documented in
-> [`docs/garmin-integration.md`](../../docs/garmin-integration.md). What this package is still good for: confirming real
-> response shapes (its mappers are verified against a real account, see `tools/garmin-probe`) and a possible future pull-based
-> backfill. The push mapper of the OAuth integration lives in `supabase/functions/_shared/garmin-push.ts` (Edge Functions cannot
-> import workspace packages) and deliberately uses the same biometric types, units and external ids as the mappers below, so pushed and
-> pulled rows de-duplicate.
+Pure TypeScript client, mappers and sync walk for **Garmin's own mobile-app interface** (`connectapi.garmin.com`), as used by the
+Cal Track phone app. **Read-only**, runs on the user's phone with a token the user got by signing in on Garmin's own page.
+Only `fetch`, timers and `AbortController` are used, so it runs on Node 22 and React Native (Hermes). The package's `main` is
+`src/index.ts` and is consumed directly as TypeScript source.
 
-Pure TypeScript client for the **Garmin Connect Personal API** (read-only, pull-only, one person's own data). Only `fetch`, timers and `AbortController` are used, so it runs on Node 22 and React Native (Hermes). The package's `main` is `src/index.ts` and is consumed directly as TypeScript source.
+> **Unofficial.** This is the same undocumented interface Garmin's own mobile app uses, copied from the reference project
+> `garmin-companion` (`crates/garmin-core/src/{auth,client,sync,sleep}.rs`, `crates/garmin-api/src/session.rs`,
+> `apps/mobile/src/data/ticket.ts`). It needs no Garmin developer approval and can break whenever Garmin changes it.
+> Nothing is ever written to Garmin: the reference's one write method (`create_workout`) is **not** ported.
 
-## Terms and platform constraints
+## What is in here
 
-- The Personal API key belongs to one person. Garmin's terms forbid sharing it with third parties and say the API is "not intended for commercial applications serving multiple end users". **The key must stay on the user's own device** (SecureStore / encrypted storage). Never send it to, or store it on, a server.
-- Browsers cannot call the API: the CORS preflight is answered with 403 and no CORS headers. It works from native apps and Node only. The web build of the app must not offer this integration.
-- Keys start with `GCDC_` and expire after the period chosen at creation (30, 90, 180 or 365 days). The key is exchanged (`POST .../personal-api-key/token`, header `Authorization: ApiKey <key>`) for a bare JWT valid 24 h; there are no refresh tokens, the client simply exchanges the key again when less than 60 minutes remain. Data calls use `Authorization: Bearer <jwt>`.
-- Limit is about 100 requests per minute. The client keeps itself under 90 per rolling minute and honours HTTP 429 `retryInSeconds` (capped at 60 s, two retries).
-- No error message, `userMessage`, log event or serialisation produced by this package contains the key or a token (redaction is enforced in the `GarminError` constructor and covered by tests).
+| file | job |
+| --- | --- |
+| `session.ts` | `SIGN_IN_URL`, `ticketIn(url)` (https garmin.com hosts only), `createTicketGate()` (only the first ticket counts) |
+| `auth.ts` | `buildRefreshRequest`, `buildTicketExchangeRequest`, `refreshTokens(fetch, tokens)`, `redeemServiceTicket(fetch, ticket)` |
+| `tokens.ts` | `GarminTokens`, JWT `exp` reading, `isTokenExpired` (120 s early-refresh skew) |
+| `client.ts` | `GarminConnectClient`: GET-only, 401 -> refresh once, 429/5xx backoff, one request at a time, 250 ms apart |
+| `mappers.ts` | Connect JSON -> the rows the app writes (`GarminDailyEnergy`, `GarminWorkout`, `GarminBiometric`) with diagnostics |
+| `sync.ts` | `runGarminSync`: which endpoints, in which order, what stops a run; hands data to `onBatch` as it arrives |
+| `report.ts` | `formatSyncReport`: the plain-text "sync report" (no values, no tokens) |
+| `pick.ts`, `dates.ts`, `jwt.ts`, `base64.ts`, `http.ts`, `errors.ts` | tolerant pickers, date math, helpers, typed errors with token redaction |
+
+## Safety properties (all covered by tests)
+
+- **GET only for data.** The client has one method per endpoint and no generic "send"; `assertReadOnly` refuses any non-GET and any
+  URL outside `https://connectapi.garmin.com/` right before `fetch`. The only POST in the package is the token endpoint
+  (refresh and the first ticket exchange), in `auth.ts`.
+- **No parallel bursts.** Every call goes through one queue; requests start at least 250 ms apart (`REQUEST_SPACING_MS`), also the
+  token refresh. 429 / 5xx / dropped connections: three attempts, 1 s then 3 s apart, a `Retry-After` header wins (capped at 30 s).
+- **A dead session stops the run.** HTTP 400 / 401 from the refresh = `session_dead`; a 401 that survives a fresh token =
+  `unauthorized`; a 429 = `rate_limited`; a dropped network and a failed token save also end the run. A 404 / 403 / 204 / empty
+  body is "no data" (HRV on a night the watch was not worn), not a problem.
+- **No state, no storage, no global fetch.** `fetch`, the clock and `sleep` are injected. A refreshed token pair (the refresh token may
+  rotate) is handed to `onTokensChanged`, which must persist it; a failing save ends the request with a `storage` error.
+- **No secrets in errors or reports.** `GarminError` scrubs access/refresh tokens, JWTs, `Bearer ...` headers and tickets in its constructor;
+  error bodies and response bodies are never copied into messages; the sync report prints key *names* and counts only.
 
 ## Usage
 
 ```ts
-import { createGarminClient, fetchGarminData } from '@cal/garmin';
+import { GarminConnectClient, formatSyncReport, redeemServiceTicket, runGarminSync, ticketIn, SIGN_IN_URL } from '@cal/garmin';
 
-const client = createGarminClient({ apiKey }); // apiKey read from on-device secure storage
-
-const check = await client.validate(); // never throws
-if (!check.ok) return show(check.error.userMessage);
-// check.displayName, check.tokenExpiresAtMs
-
-const result = await fetchGarminData(client, {
-  from: '2026-11-01',
-  to: '2026-11-09', // user's local calendar days, inclusive
-  include: { energy: true, workouts: true, weight: true, bodyFat: true, restingHr: true, hrv: true,
-             spo2: true, respiration: true, sleep: true, bodyBattery: true, stress: true },
-  onProgress: (p) => setProgress(p.completedRequests / p.plannedRequests),
+// 1. show SIGN_IN_URL in a web view; stop the navigation that carries a ticket:  const t = ticketIn(request.url)
+// 2. tokens = await redeemServiceTicket(fetch, t)   // once; keep the pair in secure storage
+// 3. read a range
+const client = new GarminConnectClient({ fetch, tokens, onTokensChanged: save });
+const outcome = await runGarminSync({
+  client,
+  range: { from: '2026-11-01', to: '2026-11-10' },        // the user's local calendar days, inclusive
+  onBatch: async (batch) => write(batch),                  // { energy[], workouts[], biometrics[] } as each step finishes
 });
-// result.energy[]     { date, activeKcal?, restingKcal?, totalKcal?, steps? }
-// result.workouts[]   { externalId, name, typeKey, startMs, endMs, durationSec, kcal?, distanceM? }
-// result.biometrics[] { date, type, value, unit, externalId, recordedAtMs?, meta? }
-// result.errors[]     non-fatal failures (the rest of the sync completed)
-// result.diagnostics[] / coverage[]  what the mappers could not find
+// outcome.status: 'complete' | 'stopped' (see outcome.report.stop) | 'cancelled'
+const text = formatSyncReport(outcome.report, { generatedAtMs: Date.now() }, outcome.counts);
 ```
 
-Auth problems (bad, expired or revoked key; a 401 that survives a fresh token) reject with a `GarminError` and abort the sync. Everything else is collected in `errors`. Per-day fallbacks (daily heart rate, SpO2) are off by default: pass `fallbacks: { perDayEndpoints: true }` to enable them.
+Rows are the shapes the app already writes for health data (`apps/app/src/health`): `source = 'garmin'`, ids such as
+`garmin:activity:<id>`, `garmin:sleep:<day>`, `garmin:weight:<samplePk>`. A day's calories and steps are **running totals**: a later
+read of the same day replaces the earlier one, it is never added.
 
-## What is unverified
+## Endpoints (all GET, all on `https://connectapi.garmin.com`)
 
-Request paths, headers, limits and status codes come from Garmin's official documentation and client. **Response shapes are not verified** (no key was available): the field names in `FIELD_CANDIDATES` (`src/mappers.ts`) are educated guesses, and the mappers are deliberately tolerant (several candidate names, numeric strings, missing fields stay absent, never 0). Whatever they cannot find is reported in `diagnostics`. Run `tools/garmin-probe` with a real key to confirm the field names. Weight is assumed to be grams (a value above 1000 is converted to kg).
+| endpoint | used for |
+| --- | --- |
+| `/userprofile-service/socialProfile` | `displayName` (needed in two paths) |
+| `/usersummary-service/usersummary/daily/{displayName}?calendarDate=` | active / resting / total kcal, steps, resting HR, stress, body battery |
+| `/wellness-service/wellness/dailySleepData/{displayName}?date=&nonSleepBufferMinutes=60` | sleep hours, stages, score, SpO2, respiration, overnight HRV |
+| `/hrv-service/hrv/{date}` | overnight HRV average |
+| `/weight-service/weight/dateRange?startDate=&endDate=` | weigh-ins (grams), body fat |
+| `/activitylist-service/activities/search/activities?start=&limit=` | workouts with calories and duration |
+
+## What is verified and what is a guess
+
+Field names marked VERIFIED in `FIELD_CANDIDATES` (`src/mappers.ts`) were read from the reference's Rust structs and parsing; they are the
+first candidate of each list. The others (nested Personal-API names, `startTimeGMT`, `timestampGMT`, `elapsedDuration`, the un-nested sleep
+names) are guesses, tried only after the verified name. The mappers never throw, never invent a value (absent stays absent, never 0), and
+report which JSON key matched which field and which fields matched nothing (`coverage`, `diagnostics`) - that is what the app's
+"Copy sync report" button prints. **No real Garmin payload and no live request was available when this was written.**
+
+## Tests
+
+`pnpm --filter @cal/garmin test`. Every `fetch` is a fake and the real global `fetch` is stubbed to throw, so the suite can never reach Garmin.

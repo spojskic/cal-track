@@ -174,6 +174,8 @@ export function summarizeCounts(counts: SyncCounts): string {
   if (b.spo2) parts.push(plural(b.spo2, 'oxygen reading', 'oxygen readings'));
   if (b.respiration_rate) parts.push(plural(b.respiration_rate, 'respiration reading', 'respiration readings'));
   if (b.sleep) parts.push(plural(b.sleep, 'night of sleep', 'nights of sleep'));
+  if (b.stress) parts.push(plural(b.stress, 'stress reading', 'stress readings'));
+  if (b.body_battery) parts.push(plural(b.body_battery, 'body battery reading', 'body battery readings'));
   const bp = Math.max(b.bp_systolic ?? 0, b.bp_diastolic ?? 0);
   if (bp) parts.push(plural(bp, 'blood pressure reading', 'blood pressure readings'));
   return parts.length > 0 ? parts.join(', ') : 'No new data';

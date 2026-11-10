@@ -25,6 +25,7 @@ import { go } from '@/components/diary/nav';
 import { NutrientTargetsPanel } from '@/components/diary/NutrientTargetsPanel';
 import { NutritionSummarySheet } from '@/components/diary/NutritionSummarySheet';
 import { ActionMenu, type MenuAction } from '@/components/diary/Sheet';
+import { energySummaryProps } from '@/components/diary/energy-view';
 import { buildHighlights, buildMacroRows, consumedSplit, targetSplit } from '@/components/diary/targets-view';
 import { MacroBars, TargetsHeader, TargetsPager } from '@/components/diary/TargetsPager';
 import { ToastHost } from '@/components/diary/ToastHost';
@@ -36,6 +37,7 @@ import { useBiometrics, useNotes, useWaterMl } from '@/data/activity';
 import { UNGROUPED, useDayNutrients, useDiaryEntries, type DiaryEntry } from '@/data/diary';
 import { isPastDate, itemWord, sortEntriesByTime } from '@/data/diary-copy';
 import { useDayEnergyFrom } from '@/data/energy';
+import { useEnergySummaryMode } from '@/data/energy-mode';
 import { useMealGroups, type MealGroup } from '@/data/meal-groups';
 import { useProfile } from '@/data/profile';
 import { useTargets } from '@/data/targets';
@@ -77,6 +79,7 @@ export default function DiaryScreen() {
 
   const day = useDayNutrients(date);
   const energy = useDayEnergyFrom(date, day);
+  const summary = useEnergySummaryMode();
   const targetsQ = useTargets();
   const profileQ = useProfile();
   const groupsQ = useMealGroups();
@@ -132,11 +135,7 @@ export default function DiaryScreen() {
     [colors, day.totals, day.hasEntries, targets, netCarbs],
   );
   const energyProps: EnergySummaryProps = {
-    consumed: day.kcal,
-    expenditure: energy.expenditureKcal,
-    target: energy.targetKcal,
-    exerciseBurned: energy.exerciseBurnedKcal,
-    remaining: energy.remainingKcal,
+    ...energySummaryProps(energy, summary.toggle),
     split: { target: targetSplit(targets), consumed: consumedSplit(day.totals) },
   };
 

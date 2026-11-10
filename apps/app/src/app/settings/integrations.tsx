@@ -5,7 +5,6 @@ import { ConnectionSummary, IntegrationCard } from '@/components/health';
 import { GarminCard } from '@/components/health/GarminCard';
 import { Divider, NavRow, Note } from '@/components/settings/rows';
 import { AppText, Card, Screen } from '@/components/ui';
-import { GARMIN_ENABLED } from '@/health/garmin';
 import { providerIdForPlatform } from '@/health/platform';
 import { ENERGY_MODE_NOTE, GARMIN_NOTE, WEB_NOTE } from '@/health/settings';
 
@@ -29,8 +28,8 @@ export default function IntegrationsScreen() {
         </Card>
       )}
 
-      {/* Dormant until Garmin approves the app: the card (and every Garmin call) exists only with EXPO_PUBLIC_GARMIN_ENABLED=true. */}
-      {GARMIN_ENABLED ? <GarminCard /> : null}
+      {/* Native: connect / sync / sign out. Web: says that Garmin sync runs in the iPhone and Android app. */}
+      <GarminCard />
 
       <Card>
         <AppText variant="heading">Energy mode</AppText>

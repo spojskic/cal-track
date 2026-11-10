@@ -1161,10 +1161,6 @@ class MockBackendImpl implements MockBackend {
         case 'delete_all_my_coach_data':
           result = this.deleteAllCoachData(ctx);
           break;
-        case 'garmin_connection_status':
-          // The mock user never connected Garmin (the real function returns exactly these four columns).
-          result = [{ connected: false, connected_at: null, last_push_at: null, last_error: null }];
-          break;
         default:
           throw new PgError(404, 'PGRST202', `Could not find the function public.${name} in the schema cache`);
       }

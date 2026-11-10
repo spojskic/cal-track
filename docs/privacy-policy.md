@@ -32,6 +32,8 @@ Meal photos you take for the optional photo log, and photos of a nutrition label
 
 - Your **OpenRouter key** (only if you use the optional AI features). It is kept in the iOS Keychain or Android Keystore, or in an
   encrypted entry of your browser on the web. It is never sent to Cal Track's database or servers and never logged.
+- Your **Garmin token** (only if you connect Garmin). It is kept in the iOS Keychain or Android Keystore, this device only, and is
+  never sent to Cal Track's database or servers.
 - A **cached copy** of recently used diary data, so the app opens quickly and offline, and your sign-in session.
 - On the web these live in your browser's local storage. Cal Track does not use advertising or tracking cookies.
 
@@ -62,28 +64,32 @@ name, email, account id or your own network address. A product found this way is
 only, not linked to you), so the next lookup does not need to ask again. Data from Open Food Facts is under the Open Database
 Licence.
 
-## Garmin Connect (optional)
+## Garmin (optional, read by your phone)
 
-Cal Track can receive your data from Garmin if you choose **Connect Garmin** in Settings > Connected Apps & Devices.
+Cal Track can read your Garmin data if you choose **Connect Garmin** in Settings > Connected Apps & Devices (iPhone and Android app
+only). It does this in your phone: there is no Cal Track server in between, and Garmin sends nothing to Cal Track's servers.
 
-- **Consent first.** Nothing is requested from Garmin until you sign in on Garmin's own page and allow Cal Track. You can take that
-  permission back at any time, in Cal Track (Disconnect) or in your Garmin account settings.
-- **What Cal Track receives:** daily summaries (steps, active and resting calories, resting heart rate, average stress, body
-  battery), workouts (type, start, duration, calories), sleep (duration, stages, sleep score, and overnight blood oxygen and breathing rate when
-  available), weight and body fat measurements, and the overnight heart rate variability average. Garmin pushes this to Cal Track
-  when your watch syncs, starting from the moment you connect; earlier days are not imported.
+- **You sign in on Garmin's own page.** The sign-in page of Garmin opens inside the app. Cal Track **never sees your Garmin
+  password**. Garmin hands the app a token, and only that token is kept.
+- **The token stays in your phone's secure storage** (the iOS Keychain or the Android Keystore, this device only). It is never sent
+  to Cal Track's database or servers, never logged, and not part of a backup.
+- **Your phone reads your Garmin data directly from Garmin** and then saves it to your Cal Track account, like the rest of
+  your data. It uses the same private interface that Garmin's own mobile app uses; Cal Track is not an official Garmin
+  integration. Garmin sees the requests as coming from your phone and your Garmin account.
+- **Nothing is ever written to Garmin.** The app only reads.
+- **What is read:** daily summaries (steps, active and resting calories, resting heart rate, average stress, body battery),
+  workouts (type, start, duration, calories), sleep (duration, stages, sleep score, and overnight blood oxygen and breathing rate when
+  available), weight and body fat measurements, and the overnight heart rate variability average. Connecting reads the last 14 days;
+  afterwards the app re-reads the last few days when you open it, in the background from time to time, and when you tap Sync now.
 - **What it is used for:** showing your Garmin numbers in your diary and, if you choose a device energy mode, working out your
   daily calorie budget. Nothing else.
-- **Where it is stored:** in your account, like the rest of your data, and visible only to you. Garmin's access tokens and the raw
-  messages Garmin sends are kept in a protected part of the database that the app and the internet cannot read; the raw messages
-  are deleted after 14 days.
+- **Where the data is stored:** in your account, visible only to you (and the operator, who administers the service).
 - **Never** sold, shared, used for advertising or used to profile you. The one optional exception is described under
   "Optional AI features": if **you** use the AI coach, the Garmin-sourced numbers listed there can be sent to your own OpenRouter
   account.
-- **Disconnecting:** Cal Track tells Garmin to end the connection and deletes the link, the tokens and the raw messages
-  immediately. You can choose to delete the Garmin data already imported as well; otherwise it stays in your diary until you delete it.
-  If you remove Cal Track in your Garmin account, Garmin notifies Cal Track and the link, the tokens, the raw messages and
-  the imported Garmin data are deleted.
+- **Signing out (Disconnect):** Cal Track deletes the Garmin token from your phone and stops reading. You can choose to delete the
+  Garmin data already imported as well; otherwise it stays in your diary until you delete it. Signing out does not end the
+  session on Garmin's side; you can do that in your Garmin account settings. If Garmin ends the session itself, the app asks you to sign in again.
 
 ## Apple Health and Health Connect (optional)
 
@@ -97,7 +103,7 @@ dialog, and does not write to your health data. Disconnecting stops the import; 
 | --- | --- |
 | **Supabase** | hosts the database, sign-in and the server functions |
 | **Open Food Facts, USDA FoodData Central** | product lookups, as described above |
-| **Garmin** | only if you connect it: sends your Garmin data to Cal Track |
+| **Garmin** | only if you connect it: your phone reads your own Garmin data from Garmin (you sign in on Garmin's page); Garmin sends nothing to Cal Track's servers |
 | **OpenRouter and the model provider you choose** | only if you use AI features, as described above |
 
 No other third party receives your data, and Cal Track does not sell or rent it.
@@ -106,12 +112,13 @@ No other third party receives your data, and Cal Track does not sell or rent it.
 
 - Your data stays until you delete it or ask for your account to be deleted.
 - AI coach chats: 90 days (automatic, can be switched off), or sooner when you delete them.
-- Raw Garmin messages: 14 days. Garmin tokens: until you disconnect or Garmin reports that you removed the app.
+- Garmin token: on your phone only, until you sign out of Garmin in the app, Garmin ends the session, or you uninstall the app
+  (on an iPhone the Keychain can keep an item after an uninstall: sign out in the app first if you want it gone).
 
 ## Security
 
-Connections use TLS. Each account can only reach its own rows. Garmin tokens and raw Garmin messages are not reachable from
-the app at all, only by the server functions. Your OpenRouter key stays in the secure storage of your device. No system is
+Connections use TLS. Each account can only reach its own rows. Your Garmin token and your OpenRouter key stay in the secure
+storage of your device and are never stored on Cal Track's servers. No system is
 perfectly secure, but the app is built to collect as little as possible and to keep it separated.
 
 ## Your choices and rights

@@ -30,7 +30,7 @@ export const ACTIVITY_OPTIONS: readonly OptionDef<ActivityLevel>[] = [
 ];
 
 export const ACTIVITY_NOTE =
-  'Describe everyday movement only, not workouts. Exercise you log (and device activity, if enabled) is added to your budget separately.';
+  'Describe everyday movement only, not workouts. It is your starting allowance for the day: the activity your watch records and the hours you exercise replace it, and whatever you burn beyond it widens your budget.';
 
 export function activityLabel(level: ActivityLevel): string {
   return ACTIVITY_OPTIONS.find((o) => o.value === level)?.label ?? level;
@@ -86,20 +86,17 @@ export const ENERGY_MODE_OPTIONS: readonly OptionDef<EnergyMode>[] = [
   {
     value: 'static',
     label: 'Static',
-    description:
-      'Your budget is BMR plus baseline activity, plus any exercise you log. Data from other apps is ignored.',
+    description: 'Baseline activity only. Ignores your watch.',
   },
   {
     value: 'device_adjusted',
-    label: 'Device-adjusted',
-    description:
-      'Keeps BMR plus baseline as a floor and adds only the activity energy your watch or phone measured above that baseline. Takes effect once Apple Health or Health Connect data exists; until then it behaves like Static.',
+    label: 'Device-adjusted (like Cronometer)',
+    description: 'Your watch activity replaces the baseline during the day; workouts are added.',
   },
   {
     value: 'device_total',
     label: 'Device total',
-    description:
-      "Trusts your device completely: its measured active and resting energy replace our estimate. Takes effect once Apple Health or Health Connect data exists; until then it falls back to Static.",
+    description: "Uses your watch's active + resting calories only.",
   },
 ];
 

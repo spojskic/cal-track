@@ -34,7 +34,7 @@ const MENU: MenuItem[] = [
   { label: 'Display & units', description: 'Metric or imperial units, appearance', href: '/settings/display' },
   {
     label: 'Connected apps & devices',
-    description: 'Apple Health, Health Connect (Garmin syncs through them)',
+    description: 'Apple Health, Health Connect, Garmin',
     href: '/settings/integrations' as unknown as Href,
   },
 ];

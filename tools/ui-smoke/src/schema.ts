@@ -249,6 +249,9 @@ const defs: TableDef[] = [
         default: { value: 'static' },
         oneOf: ['static', 'device_adjusted', 'device_total'],
       }),
+      // 20261110000103: what the third circle of the energy summary shows, and when the app switched energy_mode itself.
+      energy_summary_mode: text({ notNull: true, default: { value: 'target' }, oneOf: ['target', 'balance'] }),
+      energy_mode_auto_switched_at: ts(),
       net_carbs: bool({ notNull: true, default: { value: true } }),
       pregnant: bool({ notNull: true, default: { value: false } }),
       lactating: bool({ notNull: true, default: { value: false } }),
@@ -620,8 +623,6 @@ export const CLIENT_RPCS: Readonly<Record<string, { args: readonly string[]; req
   get_food_by_gtin: { args: ['gtin'], required: ['gtin'] },
   supersede_food: { args: ['p_food_id'], required: ['p_food_id'] },
   delete_all_my_coach_data: { args: [], required: [] },
-  // Own Garmin connection status (four columns, never a token). Only called when EXPO_PUBLIC_GARMIN_ENABLED=true.
-  garmin_connection_status: { args: [], required: [] },
 };
 
 /** Functions that exist but are service_role only: a client call is a bug (permission denied). */

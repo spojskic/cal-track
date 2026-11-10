@@ -1,10 +1,18 @@
 // The app-facing shapes produced by the mappers. Units follow the app's convention: weight kg, body_fat percent,
 // hrv ms, sleep hr. Dates are the user's local calendar day, `YYYY-MM-DD`.
+//
+// These are structurally the same as the rows the app writes for health data (apps/app/src/health/types.ts:
+// DailyEnergyPoint, WorkoutPoint, BiometricPoint); the app converts them one to one.
 
 export type GarminMetaValue = string | number | boolean;
 export type GarminMeta = Record<string, GarminMetaValue>;
 
-/** One local day of device energy. Fields Garmin did not report are ABSENT (never 0). */
+/**
+ * One local day of device energy. Fields Garmin did not report are ABSENT (never 0).
+ *
+ * The day's totals are CUMULATIVE (a Garmin shows 801 resting kcal at midday), so a later pull for the same date
+ * REPLACES an earlier one. They are never added together.
+ */
 export interface GarminDailyEnergy {
   date: string;
   activeKcal?: number;
@@ -19,8 +27,12 @@ export interface GarminWorkout {
   name: string;
   /** Garmin activity type key, e.g. 'running', 'strength_training'. */
   typeKey: string;
-  startMs: number;
-  endMs: number;
+  /** Local calendar day of the start (what the diary files the workout under). */
+  date: string;
+  /** Wall-clock start as Garmin printed it, `YYYY-MM-DD HH:MM:SS` (no time zone). */
+  startLocal: string;
+  /** Real start instant (epoch ms) when Garmin sent a GMT start, otherwise absent. */
+  startMs?: number;
   durationSec: number;
   kcal?: number;
   distanceM?: number;
@@ -34,6 +46,7 @@ export const GARMIN_BIOMETRIC_TYPES = [
   'spo2',
   'respiration_rate',
   'sleep',
+  'sleep_score',
   'body_battery',
   'stress',
 ] as const;
@@ -49,6 +62,7 @@ export const GARMIN_BIOMETRIC_UNITS: Record<GarminBiometricType, string> = {
   spo2: 'percent',
   respiration_rate: 'brpm',
   sleep: 'hr',
+  sleep_score: 'score',
   body_battery: 'percent',
   stress: 'score',
 };
@@ -59,7 +73,7 @@ export interface GarminBiometric {
   type: GarminBiometricType;
   value: number;
   unit: string;
-  /** Unique per (type, day) for daily aggregates, per measurement for weight/body fat. Safe for upserts. */
+  /** Unique per (type, day) for daily aggregates, per weigh-in for weight / body fat. Safe for upserts. */
   externalId: string;
   recordedAtMs?: number;
   meta?: GarminMeta;
@@ -76,7 +90,7 @@ export type GarminDiagnosticReason =
   | 'skipped'; // item dropped (e.g. no date)
 
 export interface GarminDiagnostic {
-  /** Endpoint id (see endpoints.ts), e.g. 'dailySummaries'. */
+  /** Endpoint id, e.g. 'userSummary'. */
   endpoint: string;
   /** Canonical field name (as in the normalized output), or '$' for the whole response. */
   field: string;
@@ -85,6 +99,7 @@ export interface GarminDiagnostic {
   count: number;
   /** Out of how many items examined (omitted when not applicable). */
   of?: number;
+  /** Key NAMES and static text only. May carry numbers for 'implausible' / 'skipped': the report never prints those. */
   detail?: string;
   /** One example date, to make the report concrete. */
   sampleDate?: string;
@@ -100,6 +115,8 @@ export interface GarminFieldCoverage {
   found: number;
   /** Actual JSON key (or dotted path) -> number of items it satisfied. */
   matchedBy: Record<string, number>;
+  /** Every JSON key / dotted path that was tried, in order. */
+  tried: string[];
 }
 
 /** Diagnostics + coverage produced by every mapper. */
@@ -110,16 +127,4 @@ export interface GarminMap {
 
 export interface GarminMapResult<T> extends GarminMap {
   items: T[];
-}
-
-/** A request failure collected during a sync (the sync continues unless the failure is an auth error). */
-export interface GarminSyncError {
-  endpoint: string;
-  start?: string;
-  end?: string;
-  kind: string;
-  status?: number;
-  retryable: boolean;
-  /** Friendly, redacted. */
-  message: string;
 }

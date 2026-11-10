@@ -56,6 +56,10 @@ export interface SummaryExerciseRow {
   name: string;
   minutes: number | null;
   kcal: number;
+  /** 'garmin' | 'apple_health' | 'health_connect' | 'manual'. With the times it lets one workout seen by two devices count once. */
+  source?: string | null;
+  startedAt?: string | null;
+  endedAt?: string | null;
 }
 
 export interface SummaryDeviceEnergyRow {
@@ -71,6 +75,8 @@ export interface SummaryBiometricRow {
   type: string;
   value: number;
   unit?: string | null;
+  /** 'garmin' | 'apple_health' | 'health_connect' | 'manual'. Two sources of the same night must not add up. */
+  source?: string | null;
 }
 
 export interface SummaryTargetsInput {
@@ -254,6 +260,28 @@ function sourceRank(source: string): number {
   return i === -1 ? SOURCE_PRIORITY.length : i;
 }
 
+/**
+ * Garmin can reach the app twice: read directly, and through Apple Health / Health Connect. The same workout then exists once
+ * per source, with (nearly) the same start and end. Only the best-ranked source's copy is kept; a workout without times, a
+ * manual one, or one that merely touches another stays.
+ */
+export function withoutDuplicateWorkouts(rows: readonly SummaryExerciseRow[]): SummaryExerciseRow[] {
+  const timed = rows.flatMap((r) => {
+    const start = Date.parse(r.startedAt ?? '');
+    const end = Date.parse(r.endedAt ?? '');
+    return r.source && r.source !== 'manual' && Number.isFinite(start) && Number.isFinite(end) && end > start ? [{ r, start, end }] : [];
+  });
+  const duplicate = new Set<SummaryExerciseRow>();
+  for (const a of timed) {
+    for (const b of timed) {
+      if (a === b || sourceRank(b.r.source ?? '') >= sourceRank(a.r.source ?? '')) continue;
+      const overlap = Math.min(a.end, b.end) - Math.max(a.start, b.start);
+      if (overlap > 0.5 * Math.min(a.end - a.start, b.end - b.start)) duplicate.add(a.r);
+    }
+  }
+  return rows.filter((r) => !duplicate.has(r));
+}
+
 function buildActivity(input: BuildCoachSummaryInput): CoachActivityDay[] {
   const from = shiftDate(input.today, -(ACTIVITY_DAYS - 1));
   const inRange = (date: string) => ISO_RE.test(date) && date >= from && date <= input.today;
@@ -267,7 +295,7 @@ function buildActivity(input: BuildCoachSummaryInput): CoachActivityDay[] {
   }
 
   const workouts = new Map<string, { type: string; minutes?: number }[]>();
-  for (const e of input.exercise ?? []) {
+  for (const e of withoutDuplicateWorkouts(input.exercise ?? [])) {
     if (!inRange(e.date)) continue;
     const list = workouts.get(e.date) ?? [];
     list.push({
@@ -314,22 +342,34 @@ function sleepHours(row: SummaryBiometricRow): number | undefined {
 
 function buildSleep(input: BuildCoachSummaryInput): CoachSleepNight[] {
   const from = shiftDate(input.today, -(SLEEP_DAYS - 1));
-  const hoursByDate = new Map<string, number>();
-  const qualityByDate = new Map<string, number>();
+  // Hours per night and per source: segments / naps of ONE source add up, but two sources describing the same night (Garmin read
+  // directly and Garmin shared through Apple Health) must not, so only the best-ranked source's hours are used.
+  const hoursBySource = new Map<string, Map<string, number>>();
+  const qualityByDate = new Map<string, { value: number; rank: number }>();
   for (const r of input.biometrics ?? []) {
     if (!ISO_RE.test(r.date) || r.date < from || r.date > input.today) continue;
+    const rank = sourceRank(r.source ?? '');
     if (SLEEP_DURATION_TYPES.has(r.type)) {
       const h = sleepHours(r);
-      if (h !== undefined) hoursByDate.set(r.date, (hoursByDate.get(r.date) ?? 0) + h); // segments / naps add up
+      if (h === undefined) continue;
+      const perSource = hoursBySource.get(r.date) ?? new Map<string, number>();
+      perSource.set(r.source ?? '', (perSource.get(r.source ?? '') ?? 0) + h);
+      hoursBySource.set(r.date, perSource);
     } else if (SLEEP_QUALITY_TYPES.has(r.type) && finite(r.value) && r.value >= 0) {
-      qualityByDate.set(r.date, r.value);
+      const current = qualityByDate.get(r.date);
+      if (!current || rank <= current.rank) qualityByDate.set(r.date, { value: r.value, rank });
     }
+  }
+  const hoursByDate = new Map<string, number>();
+  for (const [date, perSource] of hoursBySource) {
+    const best = [...perSource.entries()].sort(([a], [b]) => sourceRank(a) - sourceRank(b))[0];
+    if (best) hoursByDate.set(date, best[1]);
   }
   return [...hoursByDate.entries()]
     .filter(([, h]) => h > 0 && h <= 24)
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .map(([date, h]): CoachSleepNight => {
-      const q = qualityByDate.get(date);
+      const q = qualityByDate.get(date)?.value;
       return { date, hours: round(h, 1), ...(q !== undefined ? { quality: round(q) } : {}) };
     });
 }

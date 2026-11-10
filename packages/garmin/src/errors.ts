@@ -1,29 +1,45 @@
 // Typed errors with friendly messages and a hard redaction guarantee: no GarminError message, userMessage, detail or
-// serialisation can contain the API key or a bearer token. Redaction runs in the constructor, so even a message built
-// by a caller from a failing fetch implementation is scrubbed.
+// serialisation can contain a Garmin access token, a refresh token or a sign-in ticket. Redaction runs in the
+// constructor, so even a message built by a caller from a failing fetch implementation is scrubbed.
 
 export type GarminErrorKind =
-  | 'invalid_key'
-  | 'key_expired_or_revoked'
+  /** The token endpoint refused the refresh token (HTTP 400 / 401): the session is dead, the user must sign in again. */
+  | 'session_dead'
+  /** A data call stayed 401 after a fresh token: stop, do not loop. */
   | 'unauthorized'
+  /** HTTP 429 after the retries: stop the run and try again later. */
   | 'rate_limited'
-  | 'not_acceptable'
-  | 'bad_request'
+  /** The auth host answered with another client error (403 and so on): probably a block, not a dead session. */
+  | 'blocked'
+  /** The single-use sign-in ticket was already used or expired. */
+  | 'ticket_rejected'
+  /** No known client id accepted the ticket (Garmin probably rotated them). */
+  | 'exchange_failed'
+  /** A data endpoint answered with another non-success status (404, 403, ...). */
+  | 'http'
+  /** 5xx after the retries. */
   | 'server'
   | 'network'
   | 'timeout'
+  /** The body was not the JSON that was expected. */
+  | 'parse'
+  /** A rotated token pair could not be saved. */
+  | 'storage'
+  | 'bad_request'
   | 'unexpected';
 
 const REDACTED = '[redacted]';
 
 /** Shapes that look like secrets even when the exact secret is unknown. */
 const SECRET_PATTERNS: readonly RegExp[] = [
-  /GCDC_[A-Za-z0-9_.~+/=-]*/g,
-  /\b(Bearer|ApiKey)\s+[A-Za-z0-9_.~+/=-]+/gi,
+  /\b(Bearer|Basic)\s+[A-Za-z0-9_.~+/=-]+/gi,
   /eyJ[A-Za-z0-9_-]{6,}(?:\.[A-Za-z0-9_-]*){0,2}/g,
+  // CAS service tickets: ST-123456-abcDEF...-cas
+  /\bST-[A-Za-z0-9._-]{6,}/g,
+  /\b(ticket|refresh_token|access_token|service_ticket)=[^&\s"']+/gi,
 ];
 
-/** Replaces every exact secret (and anything shaped like a key / bearer token / JWT) in `text`. */
+/** Replaces every exact secret (and anything shaped like a bearer token / JWT / ticket) in `text`. */
 export function redactSecrets(text: string, secrets: readonly string[] = []): string {
   let out = text;
   for (const secret of secrets) {
@@ -31,40 +47,46 @@ export function redactSecrets(text: string, secrets: readonly string[] = []): st
   }
   for (const pattern of SECRET_PATTERNS) {
     out = out.replace(pattern, (m) => {
-      const head = /^(Bearer|ApiKey)\s/i.exec(m);
-      return head ? `${head[1]} ${REDACTED}` : REDACTED;
+      const head = /^(Bearer|Basic)\s/i.exec(m);
+      if (head) return `${head[1]} ${REDACTED}`;
+      const param = /^([a-z_]+)=/i.exec(m);
+      return param ? `${param[1]}=${REDACTED}` : REDACTED;
     });
   }
   return out;
 }
 
-export const USER_MESSAGES = {
-  invalid_key:
-    'Garmin rejected this key. Create a new Personal API key in Garmin Connect (it may have expired or been deleted).',
-  key_expired_or_revoked:
-    'This Garmin key has expired or was revoked. Create a new Personal API key in Garmin Connect and paste it here.',
-  unauthorized: 'Garmin did not accept the access token. Try again; if it keeps failing, create a new Personal API key.',
-  forbidden:
-    'Your Garmin key does not have permission for this data. Create a new key that includes fitness, wellness and user read access.',
-  rate_limited: 'Garmin is limiting requests right now. Wait a minute and try again.',
-  not_acceptable: 'Garmin rejected the format of the request (HTTP 406). This is a bug in the app.',
-  bad_request: 'Garmin could not process this request. Check the dates and try again.',
+export const USER_MESSAGES: Record<GarminErrorKind, string> = {
+  session_dead: 'Garmin signed you out (the session expired or was revoked). Sign in to Garmin again.',
+  unauthorized: 'Garmin did not accept the fresh access token. Try again later; if it keeps failing, sign in again.',
+  rate_limited: 'Garmin asked the app to slow down. The sync will try again later.',
+  blocked: 'Garmin refused the request (HTTP 403). It may be blocking this connection. Try again later.',
+  ticket_rejected: 'Garmin rejected the sign-in ticket: it had already been used or it expired. Sign in again.',
+  exchange_failed: 'Garmin did not accept the sign-in on any known app id. Garmin has probably changed its sign-in; this needs an app update.',
+  http: 'Garmin answered with an error for this request.',
   server: 'Garmin is having trouble right now. Try again later.',
   network: 'Could not reach Garmin. Check your internet connection and try again.',
   timeout: 'Garmin took too long to respond. Try again.',
-  unexpected: 'Garmin returned something unexpected. Try again later.',
-} as const;
+  parse: 'Garmin returned something this app cannot read.',
+  storage: 'The new Garmin sign-in could not be saved on this phone. Try again.',
+  bad_request: 'The app built an invalid Garmin request. This is a bug in the app.',
+  unexpected: 'Something unexpected went wrong while talking to Garmin.',
+};
 
 const RETRYABLE: Record<GarminErrorKind, boolean> = {
-  invalid_key: false,
-  key_expired_or_revoked: false,
+  session_dead: false,
   unauthorized: false,
   rate_limited: true,
-  not_acceptable: false,
-  bad_request: false,
+  blocked: false,
+  ticket_rejected: false,
+  exchange_failed: false,
+  http: false,
   server: true,
   network: true,
   timeout: true,
+  parse: false,
+  storage: false,
+  bad_request: false,
   unexpected: false,
 };
 
@@ -76,9 +98,7 @@ export interface GarminErrorInit {
   userMessage?: string;
   /** Developer text. Defaults to a summary built from kind/status. */
   message?: string;
-  /** Garmin's `errorId`, when the error body had one. */
-  errorId?: string;
-  /** Short extra context (e.g. the endpoint). Redacted and truncated. */
+  /** Short extra context (e.g. the endpoint name). Redacted and truncated. */
   detail?: string;
   retryable?: boolean;
   /** Exact secrets to scrub in addition to the built-in patterns. Never stored. */
@@ -91,15 +111,12 @@ export class GarminError extends Error {
   readonly retryAfterSeconds?: number;
   readonly userMessage: string;
   readonly retryable: boolean;
-  readonly errorId?: string;
   readonly detail?: string;
 
   constructor(init: GarminErrorInit) {
     const secrets = init.secrets ?? [];
     const clean = (s: string): string => redactSecrets(s, secrets);
-    const userMessage = clean(
-      init.userMessage ?? (init.kind === 'unauthorized' && init.status === 403 ? USER_MESSAGES.forbidden : USER_MESSAGES[init.kind]),
-    );
+    const userMessage = clean(init.userMessage ?? USER_MESSAGES[init.kind]);
     const fallback = `${init.kind}${init.status !== undefined ? ` (HTTP ${init.status})` : ''}: ${userMessage}`;
     super(clean(init.message ?? fallback));
     this.name = 'GarminError';
@@ -108,9 +125,8 @@ export class GarminError extends Error {
     if (init.retryAfterSeconds !== undefined) this.retryAfterSeconds = init.retryAfterSeconds;
     this.userMessage = userMessage;
     this.retryable = init.retryable ?? RETRYABLE[init.kind];
-    if (init.errorId !== undefined) this.errorId = clean(String(init.errorId)).slice(0, 80);
     if (init.detail !== undefined) this.detail = clean(String(init.detail)).slice(0, 240);
-    // Deliberately no `cause`: the original error could carry the key or a token.
+    // Deliberately no `cause`: the original error could carry a token.
     Object.setPrototypeOf(this, new.target.prototype);
   }
 
@@ -122,7 +138,6 @@ export class GarminError extends Error {
       retryAfterSeconds: this.retryAfterSeconds,
       userMessage: this.userMessage,
       retryable: this.retryable,
-      errorId: this.errorId,
       detail: this.detail,
       message: this.message,
     };
@@ -134,13 +149,28 @@ export function isGarminError(e: unknown): e is GarminError {
 }
 
 /**
- * True for errors that make every further call pointless: the key/token is wrong. A 403 on a data call (key lacks the
- * scope for ONE endpoint) is NOT fatal, so partial syncs can continue with the other endpoints.
+ * Errors that make every further request of a run pointless (or harmful): stop the whole run.
+ * A dead session, a token Garmin keeps refusing, a 429, a dropped network and a failed token save all end the run.
+ * Everything else (404, 403 on one endpoint, one 5xx, a body that is not JSON) only affects that one request.
  */
-export function isFatalAuthError(e: unknown): boolean {
+export function isFatalForRun(e: unknown): boolean {
   if (!(e instanceof GarminError)) return false;
-  if (e.kind === 'invalid_key' || e.kind === 'key_expired_or_revoked') return true;
-  return e.kind === 'unauthorized' && e.status !== 403;
+  return (
+    e.kind === 'session_dead' ||
+    e.kind === 'unauthorized' ||
+    e.kind === 'rate_limited' ||
+    e.kind === 'network' ||
+    e.kind === 'timeout' ||
+    e.kind === 'storage'
+  );
+}
+
+/**
+ * Garmin answers 404 / 403 / 204 for a day with nothing recorded (watch not worn, no sleep, no HRV): that is "no data",
+ * not a problem.
+ */
+export function isNoData(e: unknown): boolean {
+  return e instanceof GarminError && e.kind === 'http' && (e.status === 404 || e.status === 403 || e.status === 204);
 }
 
 /** Wraps anything thrown into a GarminError (already-typed errors pass through). */
@@ -156,87 +186,19 @@ export function toGarminError(e: unknown, secrets: readonly string[] = []): Garm
 
 /** What the client reads out of a (JSON) error body. */
 export interface ParsedErrorBody {
-  errorId?: string;
   message?: string;
-  retryInSeconds?: number;
 }
 
-function toNumber(v: unknown): number | undefined {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (typeof v === 'string' && v.trim() !== '') {
-    const n = Number(v);
-    if (Number.isFinite(n)) return n;
-  }
-  return undefined;
-}
-
-/** Never throws. Accepts the raw body text. */
+/** Never throws. Accepts the raw body text; keeps at most a short error code / message. */
 export function parseErrorBody(text: string | null | undefined): ParsedErrorBody {
   if (!text) return {};
   const trimmed = text.trim();
-  if (!trimmed.startsWith('{')) return trimmed ? { message: trimmed.slice(0, 200) } : {};
+  if (!trimmed.startsWith('{')) return {};
   try {
     const obj = JSON.parse(trimmed) as Record<string, unknown>;
-    const out: ParsedErrorBody = {};
-    const errorId = obj.errorId ?? obj.error_id ?? obj.errorCode;
-    if (typeof errorId === 'string' || typeof errorId === 'number') out.errorId = String(errorId);
-    const message = obj.message ?? obj.error ?? obj.errorMessage;
-    if (typeof message === 'string') out.message = message.slice(0, 200);
-    const retry = toNumber(obj.retryInSeconds ?? obj.retry_in_seconds ?? obj.retryAfterSeconds);
-    if (retry !== undefined && retry >= 0) out.retryInSeconds = retry;
-    return out;
+    const message = obj.error ?? obj.error_description ?? obj.message ?? obj.errorMessage;
+    return typeof message === 'string' ? { message: message.slice(0, 120) } : {};
   } catch {
-    return { message: trimmed.slice(0, 200) };
+    return {};
   }
-}
-
-export interface ClassifyHttpErrorInput {
-  status: number;
-  bodyText?: string | null;
-  /** Which call failed. */
-  phase: 'token' | 'data';
-  /** A token exchange already succeeded earlier with this key (so a rejection now means expiry/revocation). */
-  keyWorkedBefore?: boolean;
-  /** `Retry-After` header seconds, used when the body has no `retryInSeconds`. */
-  retryAfterHeaderSec?: number;
-  /** Request path, used as `detail`. */
-  path?: string;
-  secrets?: readonly string[];
-}
-
-/** Maps an HTTP failure to a GarminError. */
-export function classifyHttpError(input: ClassifyHttpErrorInput): GarminError {
-  const { status, phase, secrets } = input;
-  const body = parseErrorBody(input.bodyText);
-  const common = {
-    status,
-    errorId: body.errorId,
-    detail: [input.path, body.message].filter(Boolean).join(' - ') || undefined,
-    secrets,
-  };
-
-  if (status === 429) {
-    const retryAfterSeconds = body.retryInSeconds ?? input.retryAfterHeaderSec;
-    return new GarminError({ kind: 'rate_limited', ...common, retryAfterSeconds });
-  }
-  if (status === 406) return new GarminError({ kind: 'not_acceptable', ...common });
-  if (status === 408) return new GarminError({ kind: 'timeout', ...common });
-
-  if (phase === 'token') {
-    if (status === 401 || status === 403 || status === 400) {
-      const expired =
-        input.keyWorkedBefore === true || /expired|revoked/i.test(`${body.message ?? ''} ${body.errorId ?? ''}`);
-      return new GarminError({ kind: expired ? 'key_expired_or_revoked' : 'invalid_key', ...common });
-    }
-  } else {
-    if (status === 401 || status === 403) return new GarminError({ kind: 'unauthorized', ...common });
-  }
-
-  if (status >= 500) return new GarminError({ kind: 'server', ...common });
-  if (status >= 400) return new GarminError({ kind: 'bad_request', ...common });
-  return new GarminError({
-    kind: 'unexpected',
-    ...common,
-    message: `unexpected HTTP ${status}`,
-  });
 }
