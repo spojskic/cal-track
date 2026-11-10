@@ -26,11 +26,11 @@ import { NutrientTargetsPanel } from '@/components/diary/NutrientTargetsPanel';
 import { NutritionSummarySheet } from '@/components/diary/NutritionSummarySheet';
 import { ActionMenu, type MenuAction } from '@/components/diary/Sheet';
 import { buildHighlights, buildMacroRows, consumedSplit, targetSplit } from '@/components/diary/targets-view';
-import { MacroBars, TargetsPager } from '@/components/diary/TargetsPager';
+import { MacroBars, TargetsHeader, TargetsPager } from '@/components/diary/TargetsPager';
 import { ToastHost } from '@/components/diary/ToastHost';
 import { useCopyActions } from '@/components/diary/use-copy-actions';
 import { DEFAULT_WATER_TARGET_ML, QUICK_WATER_ML, WaterRow } from '@/components/diary/WaterRow';
-import { SaveMealSheet } from '@/components/recipes/SavedMealControls';
+import { AddSavedMealSheet, SaveMealSheet } from '@/components/recipes/SavedMealControls';
 import { AppText, Button, Card } from '@/components/ui';
 import { useBiometrics, useNotes, useWaterMl } from '@/data/activity';
 import { UNGROUPED, useDayNutrients, useDiaryEntries, type DiaryEntry } from '@/data/diary';
@@ -95,6 +95,7 @@ export default function DiaryScreen() {
   // Section ids for the sheets opened from the group menu.
   const [summaryId, setSummaryId] = useState<string | null>(null);
   const [mealId, setMealId] = useState<string | null>(null);
+  const [savedMealId, setSavedMealId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   // Meal groups listed newest first (view only; the default order is the time the entries were logged).
   const [newestFirst, setNewestFirst] = useState<Record<string, boolean>>({});
@@ -202,6 +203,7 @@ export default function DiaryScreen() {
     const group = section.group;
     return {
       add: () => group && go('/search', { mealGroupId: group.id }),
+      'add-saved-meal': () => group && setSavedMealId(section.id),
       'copy-yesterday': () => group && void copyActions.copyYesterdayGroup({ id: group.id, name: group.name }),
       'copy-to-today': () => group && void copyActions.copyGroupToToday({ id: group.id, name: group.name }),
       'copy-group': () =>
@@ -262,6 +264,7 @@ export default function DiaryScreen() {
   const menuSection = menu?.kind === 'group' ? sectionById(menu.sectionId) : undefined;
   const summarySection = sectionById(summaryId);
   const mealSection = sectionById(mealId);
+  const savedMealSection = sectionById(savedMealId);
   const confirmSection = confirm?.kind === 'delete-group' ? sectionById(confirm.sectionId) : undefined;
   const deleteCount = confirmSection?.entries.length ?? 0;
 
@@ -298,7 +301,7 @@ export default function DiaryScreen() {
       <ActivityIndicator color={colors.primary} />
     </View>
   ) : day.isError ? (
-    <View style={styles.centered}>
+    <View style={[styles.centered, styles.pad]}>
       <AppText style={{ color: colors.danger }}>Could not load this day.</AppText>
       <AppText variant="small" muted>
         {day.error?.message}
@@ -306,7 +309,7 @@ export default function DiaryScreen() {
       <Button label="Try again" variant="secondary" onPress={() => day.refetch()} />
     </View>
   ) : (
-    <View style={styles.stack}>
+    <View>
       <DevicesGroup rows={devices.rows} sources={devices.sources} />
       {groupsQ.isLoading ? (
         <View style={styles.centered}>
@@ -331,41 +334,49 @@ export default function DiaryScreen() {
             haptic('medium');
             setEditingId(entry.id);
           }}
+          onEntryDelete={(entry) => void copyActions.deleteEntry(entry)}
         />
       ))}
-      {!day.hasEntries && devices.rows.length === 0 && !groupsQ.isLoading ? (
+      {!day.hasEntries && devices.rows.length === 0 && sections.length === 0 && !groupsQ.isLoading ? (
         <AppText muted style={styles.hint}>
-          Nothing logged yet. Tap + on a meal to add food.
+          Nothing logged yet. Tap + to add food.
         </AppText>
       ) : null}
       <WaterRow ml={waterQ.data} target={waterTarget} onAdd={() => go('/water/new', { ml: QUICK_WATER_ML })} />
     </View>
   );
 
-  const diaryCard = (
-    <Card style={styles.tabCard}>
+  // Tabs on the plain page background and flat lists under them: no card around any of it.
+  const diaryList = (
+    <View>
       <DiaryTabs value={tab} onChange={setTab} counts={counts} />
-      <View style={styles.tabBody}>
-        {tab === 'food' ? (
-          foodTab
-        ) : tab === 'exercise' ? (
-          <View style={styles.stack}>
-            <ExerciseList entries={energy.exercise} />
-            <AddRow label="Add exercise" onPress={() => go('/exercise/new')} />
-          </View>
-        ) : tab === 'biometric' ? (
-          <View style={styles.stack}>
-            <BiometricList entries={biometrics} unitSystem={unitSystem} />
-            <AddRow label="Add biometric" onPress={() => go('/biometric/new')} />
-          </View>
-        ) : (
-          <View style={styles.stack}>
-            <NotesList entries={notesQ.data ?? []} />
-            <AddRow label="Add note" onPress={() => go('/note/new')} />
-          </View>
-        )}
-      </View>
-    </Card>
+      {tab === 'food' ? (
+        foodTab
+      ) : tab === 'exercise' ? (
+        <View>
+          <ExerciseList entries={energy.exercise} />
+          <AddRow label="Add exercise" onPress={() => go('/exercise/new')} />
+        </View>
+      ) : tab === 'biometric' ? (
+        <View>
+          <BiometricList entries={biometrics} unitSystem={unitSystem} />
+          <AddRow label="Add biometric" onPress={() => go('/biometric/new')} />
+        </View>
+      ) : (
+        <View>
+          <NotesList entries={notesQ.data ?? []} />
+          <AddRow label="Add note" onPress={() => go('/note/new')} />
+        </View>
+      )}
+    </View>
+  );
+
+  // Phones: the targets scroll away with the page; only the date bar stays on top.
+  const phoneTargets = (
+    <View style={[styles.pad, styles.phoneTargets]}>
+      <TargetsHeader onPress={() => go('/settings/targets')} />
+      <TargetsPager rows={rows} energy={energyProps} highlights={highlights} />
+    </View>
   );
 
   const targetsCard = (
@@ -388,8 +399,8 @@ export default function DiaryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled">
-        <View style={[styles.stickyOuter, { backgroundColor: colors.background }]}>
-          <View style={styles.inner}>
+        <View style={[styles.stickyOuter, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <View style={[styles.inner, styles.pad]}>
             <DateBar
               date={date}
               onPrev={() => shift(-1)}
@@ -398,19 +409,14 @@ export default function DiaryScreen() {
               onAdd={() => go('/add')}
               onMenu={() => openMenu({ kind: 'date' })}
             />
-            {!wide ? (
-              <Card style={styles.pagerCard}>
-                <TargetsPager rows={rows} energy={energyProps} highlights={highlights} />
-              </Card>
-            ) : null}
           </View>
         </View>
 
         <View style={[styles.inner, styles.body]} onLayout={onBodyLayout}>
-          {onboardingPrompt}
+          {onboardingPrompt ? <View style={styles.pad}>{onboardingPrompt}</View> : null}
           {twoColumns ? (
-            <View style={styles.columns}>
-              <View style={styles.mainColumn}>{diaryCard}</View>
+            <View style={[styles.columns, styles.pad]}>
+              <View style={styles.mainColumn}>{diaryList}</View>
               <View style={styles.sideColumn}>
                 {targetsCard}
                 {energyCard}
@@ -418,18 +424,21 @@ export default function DiaryScreen() {
             </View>
           ) : (
             <>
-              {diaryCard}
-              {wide ? targetsCard : null}
-              {energyCard}
+              {!wide ? phoneTargets : null}
+              {diaryList}
+              {wide ? <View style={styles.pad}>{targetsCard}</View> : null}
+              <View style={styles.pad}>{energyCard}</View>
             </>
           )}
-          <NutrientTargetsPanel
-            totals={day.totals}
-            hasEntries={day.hasEntries}
-            incompleteNutrients={day.incompleteNutrients}
-            targets={targets}
-            netCarbs={netCarbs}
-          />
+          <View style={styles.pad}>
+            <NutrientTargetsPanel
+              totals={day.totals}
+              hasEntries={day.hasEntries}
+              incompleteNutrients={day.incompleteNutrients}
+              targets={targets}
+              netCarbs={netCarbs}
+            />
+          </View>
         </View>
       </ScrollView>
 
@@ -459,6 +468,12 @@ export default function DiaryScreen() {
         entries={summarySection?.entries ?? NO_ENTRIES}
         netCarbs={netCarbs}
         onClose={() => setSummaryId(null)}
+      />
+      <AddSavedMealSheet
+        visible={savedMealSection?.group !== undefined}
+        name={savedMealSection?.name ?? 'Meal'}
+        mealGroupId={savedMealSection?.group?.id}
+        onClose={() => setSavedMealId(null)}
       />
       <SaveMealSheet
         visible={mealSection !== undefined}
@@ -493,15 +508,14 @@ export default function DiaryScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   scroll: { flexGrow: 1, paddingBottom: spacing.xxl * 2 },
-  stickyOuter: { paddingTop: spacing.sm, paddingBottom: spacing.sm },
-  inner: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center', paddingHorizontal: spacing.lg, gap: spacing.sm },
-  body: { gap: spacing.lg, paddingTop: spacing.sm },
-  pagerCard: { padding: spacing.md, gap: spacing.sm },
-  tabCard: { padding: 0, gap: 0, overflow: 'hidden' },
-  tabBody: { padding: spacing.md, gap: spacing.md },
-  stack: { gap: spacing.md },
+  stickyOuter: { paddingVertical: spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth },
+  // The centred, max-width column. Blocks that need side padding add `pad`; the lists run edge to edge.
+  inner: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
+  pad: { paddingHorizontal: spacing.lg },
+  body: { gap: spacing.md, paddingTop: spacing.sm },
+  phoneTargets: { gap: spacing.xs },
   centered: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
-  hint: { textAlign: 'center', paddingVertical: spacing.sm },
+  hint: { textAlign: 'center', paddingVertical: spacing.md },
   columns: { flexDirection: 'row', gap: spacing.lg, alignItems: 'flex-start' },
   mainColumn: { flex: 3 },
   sideColumn: { flex: 2, gap: spacing.lg },

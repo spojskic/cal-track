@@ -8,13 +8,7 @@ import { amountWarning } from '@/components/food/serving';
 import { AmountWarningNote } from '@/components/food/serving-picker';
 import { NumberField } from '@/components/forms';
 import { AppText, Button } from '@/components/ui';
-import {
-  useDeleteDiaryEntry,
-  useDiaryEntries,
-  useMoveDiaryEntry,
-  useUpdateDiaryEntry,
-  type DiaryEntry,
-} from '@/data/diary';
+import { useDiaryEntries, useMoveDiaryEntry, useUpdateDiaryEntry, type DiaryEntry } from '@/data/diary';
 import { isPastDate } from '@/data/diary-copy';
 import type { MealGroup } from '@/data/meal-groups';
 import { supabase } from '@/lib/supabase';
@@ -78,7 +72,7 @@ const trimText = (n: number) => formatNumber(n, n < 10 ? 2 : 1, true).replace(/,
 
 /**
  * Edit sheet for one diary entry: amount (grams or a portion), move to another meal group, copy / paste (clipboard,
- * today), delete (with confirm).
+ * today), delete (with confirm, then an Undo toast).
  * The entry is looked up live so optimistic changes (e.g. move) show up immediately.
  */
 export function EntryActionSheet({
@@ -122,7 +116,6 @@ function EntryEditor({
 
   const update = useUpdateDiaryEntry();
   const move = useMoveDiaryEntry();
-  const remove = useDeleteDiaryEntry();
   const copyLabels = entryCopyActions({
     isPastDate: isPastDate(entry.entryDate, todayISO()),
     clipboard: copyActions.clipboard,
@@ -185,10 +178,10 @@ function EntryEditor({
     move.mutate({ id: entry.id, entryDate: entry.entryDate, mealGroupId: group.id });
   };
 
+  // Same path as the swipe: the toast "Deleted <food>" offers Undo (the only way to delete on the web).
   const doDelete = () => {
-    haptic('warning');
-    remove.mutate({ id: entry.id, entryDate: entry.entryDate });
     onClose();
+    void copyActions.deleteEntry(entry);
   };
 
   const copyEntry = () => {

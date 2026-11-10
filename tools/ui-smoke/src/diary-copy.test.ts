@@ -237,11 +237,12 @@ suite('components/diary/copy-menus.ts: which actions each menu offers', () => {
     newestFirst: false,
   };
 
-  it('a group with entries on today offers copy yesterday / copy / recipe / meal / summary / sort / delete', async () => {
+  it('a group with entries on today offers add / saved meal / copy yesterday / copy / recipe / meal / summary / sort / delete', async () => {
     const { groupMenuItems } = await load('@/components/diary/copy-menus');
     const items = groupMenuItems(group);
     expect(items.map((i: any) => i.key)).toEqual([
       'add',
+      'add-saved-meal',
       'copy-yesterday',
       'copy-group',
       'copy-from-day',
@@ -253,6 +254,8 @@ suite('components/diary/copy-menus.ts: which actions each menu offers', () => {
       'delete',
     ]);
     const labels = items.map((i: any) => i.label);
+    expect(labels).toContain('Add food to Breakfast');
+    expect(labels).toContain('Add a saved meal to Breakfast...'); // moved here from the header (one + and one ... there)
     expect(labels).toContain("Copy Yesterday's Group");
     expect(labels).toContain('Copy Group');
     expect(labels).toContain('Create Recipe from Group');
@@ -286,7 +289,7 @@ suite('components/diary/copy-menus.ts: which actions each menu offers', () => {
 
   it('an empty group has nothing to copy, summarise, sort or delete; one entry has nothing to sort', async () => {
     const { groupMenuItems } = await load('@/components/diary/copy-menus');
-    expect(groupMenuItems({ ...group, entryCount: 0 }).map((i: any) => i.key)).toEqual(['add', 'copy-yesterday', 'copy-from-day', 'collapse']);
+    expect(groupMenuItems({ ...group, entryCount: 0 }).map((i: any) => i.key)).toEqual(['add', 'add-saved-meal', 'copy-yesterday', 'copy-from-day', 'collapse']);
     const one = groupMenuItems({ ...group, entryCount: 1 }).map((i: any) => i.key);
     expect(one).not.toContain('sort-time');
     expect(one).toContain('delete');

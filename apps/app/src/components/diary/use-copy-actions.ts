@@ -166,6 +166,21 @@ export function useCopyActions(date: string) {
           action: { label: 'Undo', onPress: () => void undoDelete(rows) },
         });
       }),
+
+    /** Swipe to delete one entry (no confirm dialog: the toast offers Undo). */
+    deleteEntry: (entry: DiaryEntry) =>
+      run(async () => {
+        const rows = await remove.mutateAsync({ ids: [entry.id], date: entry.entryDate });
+        if (rows.length === 0) {
+          showDiaryToast({ message: 'Nothing to delete.', tone: 'error' });
+          return;
+        }
+        haptic('warning');
+        showDiaryToast({
+          message: `Deleted ${entry.food.name}`,
+          action: { label: 'Undo', onPress: () => void undoDelete(rows) },
+        });
+      }),
   };
 }
 

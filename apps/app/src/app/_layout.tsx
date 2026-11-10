@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { GestureRoot } from '@/components/gesture-root';
 import { SetupRequired } from '@/components/setup-required';
 import { useProfile } from '@/data/profile';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -66,10 +67,12 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: queryPersister }}>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </PersistQueryClientProvider>
+    <GestureRoot>
+      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: queryPersister }}>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </PersistQueryClientProvider>
+    </GestureRoot>
   );
 }

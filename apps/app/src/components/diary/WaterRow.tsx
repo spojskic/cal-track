@@ -9,7 +9,7 @@ export const DEFAULT_WATER_TARGET_ML = 2600;
 /** Amount suggested by the quick-add button. */
 export const QUICK_WATER_ML = 250;
 
-/** Water progress (ml / target) with a quick "+250 mL" button. */
+/** Water progress (ml / target) as a flat row with a quick "+250 mL" button. */
 export function WaterRow({
   ml,
   target,
@@ -25,7 +25,7 @@ export function WaterRow({
   const reached = fraction >= 1;
 
   return (
-    <View style={[styles.row, { borderColor: colors.border }]}>
+    <View style={[styles.row, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
       <View
         accessible
         accessibilityRole="progressbar"
@@ -67,15 +67,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  info: { flex: 1, gap: spacing.sm },
+  info: { flex: 1, gap: spacing.xs + 2 },
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   track: { height: 8, borderRadius: radius.pill, overflow: 'hidden' },
   button: {
-    minHeight: 40,
+    minHeight: 36,
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,

@@ -12,10 +12,10 @@ import {
 
 import { EnergySummary, type EnergySummaryProps } from '@/components/charts/EnergySummary';
 import { HighlightRings, type HighlightRingItem } from '@/components/charts/HighlightRings';
-import { MacroBar } from '@/components/charts/MacroBar';
 import { AppText } from '@/components/ui';
-import { spacing, useTheme } from '@/theme';
+import { radius, spacing, useTheme, type ThemeColors } from '@/theme';
 
+import { macroProgress, type PercentTone } from './macro-progress';
 import type { MacroRow } from './targets-view';
 
 export interface PagerPage {
@@ -75,7 +75,7 @@ export function Pager({ pages }: { pages: PagerPage[] }) {
               onPress={() => goTo(i)}
               style={[
                 styles.dot,
-                { backgroundColor: i === index ? colors.primary : colors.track, width: i === index ? 18 : 7 },
+                { backgroundColor: i === index ? colors.primary : colors.track, width: i === index ? 16 : 6 },
               ]}
             />
           ))}
@@ -85,23 +85,90 @@ export function Pager({ pages }: { pages: PagerPage[] }) {
   );
 }
 
-/** Macro bars (Energy, Protein, Net Carbs, Fat) */
+const toneColor = (tone: PercentTone, colors: ThemeColors): string =>
+  tone === 'success' ? colors.success : tone === 'danger' ? colors.danger : colors.textMuted;
+
+/**
+ * One compact macro row: "Energy 2,376 / 2,195 kcal" on the left, the percentage on the right (green once a goal is
+ * reached, red past a limit) and a thick fully rounded bar under it in the macro colour. Past 100 % the bar is
+ * rescaled so a notch marks the target and the overflow is drawn in the success / danger colour.
+ */
+function MacroRowBar({ row }: { row: MacroRow }) {
+  const { colors } = useTheme();
+  const p = macroProgress({
+    value: row.value,
+    target: row.target,
+    netValue: row.netValue,
+    unit: row.unit,
+    decimals: row.decimals,
+    overIsBad: row.overIsBad,
+  });
+  const overColor = row.overIsBad ? colors.danger : colors.success;
+
+  return (
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={`${row.label}: ${p.valueText}${p.pctText ? `, ${p.pctText}` : ''}`}
+      accessibilityValue={p.now === undefined ? undefined : { min: 0, max: 100, now: p.now }}
+      style={styles.macro}>
+      <View style={styles.macroLine}>
+        <AppText variant="small" numberOfLines={1} style={styles.macroText}>
+          <AppText variant="small" style={styles.macroLabel}>
+            {row.label}
+          </AppText>
+          <AppText variant="small" muted>{`  ${p.valueText}`}</AppText>
+        </AppText>
+        <AppText variant="small" numberOfLines={1} style={[styles.macroPct, { color: toneColor(p.tone, colors) }]}>
+          {p.pctText}
+        </AppText>
+      </View>
+      <View style={[styles.track, { backgroundColor: colors.track }]}>
+        <View style={[styles.segment, { left: 0, width: `${p.mainFill * 100}%`, backgroundColor: row.color }]} />
+        {p.markAt !== undefined ? (
+          <>
+            <View
+              style={[styles.segment, { left: `${p.markAt * 100}%`, width: `${p.overFill * 100}%`, backgroundColor: overColor }]}
+            />
+            <View style={[styles.notch, { left: `${p.markAt * 100}%`, backgroundColor: colors.surface }]} />
+          </>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** Macro bars (Energy, Protein, Net Carbs, Fat): tight rows without a card around each. */
 export function MacroBars({ rows }: { rows: MacroRow[] }) {
   return (
     <View style={styles.bars}>
       {rows.map((row) => (
-        <MacroBar
-          key={row.key}
-          label={row.label}
-          value={row.value}
-          target={row.target}
-          netValue={row.netValue}
-          unit={row.unit}
-          color={row.color}
-          decimals={row.decimals}
-          overIsBad={row.overIsBad}
-        />
+        <MacroRowBar key={row.key} row={row} />
       ))}
+    </View>
+  );
+}
+
+/** "TARGETS >" (opens the target settings) and "CONSUMED" (what the numbers below are) above the macro rows. */
+export function TargetsHeader({ onPress }: { onPress: () => void }) {
+  return (
+    <View style={styles.header}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Targets, open target settings"
+        hitSlop={8}
+        onPress={onPress}
+        style={styles.headerLink}>
+        <AppText variant="label" muted>
+          Targets
+        </AppText>
+        <AppText variant="label" muted>
+          {'\u203A'}
+        </AppText>
+      </Pressable>
+      <AppText variant="label" muted>
+        Consumed
+      </AppText>
     </View>
   );
 }
@@ -140,8 +207,18 @@ export function TargetsPager({
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   scroller: { flexGrow: 0 },
-  bars: { gap: spacing.md, paddingRight: 1 },
+  bars: { gap: spacing.sm + 2, paddingRight: 1 },
+  macro: { gap: 3 },
+  macroLine: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
+  macroText: { flex: 1 },
+  macroLabel: { fontWeight: '700' },
+  macroPct: { fontWeight: '700', minWidth: 40, textAlign: 'right' },
+  track: { height: 10, borderRadius: radius.pill, overflow: 'hidden' },
+  segment: { position: 'absolute', top: 0, bottom: 0 },
+  notch: { position: 'absolute', top: 0, bottom: 0, width: 2, marginLeft: -1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 28 },
+  headerLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   highlights: { gap: spacing.sm },
   dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
-  dot: { height: 7, borderRadius: 4 },
+  dot: { height: 6, borderRadius: 3 },
 });

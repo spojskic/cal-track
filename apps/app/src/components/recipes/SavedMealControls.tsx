@@ -1,84 +1,41 @@
-// "Saved meals" button for a diary meal group: save the group's entries as a meal, or log a saved meal into it.
+// Sheets of the diary meal group menu: save the group's entries as a meal, or log a saved meal into the group.
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { formatNumber } from '@/components/charts/format';
 import { haptic } from '@/components/diary/haptics';
-import { IconButton } from '@/components/diary/IconButton';
-import { ActionMenu, runAfterModal, Sheet, type MenuAction } from '@/components/diary/Sheet';
+import { runAfterModal, Sheet } from '@/components/diary/Sheet';
 import { formatDayLabel } from '@/components/food/format';
 import { TextField } from '@/components/forms';
 import { AppText, Button } from '@/components/ui';
 import type { DiaryEntry } from '@/data/diary';
 import { errorMessage } from '@/data/foods';
-import { useMealGroups } from '@/data/meal-groups';
 import { useCreateSavedMeal, useLogSavedMeal, useSavedMeals } from '@/data/saved-meals';
 import { useSelectedDate } from '@/state/selected-date';
 import { radius, spacing, useTheme } from '@/theme';
 
 import { open } from './nav';
 
-type Panel = 'save' | 'add' | null;
-
 /**
- * Header button of a meal group with its own menu (Save as meal / Add saved meal). The meal group id is taken
- * from `groupId`, else from the entries, else looked up by name.
+ * "Add a saved meal to <group>...": lists the saved meals and logs the chosen one into the meal group on the viewed
+ * date. Opened from the "..." menu of a diary meal group.
  */
-export function SavedMealControls({
+export function AddSavedMealSheet({
+  visible,
   name,
-  groupId,
-  entries,
+  mealGroupId,
+  onClose,
 }: {
+  visible: boolean;
   name: string;
-  groupId?: string | undefined;
-  entries: DiaryEntry[];
+  mealGroupId: string | undefined;
+  onClose: () => void;
 }) {
   const date = useSelectedDate((s) => s.date);
-  const groups = useMealGroups().data;
-  const resolvedGroupId = groupId ?? entries[0]?.mealGroupId ?? groups?.find((g) => g.name === name)?.id ?? undefined;
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [panel, setPanel] = useState<Panel>(null);
-
-  const actions: MenuAction[] = [];
-  if (entries.length > 0) {
-    actions.push({
-      key: 'save-meal',
-      label: 'Create Meal from Group',
-      onPress: () => setPanel('save'),
-    });
-  }
-  if (resolvedGroupId) {
-    actions.push({
-      key: 'add-meal',
-      label: `Add a saved meal to ${name}...`,
-      onPress: () => setPanel('add'),
-    });
-  }
-  if (actions.length === 0) return null;
-
   return (
-    <>
-      <IconButton
-        glyph={'\u2261'}
-        label={`Saved meals for ${name}`}
-        size={34}
-        onPress={() => {
-          haptic('light');
-          setMenuVisible(true);
-        }}
-      />
-      <ActionMenu visible={menuVisible} title={`${name}: saved meals`} actions={actions} onClose={() => setMenuVisible(false)} />
-      <SaveMealSheet visible={panel === 'save'} name={name} entries={entries} onClose={() => setPanel(null)} />
-      <Sheet
-        visible={panel === 'add'}
-        onClose={() => setPanel(null)}
-        title="Add a saved meal"
-        subtitle={`To ${name} \u00B7 ${formatDayLabel(date)}`}>
-        {panel === 'add' && resolvedGroupId ? (
-          <AddBody date={date} mealGroupId={resolvedGroupId} onClose={() => setPanel(null)} />
-        ) : null}
-      </Sheet>
-    </>
+    <Sheet visible={visible} onClose={onClose} title="Add a saved meal" subtitle={`To ${name} \u00B7 ${formatDayLabel(date)}`}>
+      {visible && mealGroupId ? <AddBody date={date} mealGroupId={mealGroupId} onClose={onClose} /> : null}
+    </Sheet>
   );
 }
 

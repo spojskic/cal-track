@@ -14,6 +14,7 @@ export interface MenuItemSpec<K extends string> {
 
 export type GroupMenuKey =
   | 'add'
+  | 'add-saved-meal'
   | 'copy-yesterday'
   | 'copy-to-today'
   | 'copy-group'
@@ -46,6 +47,7 @@ export function groupMenuItems(input: GroupMenuInput): MenuItemSpec<GroupMenuKey
   const has = entryCount > 0;
   const items: MenuItemSpec<GroupMenuKey>[] = [];
   if (hasGroup) items.push({ key: 'add', label: `Add food to ${name}` });
+  if (hasGroup) items.push({ key: 'add-saved-meal', label: `Add a saved meal to ${name}...` });
   if (hasGroup && input.yesterdayCount > 0) items.push({ key: 'copy-yesterday', label: "Copy Yesterday's Group" });
   if (hasGroup && input.isPastDate && has) items.push({ key: 'copy-to-today', label: 'Copy to Today' });
   if (has) items.push({ key: 'copy-group', label: 'Copy Group' });

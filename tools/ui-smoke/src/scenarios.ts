@@ -350,16 +350,55 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    name: 'diary: flat layout - one + and one ... per meal, full-width rows, collapse',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Breakfast', 'Oats, rolled, dry'],
+    async after(page, ctx) {
+      await ctx.check('every meal header has exactly one "+" and one "..." button', async () => {
+        for (const group of ['Breakfast', 'Lunch', 'Dinner', 'Snacks']) {
+          const adds = await buttonCount(page, `Add food to ${group}`);
+          const menus = await buttonCount(page, `${group} options`);
+          if (adds !== 1 || menus !== 1) throw new Error(`${group}: ${adds} "+" and ${menus} "..." buttons, expected one of each`);
+        }
+      });
+      await ctx.check('entries run the full width of the list, like the tab strip (no card or box around them)', async () => {
+        const first = await page.getByRole('tab', { name: /^food/i }).first().boundingBox({ timeout: 6000 });
+        const last = await page.getByRole('tab', { name: /^note/i }).first().boundingBox({ timeout: 6000 });
+        const row = await page.getByRole('button', { name: /^Oats, rolled, dry, / }).first().boundingBox({ timeout: 6000 });
+        if (!first || !last || !row) throw new Error('the tab strip or the oats row is not visible');
+        const strip = { x: first.x, width: last.x + last.width - first.x };
+        if (Math.abs(row.x - strip.x) > 1 || Math.abs(row.width - strip.width) > 1) {
+          throw new Error(`the row is ${row.width}px wide at x=${row.x}, the list is ${strip.width}px wide at x=${strip.x}`);
+        }
+      });
+      await ctx.check('no swipe actions exist on the web (rows are deleted from the entry sheet there)', async () => {
+        if ((await buttonCount(page, /^Delete /)) > 0) throw new Error('a "Delete <name>" swipe button is rendered on the web');
+      });
+      await ctx.snapshot('flat-diary');
+      await stepThen(ctx, 'collapse Breakfast with its header', () => clickButton(page, /^Breakfast, .*Collapse/), async () => {
+        await ctx.expectNoText('Oats, rolled, dry');
+        await ctx.expectText('Lunch');
+        await stepThen(ctx, 'expand Breakfast again', () => clickButton(page, /^Breakfast, .*Expand/), () => ctx.expectText('Oats, rolled, dry'));
+      });
+    },
+  },
+  {
     name: 'diary: add a saved meal to Lunch',
     route: '/diary',
     path: '/diary',
     auth: 'signed-in',
     expect: ['Breakfast'],
     async after(page, ctx) {
-      await stepThen(ctx, 'open the saved meal menu of Lunch', () => clickButton(page, 'Saved meals for Lunch'), async () => {
+      // The saved meals action lives in the one "..." menu of the group (the header has no extra button for it).
+      await ctx.check('the group header has no separate saved meals button', async () => {
+        if ((await buttonCount(page, /^Saved meals for /)) > 0) throw new Error('a "Saved meals for ..." button is back in the header');
+      });
+      await stepThen(ctx, 'open the Lunch menu', () => clickButton(page, 'Lunch options', { exact: true }), async () => {
         await ctx.expectText('Add a saved meal to Lunch');
         await ctx.snapshot('saved-meal-menu', { tall: false });
-        await stepThen(ctx, 'choose "Add a saved meal"', () => clickText(page, /Add a saved meal to Lunch/), async () => {
+        await stepThen(ctx, 'choose "Add a saved meal"', () => clickButton(page, 'Add a saved meal to Lunch...', { exact: true }), async () => {
           await ctx.expectText('Moj doručak');
           await ctx.snapshot('saved-meals-sheet', { tall: false });
           await stepThen(ctx, 'add "Moj doručak"', () => openRow(page, /^Moj doručak, 3 foods/), () =>
@@ -578,6 +617,37 @@ export const SCENARIOS: Scenario[] = [
             await ctx.expectText('Restored 3 items');
             await ctx.expectText('Almonds, raw');
             await ctx.check('the rows are back with identical values', () => waitUntil(page, 'rows restored', () => diarySnapshot(ctx) === before));
+          });
+        },
+      );
+    },
+  },
+  {
+    name: 'diary: deleting an entry from its sheet shows Undo, Undo puts it back',
+    route: '/diary',
+    path: '/diary',
+    auth: 'signed-in',
+    expect: ['Snacks', 'Apple, raw, with skin'],
+    async after(page, ctx) {
+      const before = diarySnapshot(ctx);
+      await stepThen(
+        ctx,
+        'delete the apple entry from its sheet',
+        async () => {
+          await openRow(page, /Apple, raw, with skin/);
+          await clickText(page, 'Delete entry', { exact: true });
+          await clickButton(page, 'Confirm delete');
+        },
+        async () => {
+          await ctx.expectMutation('diary_entries', 'delete', (m) => m.rows === 1);
+          await ctx.expectText('Deleted Apple, raw, with skin');
+          await ctx.check('the entry is gone from the list', async () => {
+            if ((await buttonCount(page, /^Apple, raw, with skin, /)) > 0) throw new Error('the deleted entry is still listed');
+          });
+          await stepThen(ctx, 'tap Undo', () => clickButton(page, 'Undo', { exact: true }), async () => {
+            await ctx.expectMutation('diary_entries', 'insert', (m) => rowsOf(m).length === 1);
+            await ctx.expectText('Restored 1 item');
+            await ctx.check('the diary is exactly as before', () => waitUntil(page, 'rows restored', () => diarySnapshot(ctx) === before));
           });
         },
       );
