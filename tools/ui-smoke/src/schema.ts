@@ -631,6 +631,12 @@ export const SERVICE_ONLY_RPCS: readonly string[] = [
   'upsert_branded_food',
   'recompute_daily_totals',
   'handle_new_user',
+  // Invite codes (20261110000100_invite_codes.sql): the owner (SQL editor) and the Edge Function `sign-up` only.
+  'create_invite_code',
+  'list_invite_codes',
+  'revoke_invite_code',
+  'consume_invite_code',
+  'release_invite_code',
 ];
 
 export const KNOWN_RPCS: readonly string[] = [...Object.keys(CLIENT_RPCS), ...SERVICE_ONLY_RPCS];

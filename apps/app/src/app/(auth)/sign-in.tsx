@@ -1,24 +1,65 @@
 import { useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { TextField } from '@/components/forms';
 import { AppText, Button, Card, Screen } from '@/components/ui';
+import { createAccount } from '@/data/signup';
 import { useAuth } from '@/lib/auth';
-import { radius, spacing, useTheme } from '@/theme';
+import {
+  formatInviteCodeInput,
+  hasErrors,
+  validateSignUp,
+  type SignUpField,
+  type SignUpFieldErrors,
+} from '@/lib/signup';
+import { spacing, useTheme } from '@/theme';
 
+type Mode = 'sign-in' | 'sign-up';
+
+/**
+ * Sign in, or create an account with an invite code (the owner generates codes in the Supabase SQL editor, see
+ * docs/getting-started.md). Creating an account calls the Edge Function `sign-up`, then signs in with the same credentials:
+ * the root layout's redirects take over from there (onboarding on first run).
+ */
 export default function SignInScreen() {
   const { signIn } = useAuth();
   const { colors } = useTheme();
+  const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<SignUpFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const inputStyle = [
-    styles.input,
-    { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceAlt },
-  ];
+  const signingUp = mode === 'sign-up';
 
-  async function submit() {
+  /** Edits a field and clears the error that was shown for it. */
+  function edit(field: SignUpField, set: (value: string) => void) {
+    return (value: string) => {
+      set(value);
+      setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+      setError(null);
+    };
+  }
+
+  function resetSecrets() {
+    setPassword('');
+    setConfirmPassword('');
+    setInviteCode('');
+  }
+
+  function switchMode() {
+    if (busy) return;
+    setMode(signingUp ? 'sign-in' : 'sign-up');
+    // The e-mail address carries over; everything else starts empty and no old error stays on screen.
+    resetSecrets();
+    setFieldErrors({});
+    setError(null);
+  }
+
+  async function submitSignIn() {
     setBusy(true);
     setError(null);
     const message = await signIn(email, password);
@@ -26,40 +67,149 @@ export default function SignInScreen() {
     if (message) setError(message);
   }
 
+  async function submitSignUp() {
+    const problems = validateSignUp({ email, password, confirmPassword, inviteCode });
+    setFieldErrors(problems);
+    setError(null);
+    if (hasErrors(problems)) return;
+
+    setBusy(true);
+    const created = await createAccount({ email, password, inviteCode });
+    if (!created.ok) {
+      setBusy(false);
+      if (created.field) setFieldErrors({ [created.field]: created.message });
+      else setError(created.message);
+      return;
+    }
+    // The account exists: sign in with the same credentials. On success the root layout redirects away from this screen.
+    const message = await signIn(email, password);
+    setBusy(false);
+    if (message) {
+      setMode('sign-in');
+      resetSecrets();
+      setError(`Your account was created, but signing in failed (${message}). Try signing in.`);
+    }
+  }
+
+  function submit() {
+    if (busy) return;
+    void (signingUp ? submitSignUp() : submitSignIn());
+  }
+
+  const ready = signingUp
+    ? Boolean(email && password && confirmPassword && inviteCode)
+    : Boolean(email && password);
+
   return (
     <Screen title="Cal Track" safeTop>
       <Card>
-        <AppText variant="heading">Sign in</AppText>
+        <AppText variant="heading">{signingUp ? 'Create account' : 'Sign in'}</AppText>
         <AppText muted variant="small">
-          Accounts are created by the app owner. Ask for an invite if you need one.
+          {signingUp
+            ? 'You need an invite code from the app owner to create an account.'
+            : 'New here? Ask the app owner for an invite code, then choose Create account.'}
         </AppText>
         <View style={styles.form}>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            style={inputStyle}
-          />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            placeholderTextColor={colors.textMuted}
-            secureTextEntry
-            autoComplete="current-password"
-            onSubmitEditing={submit}
-            style={inputStyle}
-          />
+          {signingUp ? (
+            <>
+              <TextField
+                label="Email"
+                value={email}
+                onChangeText={edit('email', setEmail)}
+                placeholder="you@example.com"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                keyboardType="email-address"
+                error={fieldErrors.email}
+              />
+              <TextField
+                label="Password"
+                value={password}
+                onChangeText={edit('password', setPassword)}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="new-password"
+                textContentType="newPassword"
+                hint="At least 8 characters."
+                error={fieldErrors.password}
+              />
+              <TextField
+                label="Confirm password"
+                value={confirmPassword}
+                onChangeText={edit('confirmPassword', setConfirmPassword)}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="new-password"
+                textContentType="newPassword"
+                error={fieldErrors.confirmPassword}
+              />
+              <TextField
+                label="Invite code"
+                value={inviteCode}
+                onChangeText={edit('inviteCode', (text) => setInviteCode(formatInviteCodeInput(text)))}
+                placeholder="XXXX-XXXX-XXXX"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                spellCheck={false}
+                autoComplete="off"
+                returnKeyType="go"
+                onSubmitEditing={submit}
+                hint="Paste it or type it; dashes and spaces are optional."
+                error={fieldErrors.inviteCode}
+              />
+            </>
+          ) : (
+            <>
+              <TextField
+                label="Email"
+                value={email}
+                onChangeText={edit('email', setEmail)}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="username"
+                keyboardType="email-address"
+              />
+              <TextField
+                label="Password"
+                value={password}
+                onChangeText={edit('password', setPassword)}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="current-password"
+                textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={submit}
+              />
+            </>
+          )}
           {error ? (
             <AppText variant="small" style={{ color: colors.danger }}>
               {error}
             </AppText>
           ) : null}
-          <Button label="Sign in" onPress={submit} loading={busy} disabled={!email || !password} />
+          <Button label={signingUp ? 'Create account' : 'Sign in'} onPress={submit} loading={busy} disabled={!ready} />
+        </View>
+        <View style={styles.switchRow}>
+          <AppText variant="small" muted>
+            {signingUp ? 'Already have an account?' : 'Have an invite code?'}
+          </AppText>
+          <Pressable
+            accessibilityRole="button"
+            onPress={switchMode}
+            disabled={busy}
+            style={({ pressed }) => [styles.switchLink, { opacity: busy ? 0.5 : pressed ? 0.7 : 1 }]}>
+            <AppText
+              variant="small"
+              style={{ color: colors.accent, fontWeight: '700', textDecorationLine: 'underline' }}>
+              {signingUp ? 'Sign in' : 'Create account'}
+            </AppText>
+          </Pressable>
         </View>
       </Card>
     </Screen>
@@ -68,11 +218,12 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   form: { gap: spacing.md },
-  input: {
-    minHeight: 46,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    fontSize: 16,
+  switchRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: spacing.sm,
   },
+  switchLink: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.xs },
 });

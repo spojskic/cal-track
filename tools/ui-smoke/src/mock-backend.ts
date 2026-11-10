@@ -4,7 +4,8 @@
  * `createMockBackend(seed).handle({ method, url, headers, body })` answers exactly like the Supabase REST API
  * would for the queries supabase-js v2 sends: select with embedding, filters, ordering, pagination, counts,
  * single-object responses, insert / upsert / update / delete with `Prefer` semantics, RPCs, a handful of
- * GoTrue endpoints and the Edge Functions gateway (404 `not_deployed`). Pure: no sockets, no timers.
+ * GoTrue endpoints and the Edge Functions gateway (404 `not_deployed`, except `sign-up`, which has its own mock in
+ * signup-function.ts). Pure: no sockets, no timers.
  *
  * Fidelity beyond the happy path is deliberate: unknown columns (42703 / PGRST204), invalid uuids (22P02),
  * CHECK / NOT NULL / FK / unique violations, simplified RLS (`user_id = auth.uid()`), "UPDATE requires a WHERE
@@ -33,6 +34,7 @@ import {
 import { SCHEMA, CLIENT_RPCS, SERVICE_ONLY_RPCS, starColumns, type ColumnDef, type FkDef, type TableDef } from './schema';
 import { searchFoods, searchTextOf } from './search';
 import { authUserJson, buildSession, decodeJwt, stableUuid, type MockUser } from './session';
+import { SignUpFunctionMock } from './signup-function';
 
 export type Row = Record<string, unknown>;
 
@@ -105,6 +107,8 @@ export interface MockBackend {
   mutationsOf(table: string, op?: MutationRecord['op']): MutationRecord[];
   /** FK / unique problems in the current data (empty = consistent). */
   integrityErrors(): string[];
+  /** Slots used so far of an invite code of the `sign-up` function (see signup-function.ts). */
+  inviteUses(code: string): number;
 }
 
 const CORS_ALLOW_HEADERS =
@@ -167,6 +171,7 @@ class MockBackendImpl implements MockBackend {
   private tables = new Map<string, Row[]>();
   private readonly users = new Map<string, MockUser>();
   private readonly refreshTokens = new Map<string, string>();
+  private readonly signUps = new SignUpFunctionMock();
   private readonly nowBase: number;
   private tick = 0;
   private seq = 0;
@@ -270,7 +275,10 @@ class MockBackendImpl implements MockBackend {
       } else if (path.startsWith('/functions/v1/')) {
         kind = 'function';
         target = path.slice('/functions/v1/'.length);
-        response = jsonResponse(404, { code: 'NOT_FOUND', message: 'Requested function was not found', error: 'not_deployed' });
+        response =
+          target === 'sign-up'
+            ? this.signUpFunction(method, req.body ?? null)
+            : jsonResponse(404, { code: 'NOT_FOUND', message: 'Requested function was not found', error: 'not_deployed' });
       } else {
         this.unhandled.push({ seq: this.seq, method, path, reason: 'endpoint not emulated' });
         response = jsonResponse(404, { message: `Mock backend has no handler for ${method} ${path}`, error: 'not_found' });
@@ -543,6 +551,34 @@ class MockBackendImpl implements MockBackend {
     const refresh = `mock-refresh-${user.id.slice(0, 8)}-${this.seq}`;
     this.refreshTokens.set(refresh, user.id);
     return buildSession(user, { nowMs: this.txMs, ttlSeconds: 3600, refreshToken: refresh });
+  }
+
+  // ------------------------------------------------------------------- Edge Function `sign-up`
+
+  /** Slots used so far of an invite code (any spelling). */
+  inviteUses(code: string): number {
+    return this.signUps.usesOf(code);
+  }
+
+  private signUpFunction(method: string, body: string | null): MockResponse {
+    const answer = this.signUps.handle(method, body, {
+      emailTaken: (email) => [...this.users.values()].some((u) => u.email.toLowerCase() === email.toLowerCase()),
+      createUser: (email, password) => this.createSignedUpUser(email, password),
+    });
+    return jsonResponse(answer.status, answer.body, answer.headers ?? {});
+  }
+
+  /** What `auth.admin.createUser` does, plus the `handle_new_user` trigger (profile + the four default meal groups). */
+  private createSignedUpUser(email: string, password: string): void {
+    const user: MockUser = { id: stableUuid(`user:signup:${email.toLowerCase()}`), email: email.toLowerCase(), password, createdAt: this.now() };
+    this.users.set(user.id, user);
+    const seedRow = (table: string, input: Row) => {
+      const def = SCHEMA[table] as TableDef;
+      this.table(table).push(this.buildRow(def, input, { missingDefault: true, ctx: null, seed: true }));
+    };
+    seedRow('profiles', { user_id: user.id, display_name: user.email.split('@')[0] || null });
+    ['Breakfast', 'Lunch', 'Dinner', 'Snacks'].forEach((name, i) => seedRow('meal_groups', { user_id: user.id, name, sort_order: i * 10 }));
+    this.touch();
   }
 
   // ------------------------------------------------------------------- REST dispatch

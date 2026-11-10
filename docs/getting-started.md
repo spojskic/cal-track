@@ -50,12 +50,48 @@ SQL Editor yourself, in order (`001_nutrients.sql`, `002_dri_values.sql`, `003_e
 
 ## 5. Accounts
 
-Sign-ups are meant to be closed (invite-only). In the dashboard:
+Public sign-up stays **disabled** in Supabase, on purpose: only people you let in get an account. Check it once:
+**Authentication > Sign In / Providers** has *Allow new users to sign up* turned **off** (the label may differ slightly
+between dashboard versions), or run `npx supabase config push` (`config.toml` has `enable_signup = false`). Do not turn it on
+for the invite codes below: the `sign-up` function creates the account on the server with the admin API (e-mail already
+confirmed), so no dashboard setting changes and no e-mail is sent.
 
-1. **Authentication > Sign In / Providers**: turn off *Allow new users to sign up* (the label may differ slightly
-   between dashboard versions), or run `npx supabase config push`.
-2. **Authentication > Users > Add user > Create new user**: enter an email and a password and tick *Auto Confirm User*.
-   Do this for each person. (The "Invite user" email flow does not work yet: the app has no set-password page.)
+There are two ways to create an account. Use either or both.
+
+### A. Invite codes (people sign themselves up in the app)
+
+One-time setup: the migration from step 4 already created the code table; deploy the function (the same command is in
+[supabase/functions/README.md](../supabase/functions/README.md)):
+
+```bash
+npx supabase functions deploy sign-up --use-api
+```
+
+Then, for every person, generate a code in the **SQL Editor** of the dashboard:
+
+```sql
+-- note, max uses, valid days  ->  returns something like  K7M2-9QXA-F3TW
+select public.create_invite_code('for Anna', 1, 14);
+
+select * from public.list_invite_codes();                 -- all codes: uses / max uses, status, expiry
+select public.revoke_invite_code('K7M2-9QXA-F3TW');       -- withdraw a code (true = it existed)
+```
+
+Send the code to your friend (treat it like a password: whoever has it can create one account). They open the app, tap
+**Create account** under the sign-in form, enter their e-mail, a password (at least 8 characters), the password again and the
+code (dashes, spaces and capital letters do not matter), and are signed in straight away; the setup wizard follows.
+
+- `create_invite_code(note, max_uses, valid_days)`: `max_uses` defaults to 1 (one account per code), `valid_days` to 14;
+  pass `null` as `valid_days` for a code that never expires. The note is only for you.
+- A code that was refused because the e-mail already has an account is not used up.
+- Guessing is throttled by the function: 5 attempts per 10 minutes per connection and 20 per 10 minutes in total. If you are
+  testing and lock yourself out, wait ten minutes (or `delete from private.edge_rate_limits where bucket like 'sign-up%';`).
+
+### B. By hand in the dashboard
+
+**Authentication > Users > Add user > Create new user**: enter an email and a password and tick *Auto Confirm User*. Give the
+person their password. (The "Invite user" email flow does not work: the app has no set-password page, and Supabase's built-in
+mail sender is heavily rate limited, which is why invite codes do not send mail either.)
 
 ## 6. Load the foods
 
@@ -98,7 +134,8 @@ Sign in with a user you created, finish the onboarding wizard (body details, act
 
 - **"Connect your Supabase project" screen**: `apps/app/.env` is missing or still has the placeholder values. Restart the dev server
   after editing it; if it still shows old values, start with `pnpm --filter @cal/app exec expo start --web --clear`.
-- **Sign-in says invalid credentials**: the user does not exist, or was created without *Auto Confirm User*.
+- **Sign-in says invalid credentials**: the user does not exist, or was created by hand without *Auto Confirm User*.
+- **"Sign-up is not available right now" on Create account**: the `sign-up` function is not deployed (or the migration of step 4 was not pushed).
 - **Search finds nothing**: step 6 has not run, or `analyze public.foods;` was skipped on a big import.
 - **"permission denied" / empty lists everywhere**: `supabase db push` did not complete; check the output for errors.
 - **Saving a nutrient target or logging an exercise fails with a foreign-key error**: the seed files in step 4 were not loaded.

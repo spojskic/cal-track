@@ -7,6 +7,7 @@ on the Supabase **free** plan.
 | ---------------- | ------------------------------------------------------------------------------------------------------------- |
 | `barcode-lookup` | barcode -> food. Local DB first, then USDA FDC Branded, then Open Food Facts; remote hits are saved globally. |
 | `online-search`  | text search in FDC Branded + Open Food Facts (Search-a-licious first, the classic search only as fallback: the classic `cgi/search.pl` answers 503 to Supabase's cloud IPs). Returns summaries only (nothing is saved). |
+| `sign-up` | invite-code registration: validates, throttles, consumes the owner's invite code and creates the account with the admin API (no e-mail, public sign-up stays disabled). The only function that is called without a signed-in user (besides the Garmin callback and webhook). |
 | `garmin-oauth-start`, `garmin-oauth-callback`, `garmin-webhook`, `garmin-disconnect` | "Connect Garmin" (OAuth2 PKCE + push webhooks). Dormant until Garmin approves the app; see [docs/garmin-integration.md](../../docs/garmin-integration.md). |
 
 ```
@@ -21,6 +22,8 @@ functions/
     food-store.ts                tiny Supabase adapters (local lookup, upsert RPC)
     rate-limit.ts                client of public.consume_rate_limit()
     http.ts                      CORS, JSON helpers, JWT claims, upstream fetch
+    signup.ts                    sign-up flow: validation, throttle, invite code, create user (all I/O injected), hashed client key
+    signup-store.ts              adapters: invite-code RPCs and auth.admin.createUser (error classification)
     garmin-flows.ts              the four Garmin flows (all I/O injected)
     garmin-oauth.ts              Garmin config, PKCE, token/authorize requests, redirects, webhook secret compare
     garmin-push.ts               Garmin push payload -> daily_energy / exercise / biometrics rows
@@ -29,6 +32,7 @@ functions/
     nutrient-map.generated.ts    GENERATED from packages/core (see below)
   barcode-lookup/index.ts        thin Deno.serve wiring
   online-search/index.ts         thin Deno.serve wiring
+  sign-up/index.ts               thin Deno.serve wiring (verify_jwt = false, see config.toml)
   garmin-*/index.ts              thin Deno.serve wiring (callback and webhook run with verify_jwt = false, see config.toml)
 ```
 
@@ -37,20 +41,22 @@ Imports inside `_shared/` use relative paths **with** the `.ts` extension (Deno 
 
 ## Database objects they need
 
-Apply the migrations first (`npx supabase db push`):
+Apply the migrations first (`npx supabase db push --remote`):
 
 - `20261110000011_edge_rate_limit.sql`: `private.edge_rate_limits` + `public.consume_rate_limit()` (used by `online-search`).
 - `20261110000012_upsert_branded_food.sql`: `public.upsert_branded_food()` (used by `barcode-lookup`).
+- `20261110000100_invite_codes.sql`: `private.invite_codes` + `consume_invite_code()` / `release_invite_code()` (used by `sign-up`) and the owner's `create_invite_code()` / `list_invite_codes()` / `revoke_invite_code()`.
 
-Both functions are executable by `service_role` only. The four `garmin-*` functions additionally need
+All of them are executable by `service_role` only (the owner's SQL editor runs as `postgres`, which can execute them too). The four `garmin-*` functions additionally need
 `20261110000013_garmin_integration.sql` (tables and RPCs, also service-role only) and their own secrets (`GARMIN_CLIENT_ID`,
 `GARMIN_CLIENT_SECRET`, `GARMIN_WEBHOOK_SECRET`, `APP_URL`, ...): see [docs/garmin-integration.md](../../docs/garmin-integration.md).
 Until those are set they answer `503 garmin_not_configured`.
 
 ## Secrets
 
-`SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected by Supabase.
-Set the rest:
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected by Supabase. `sign-up` needs nothing else
+(it also uses the service role key as the HMAC key that hashes client addresses, so no new secret exists).
+Set the rest for the food functions:
 
 ```bash
 npx supabase secrets set FDC_API_KEY=<key from https://fdc.nal.usda.gov/api-key-signup> \
@@ -69,10 +75,12 @@ npx supabase secrets set ONLINE_SEARCH_USER_PER_MINUTE=5 ONLINE_SEARCH_GLOBAL_PE
 
 ```bash
 npx supabase functions deploy barcode-lookup online-search --use-api   # --use-api: no Docker needed
+npx supabase functions deploy sign-up --use-api                        # invite-code registration (verify_jwt = false)
 ```
 
-`verify_jwt = true` is set for both in `config.toml`. **Do not deploy with `--no-verify-jwt`**: the
-functions read the caller from the JWT claims and rely on the gateway to have verified the signature
+`verify_jwt = true` is set for `barcode-lookup` and `online-search` in `config.toml`; `sign-up` (like the Garmin callback and
+webhook) has `verify_jwt = false` because its caller has no account yet. **Do not deploy the signed-in functions with
+`--no-verify-jwt`**: they read the caller from the JWT claims and rely on the gateway to have verified the signature
 (they additionally refuse the project's anon key, which is also a valid JWT). If the project moves to
 asymmetric JWT signing keys and the gateway check starts failing, verify in the function instead
 (`supabase.auth.getClaims()`), do not just switch the check off.
@@ -177,6 +185,46 @@ The counter is `private.edge_rate_limits` (fixed window), consumed by `public.co
 `service_role` can call. An in-memory limiter was rejected: isolates are short-lived and run as many instances.
 The limiter fails closed (a database error is a 500).
 
+### `sign-up`
+
+The one function without a signed-in caller (`verify_jwt = false`; supabase-js sends the anon key). The invite code is the gate.
+
+Request: `{ "email": "anna@example.com", "password": "<8-72 bytes>", "inviteCode": "K7M2-9QXA-F3TW" }`. The code may be typed
+in any case, with or without dashes and spaces (at most 32 characters as sent). The e-mail is trimmed and lower-cased.
+
+Response `201 { "ok": true }`: the account exists (e-mail pre-confirmed through `auth.admin.createUser`), the
+`handle_new_user` trigger created the profile and meal groups; the app now signs in with the same credentials.
+
+Errors (all `{ "error": "<code>", "message": "<text>", ...extra }`):
+
+| status  | `error`                                    | meaning / extra fields                                                                                  |
+| ------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| 400     | `invalid_json` / `invalid_request`         | body is not JSON / not an object                                                                        |
+| 400     | `invalid_email`                            | not an e-mail shape or longer than 254 characters (also when the auth server rejects the address)       |
+| 400     | `invalid_password`                         | fewer than 8 characters or more than 72 bytes (bcrypt limit; also when the auth server rejects it)      |
+| 400     | `invalid_invite_code`                      | code missing, blank, or longer than 32 characters (no database access, no throttle slot used)            |
+| 403     | `invite_invalid`                           | unknown or malformed code                                                                               |
+| 403     | `invite_expired` / `invite_used_up` / `invite_revoked` | the code exists but cannot be used                                                          |
+| 405/413 | `method_not_allowed` / `payload_too_large` |                                                                                                         |
+| 409     | `email_taken`                              | an account with this e-mail exists; the code is given back                                              |
+| 429     | `rate_limited`                             | `retryAfterSeconds`, `scope: "client" \| "global"`; also sent as `Retry-After` header                    |
+| 500     | `internal_error`                           | creating the user failed (the code is given back) or an unexpected error (the limiter fails closed)      |
+
+Order of work: validate (400) -> throttle per client, then globally (429) -> `consume_invite_code` (403) -> `auth.admin.createUser`
+(201 / 409 / 400 / 500). Every failure after the code was consumed calls `release_invite_code`, so a friend who mistyped the
+e-mail does not burn the code.
+
+#### Throttle and privacy
+
+Both counters use `private.edge_rate_limits` (`consume_rate_limit()`), checked **before** the code table is touched:
+5 attempts per 10 minutes per client and 20 per 10 minutes over everybody (constants `DEFAULT_SIGNUP_LIMITS` in
+`_shared/signup.ts`). With 12 characters from a 30 symbol alphabet (about 5.3e17 codes) and at most 20 guesses per 10 minutes, brute
+force is out of reach. The client is the caller's address (`cf-connecting-ip`, else the first `x-forwarded-for` entry; IPv6 is
+reduced to its /64), turned into an HMAC-SHA-256 keyed with the service role key and stored only as that UUID: the address
+itself is never stored or logged (a plain hash of an IPv4 address could be reversed in seconds). Without any address header all callers
+share one "unknown" client bucket. Logs contain outcome kinds only (`created`, `invite_expired`, `rate_limited_client`, ...), never
+passwords, codes, e-mail addresses or addresses.
+
 ## Free plan notes
 
 - 500,000 function invocations/month; per request roughly 2 s CPU time (waiting on `fetch` is not CPU
@@ -230,4 +278,7 @@ pnpm --filter @cal/db-tests test          # includes tools/db-tests/src/edge-*.t
 
 The `_shared` modules are tested in Vitest with injected fakes (`fetch`, Supabase clients); the
 `upsert_branded_food` and `consume_rate_limit` functions are tested against the real migrations in PGlite.
-Not covered: the Deno runtime itself, the two `index.ts` files, and real FDC / OFF responses.
+The invite-code migration, the `sign-up` flow (with the real rate limiter and code RPCs) and the app's form rules are covered by
+`invite-codes.test.ts`, `edge-signup.test.ts` and `app-signup.test.ts`; `tools/ui-smoke` mocks the function for the browser scenarios.
+Not covered: the Deno runtime itself, the `index.ts` files, the real `auth.admin.createUser` (its error codes are matched from the
+documented GoTrue behaviour), which address headers Supabase really sends, and real FDC / OFF responses.

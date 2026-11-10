@@ -26,14 +26,16 @@ describe('migrations', () => {
     await db.close();
   });
 
-  it('discovers the migration files, with the supabase-only one last and skipped', () => {
+  it('discovers the migration files, with the supabase-only one skipped and later ones sorting after it', () => {
     const all = migrationFiles();
     expect(all.length).toBeGreaterThanOrEqual(10);
     expect(all).toEqual([...all].sort());
     const skipped = skippedMigrationFiles();
     expect(skipped).toHaveLength(1);
-    expect(all[all.length - 1]).toBe(skipped[0]);
     expect(applicableMigrationFiles()).not.toContain(skipped[0]);
+    // 20261110000090_pg_cron_supabase_only.sql is already applied on the real project: a migration that sorts before it
+    // would make `supabase db push` ask for --include-all, so the invite-code migration must come after it.
+    expect(all.filter((f) => f > skipped[0]!)).toContain('20261110000100_invite_codes.sql');
   });
 
   it('applies all non-Supabase migrations cleanly', async () => {

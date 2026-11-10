@@ -116,3 +116,12 @@ verify_jwt = false
 [functions.garmin-disconnect]
 enabled = true
 verify_jwt = true
+
+# Invite-code registration (docs/getting-started.md section 5). The caller has no account yet, so there is no user JWT to
+# verify: verify_jwt = false. The gate is the invite code (consumed atomically in Postgres) plus per-client and global rate
+# limits that run BEFORE the code table is touched. [auth] enable_signup stays false on purpose: the function creates the
+# account with the admin API (service role, e-mail pre-confirmed), so no dashboard setting changes and no e-mail is sent.
+# No secrets of its own (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected). Deploy: npx supabase functions deploy sign-up --use-api
+[functions.sign-up]
+enabled = true
+verify_jwt = false

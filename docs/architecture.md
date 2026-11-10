@@ -67,9 +67,9 @@ All in `packages/core`, tested with golden values.
 ## Security model
 
 - The app ships only the Supabase URL and the anon key. All protection is row-level security (tested, including cross-user checks).
-- Accounts are created by the owner; public sign-up is off.
+- Accounts are created by the owner, or by a friend with an invite code the owner generated (the `sign-up` Edge Function creates the account on the server); public sign-up stays off in Supabase.
 - The OpenRouter key never leaves the device. Health data goes only to your own rows.
-- Edge functions require a signed-in user, have per-user and global rate limits, and use the service key only inside Supabase.
+- Edge functions require a signed-in user (except `sign-up`, which is gated by an invite code, and the Garmin callback and webhook), have per-user, per-client and global rate limits, and use the service key only inside Supabase.
 
 ## Decisions worth knowing
 

@@ -54,7 +54,7 @@ export function backendIssues(logs: BackendLogs, allow: readonly (string | RegEx
   return dedupeIssues(issues);
 }
 
-/** Which Edge Functions were invoked (they all answer 404 not_deployed). */
+/** Which Edge Functions were invoked (they answer 404 not_deployed, except `sign-up`: see signup-function.ts). */
 export function functionCalls(calls: readonly CallRecord[]): string[] {
   return calls.filter((c) => c.kind === 'function').map((c) => c.target);
 }

@@ -88,7 +88,10 @@ Design notes:
   scoping, `ON DELETE CASCADE`, "UPDATE requires a WHERE clause" (Supabase enables pg-safeupdate), the
   `foods` immutability trigger and `daily_totals` (a view over the diary) behave like the real database, so a
   query that cannot work against `supabase/migrations` fails here too. Edge functions answer
-  `404 {"code":"NOT_FOUND","message":"Requested function was not found","error":"not_deployed"}`.
+  `404 {"code":"NOT_FOUND","message":"Requested function was not found","error":"not_deployed"}`, except `sign-up`
+  (`src/signup-function.ts`): it validates with the real `parseSignUpRequest`, throttles after 5 attempts, and knows three
+  invite codes (`SIGNUP_VALID_CODE` works once, `SIGNUP_EXPIRED_CODE`, `SIGNUP_USED_UP_CODE`). A successful call adds the user
+  (with the profile and meal groups the signup trigger creates), so the following password grant works.
 * **Contract tests.** `src/supabase-js-compat.test.ts` drives the **real** supabase-js client against the mock with
   the query chains of `apps/app/src/data`; `src/app-data-contract.test.ts` runs the app's own data functions
   (`lookupBarcode`, `fetchRecipeDetail`, `saveWeightGoalRow`, health `writer`, ...) against it;

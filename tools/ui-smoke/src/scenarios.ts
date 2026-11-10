@@ -20,6 +20,7 @@ import type { Page } from 'playwright-core';
 import { choose, clickButton, clickTab, clickText, closeSheet, fill, scrollToText } from './actions';
 import { truncatedTextScript } from './browser-scripts';
 import { BARCODES, IDS, USER, addDays } from './fixtures';
+import { SIGNUP_EXPIRED_CODE, SIGNUP_VALID_CODE } from './signup-function';
 import type { Scenario, ScenarioContext } from './types';
 
 const F = IDS.food;
@@ -34,6 +35,22 @@ async function stepThen(ctx: ScenarioContext, label: string, act: () => Promise<
 async function openRow(page: Page, name: RegExp): Promise<void> {
   await page.getByRole('button', { name }).first().click({ timeout: 6000 });
 }
+
+// ------------------------------------------------------------------------------------------ create account helpers
+
+/** A new person's data for the sign-up form (the e-mail is not in the fixtures). */
+const NEW_FRIEND = { email: 'new.friend@example.com', password: 'a-good-password' };
+
+/** Fills the "Create account" form (the invite code the way a person pastes it: lower case, spaces instead of dashes). */
+async function fillCreateAccount(page: Page, form: { email?: string; password?: string; confirm?: string; code?: string } = {}): Promise<void> {
+  await fill(page, 'Email', form.email ?? NEW_FRIEND.email);
+  await fill(page, 'Password', form.password ?? NEW_FRIEND.password);
+  await fill(page, 'Confirm password', form.confirm ?? NEW_FRIEND.password);
+  await fill(page, 'Invite code', form.code ?? SIGNUP_VALID_CODE.toLowerCase().replace(/-/g, ' '));
+}
+
+/** Calls of the sign-up function so far, as "<status>". */
+const signUpCalls = (ctx: ScenarioContext): number[] => ctx.backend.calls.filter((c) => c.kind === 'function' && c.target === 'sign-up').map((c) => c.status);
 
 // ------------------------------------------------------------------------------------------ diary copy / paste helpers
 
@@ -102,7 +119,7 @@ export const SCENARIOS: Scenario[] = [
     route: '/sign-in',
     path: '/sign-in',
     auth: 'signed-out',
-    expect: ['Sign in', 'Accounts are created by the app owner'],
+    expect: ['Sign in', 'New here? Ask the app owner for an invite code', 'Create account'],
     allowBackendErrors: ['/auth/v1/token'],
     async after(page, ctx) {
       await stepThen(
@@ -130,6 +147,189 @@ export const SCENARIOS: Scenario[] = [
           await ctx.expectUrl(/^https:\/\/app\.test\/?(\?.*)?$/);
           await ctx.check('the password grant was called with the typed credentials', () => {
             if (!ctx.backend.calls.some((c) => c.kind === 'auth' && c.target === '/token' && c.status === 200)) throw new Error('no successful /auth/v1/token call');
+          });
+        },
+      );
+    },
+  },
+  {
+    name: 'sign-in: create account with an invite code, then the onboarding wizard',
+    route: '/sign-in',
+    path: '/sign-in',
+    auth: 'signed-out',
+    expect: ['Sign in'],
+    async after(page, ctx) {
+      await stepThen(
+        ctx,
+        'open the Create account form',
+        () => clickButton(page, 'Create account', { exact: true }),
+        async () => {
+          await ctx.expectText('You need an invite code from the app owner');
+          await ctx.expectText('Confirm password');
+          await ctx.expectText('Already have an account?');
+        },
+      );
+      await stepThen(
+        ctx,
+        'fill the form and submit it',
+        async () => {
+          await fillCreateAccount(page);
+          await clickButton(page, 'Create account', { exact: true });
+        },
+        async () => {
+          await ctx.expectText('About you', { timeout: 15_000 });
+          await ctx.expectText('Step 1 of 6');
+          await ctx.expectUrl(/\/onboarding/);
+          await ctx.check('the function created exactly one account and spent the code', () => {
+            if (JSON.stringify(signUpCalls(ctx)) !== '[201]') throw new Error(`sign-up calls: ${JSON.stringify(signUpCalls(ctx))}`);
+            if (ctx.backend.inviteUses(SIGNUP_VALID_CODE) !== 1) throw new Error('the invite code was not consumed');
+            const profile = ctx.backend.rows('profiles').find((p) => p.display_name === 'new.friend');
+            if (!profile || profile.onboarded !== false) throw new Error('no fresh (not onboarded) profile for the new user');
+          });
+          await ctx.check('the new user signed in with the password they chose', () => {
+            if (!ctx.backend.calls.some((c) => c.kind === 'auth' && c.target === '/token' && c.status === 200)) throw new Error('no successful /auth/v1/token call');
+          });
+        },
+      );
+    },
+  },
+  {
+    name: 'sign-in: create account shows the code as typed and refuses a wrong or expired invite code',
+    route: '/sign-in',
+    path: '/sign-in',
+    auth: 'signed-out',
+    expect: ['Sign in'],
+    async after(page, ctx) {
+      await stepThen(
+        ctx,
+        'type an unknown invite code',
+        async () => {
+          await clickButton(page, 'Create account', { exact: true });
+          await fillCreateAccount(page, { code: 'zzzz zzzz zzzz' });
+        },
+        async () => {
+          await ctx.expectInputValue('Invite code', 'ZZZZ-ZZZZ-ZZZZ'); // upper-cased and grouped as typed
+          await clickButton(page, 'Create account', { exact: true });
+          await ctx.expectText('That invite code is not valid.');
+          await ctx.snapshot('wrong-invite-code', { tall: false });
+        },
+      );
+      await stepThen(
+        ctx,
+        'try an expired invite code',
+        async () => {
+          await fill(page, 'Invite code', SIGNUP_EXPIRED_CODE);
+          await clickButton(page, 'Create account', { exact: true });
+        },
+        async () => {
+          await ctx.expectText('That code has expired.');
+          await ctx.expectNoText('That invite code is not valid.');
+        },
+      );
+      await ctx.check('no account was created and the screen stays on sign-in', () => {
+        if (ctx.backend.rows('profiles').length !== 1) throw new Error('a profile was created');
+        if (JSON.stringify(signUpCalls(ctx)) !== '[403,403]') throw new Error(`sign-up calls: ${JSON.stringify(signUpCalls(ctx))}`);
+        if (!/sign-in/.test(page.url())) throw new Error(`left the sign-in page: ${page.url()}`);
+      });
+    },
+  },
+  {
+    name: 'sign-in: create account with an e-mail that already has an account',
+    route: '/sign-in',
+    path: '/sign-in',
+    auth: 'signed-out',
+    expect: ['Sign in'],
+    async after(page, ctx) {
+      await stepThen(
+        ctx,
+        'submit the e-mail of the existing user',
+        async () => {
+          await clickButton(page, 'Create account', { exact: true });
+          await fillCreateAccount(page, { email: USER.email });
+          await clickButton(page, 'Create account', { exact: true });
+        },
+        async () => {
+          await ctx.expectText('An account with this e-mail already exists. Try signing in.');
+          await ctx.check('the code was given back', () => {
+            if (ctx.backend.inviteUses(SIGNUP_VALID_CODE) !== 0) throw new Error('the invite code stayed consumed');
+          });
+        },
+      );
+    },
+  },
+  {
+    name: 'sign-in: create account with mismatched passwords is refused before anything is sent',
+    route: '/sign-in',
+    path: '/sign-in',
+    auth: 'signed-out',
+    expect: ['Sign in'],
+    async after(page, ctx) {
+      await stepThen(
+        ctx,
+        'submit two different passwords',
+        async () => {
+          await clickButton(page, 'Create account', { exact: true });
+          await fillCreateAccount(page, { confirm: 'another-password' });
+          await clickButton(page, 'Create account', { exact: true });
+        },
+        async () => {
+          await ctx.expectText('The passwords do not match.');
+          await ctx.snapshot('mismatch', { tall: false });
+          await ctx.check('nothing was sent to the server', () => {
+            if (signUpCalls(ctx).length !== 0) throw new Error(`sign-up calls: ${JSON.stringify(signUpCalls(ctx))}`);
+          });
+        },
+      );
+      await stepThen(
+        ctx,
+        'a short password is refused too',
+        async () => {
+          await fill(page, 'Password', 'short');
+          await fill(page, 'Confirm password', 'short');
+          await clickButton(page, 'Create account', { exact: true });
+        },
+        async () => {
+          await ctx.expectText('Use at least 8 characters.');
+          await ctx.expectNoText('The passwords do not match.');
+        },
+      );
+    },
+  },
+  {
+    name: 'sign-in: switch between Create account and Sign in, then sign in',
+    route: '/sign-in',
+    path: '/sign-in',
+    auth: 'signed-out',
+    expect: ['Sign in'],
+    async after(page, ctx) {
+      await stepThen(
+        ctx,
+        'open Create account and come back',
+        async () => {
+          await fill(page, 'Email', USER.email);
+          await clickButton(page, 'Create account', { exact: true });
+        },
+        async () => {
+          await ctx.expectText('Confirm password');
+          await ctx.expectInputValue('Email', USER.email); // the e-mail carries over
+          await clickButton(page, 'Sign in', { exact: true });
+          await ctx.expectNoText('Confirm password');
+          await ctx.expectNoText('Invite code', { exact: true }); // the field label (the subtitle also mentions an "invite code")
+          await ctx.expectText('New here? Ask the app owner for an invite code');
+          await ctx.expectInputValue('Email', USER.email);
+        },
+      );
+      await stepThen(
+        ctx,
+        'sign in after switching back',
+        async () => {
+          await fill(page, 'Password', USER.password);
+          await clickButton(page, 'Sign in', { exact: true });
+        },
+        async () => {
+          await ctx.expectText('Dashboard', { timeout: 15_000 });
+          await ctx.check('no account was created on the way', () => {
+            if (signUpCalls(ctx).length !== 0) throw new Error(`sign-up calls: ${JSON.stringify(signUpCalls(ctx))}`);
           });
         },
       );
