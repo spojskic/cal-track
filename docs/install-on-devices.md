@@ -41,6 +41,15 @@ The installable file is `apps/app/android/app/build/outputs/apk/release/app-rele
 allow "install unknown apps" for the app they open it with. The release build is signed with Expo's default debug key,
 which is fine for sideloading but not for Google Play.
 
+To get just the file, named by version, without installing it anywhere (needs `apps/app/.env` like every build):
+
+```bash
+bash scripts/build-android-apk.sh        # writes build/CalTrack-<version>.apk
+```
+
+It runs `expo prebuild` and Gradle's `assembleRelease` for the phone architectures (`arm64-v8a`, `armeabi-v7a`; set
+`ANDROID_ABIS` to change that) and prints the file's SHA-256.
+
 **Health Connect:** Android 14 and newer have it built in; on older versions install *Health Connect* from the Play
 Store first. Then open Cal Track > **More > Connected apps & devices** and grant access.
 
@@ -92,6 +101,31 @@ anyway. To get Apple Health, install with the Xcode route above, which signs wit
 **Apple Health:** it works on a physical iPhone only (not the simulator). HealthKit's *background delivery* entitlement is
 switched off by default because a free account may be unable to sign it, so the app syncs when you open it and on a
 best-effort background schedule. To try it, set `"background": true` for the HealthKit plugin in `app.json` and rebuild.
+
+## Making a GitHub release
+
+The app is built on your own machines; a release is just the two files attached to a GitHub release.
+
+1. Raise `expo.version` in `apps/app/app.json` (for example `0.2.0`), commit, and tag it: `git tag v0.2.0`.
+2. Build both files (the Supabase URL and anon key from `apps/app/.env` are baked into them; the anon key is public by design,
+   protected by row-level security and the invite-only sign-up):
+
+   ```bash
+   bash scripts/build-android-apk.sh        # build/CalTrack-0.2.0.apk
+   bash scripts/build-ios-ipa.sh            # build/CalTrack-unsigned.ipa
+   ```
+
+3. Create the release (needs the [GitHub CLI](https://cli.github.com), `gh auth login`, and a GitHub remote):
+
+   ```bash
+   git remote add origin git@github.com:YOU/cal-track.git     # once
+   git push origin main --tags
+   gh release create v0.2.0 build/CalTrack-0.2.0.apk build/CalTrack-unsigned.ipa \
+     --title "Cal Track 0.2.0" --notes "Android: open the .apk. iPhone: sign the .ipa with SideStore or AltStore."
+   ```
+
+The `.ipa` is **unsigned**: it only installs through SideStore / AltStore (or by re-signing it yourself), and Apple Health may not
+work in a re-signed copy (see above). A repository that is public makes the files public too; sign-up still needs an invite code.
 
 ## Connecting a Garmin watch
 
