@@ -67,17 +67,24 @@ export function DiaryTabs({
             accessibilityLabel={`${name}${count ? `, ${count}` : ''}`}
             onPress={() => onChange(tab.key)}
             style={[styles.tab, selected && { borderBottomColor: colors.primary }]}>
-            <AppText
-              numberOfLines={1}
-              style={{
-                fontSize: 12,
-                fontWeight: '800',
-                letterSpacing: compact ? 0.3 : 0.6,
-                color: selected ? colors.primary : colors.textMuted,
-              }}>
-              {shown.toUpperCase()}
-              {count ? ` ${count}` : ''}
-            </AppText>
+            <View style={styles.tabContent}>
+              <AppText
+                numberOfLines={1}
+                style={{
+                  fontSize: 12,
+                  fontWeight: '800',
+                  letterSpacing: compact ? 0.3 : 0.6,
+                  color: selected ? colors.primary : colors.textMuted,
+                }}>
+                {shown.toUpperCase()}
+              </AppText>
+              {count ? (
+                // A small badge, so "BODY 2" is not read as a name: the 2 is how many entries this day has in the tab.
+                <View style={[styles.badge, { backgroundColor: selected ? colors.primary : colors.surfaceAlt }]}>
+                  <AppText style={[styles.badgeText, { color: selected ? colors.onPrimary : colors.textMuted }]}>{count}</AppText>
+                </View>
+              ) : null}
+            </View>
           </Pressable>
         );
       })}
@@ -201,6 +208,9 @@ export function NotesList({ entries }: { entries: readonly NoteEntry[] }) {
 
 const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
+  tabContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  badge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { fontSize: 11, fontWeight: '800', lineHeight: 14 },
   tab: {
     flex: 1,
     minHeight: 44,

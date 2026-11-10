@@ -100,6 +100,20 @@ async function rowTop(page: Page, name: RegExp): Promise<number> {
   return box.y;
 }
 
+/** Waits until the row named `above` is higher on the page than the row named `below` (the list re-renders a moment after a menu click). */
+async function expectRowOrder(page: Page, above: RegExp, below: RegExp, message: string, timeoutMs = 4000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      if ((await rowTop(page, above)) < (await rowTop(page, below))) return;
+    } catch {
+      // not rendered yet
+    }
+    if (Date.now() > deadline) throw new Error(message);
+    await page.waitForTimeout(150);
+  }
+}
+
 /** 1234 -> "1,234" (what formatNumber prints). */
 const thousands = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
@@ -1053,21 +1067,15 @@ export const SCENARIOS: Scenario[] = [
     async after(page, ctx) {
       const oats = /^Oats, rolled, dry, /;
       const coffee = /^Coffee, brewed, /;
-      await ctx.check('oldest first by default: oats above coffee', async () => {
-        if ((await rowTop(page, oats)) >= (await rowTop(page, coffee))) throw new Error('oats are not above the coffee');
-      });
+      await ctx.check('oldest first by default: oats above coffee', () => expectRowOrder(page, oats, coffee, 'oats are not above the coffee'));
       await stepThen(ctx, 'Sort by Time: newest first', () => pickGroupAction(page, 'Breakfast', 'Sort by Time: newest first'), async () => {
-        await ctx.check('newest first: coffee above oats', async () => {
-          if ((await rowTop(page, coffee)) >= (await rowTop(page, oats))) throw new Error('coffee is not above the oats');
-        });
+        await ctx.check('newest first: coffee above oats', () => expectRowOrder(page, coffee, oats, 'coffee is not above the oats'));
         await ctx.snapshot('newest-first', { tall: false });
         await ctx.check('sorting writes no diary entries', () => {
           if (diaryWrites(ctx).length > 0) throw new Error(`unexpected writes: ${diaryWrites(ctx).join(', ')}`);
         });
         await stepThen(ctx, 'Sort by Time: oldest first', () => pickGroupAction(page, 'Breakfast', 'Sort by Time: oldest first'), async () => {
-          await ctx.check('oldest first again: oats above coffee', async () => {
-            if ((await rowTop(page, oats)) >= (await rowTop(page, coffee))) throw new Error('oats are not above the coffee');
-          });
+          await ctx.check('oldest first again: oats above coffee', () => expectRowOrder(page, oats, coffee, 'oats are not above the coffee'));
         });
       });
     },

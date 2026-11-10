@@ -31,7 +31,6 @@ export function DateBar({
 
   return (
     <View style={styles.bar}>
-      <View style={styles.side} />
       <View style={styles.center}>
         <IconButton glyph={'\u2039'} label="Previous day" onPress={onPrev} size={36} />
         <Pressable
@@ -50,7 +49,7 @@ export function DateBar({
         </Pressable>
         <IconButton glyph={'\u203A'} label="Next day" onPress={onNext} size={36} />
       </View>
-      <View style={[styles.side, styles.right]}>
+      <View style={styles.right}>
         {onAdd ? <IconButton glyph="+" label="Add to diary" onPress={onAdd} size={36} /> : null}
         {onMenu ? <IconButton glyph={'\u22EF'} label="More diary actions" onPress={onMenu} size={36} /> : null}
       </View>
@@ -58,11 +57,13 @@ export function DateBar({
   );
 }
 
+const SIDE = 76; // room reserved on BOTH sides: the two 36 px buttons on the right, nothing on the left
+
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
-  // Both sides take the same share, so the date stays centred; the right side never gets narrower than its buttons.
-  side: { flexGrow: 1, flexBasis: 0, minWidth: 0 },
-  right: { minWidth: 76, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  // The date block is centred in the bar by the bar itself; the action buttons are laid over the right-hand margin.
+  // (Two flexible side columns of unequal content did not stay equal on a phone and pushed the date off-centre.)
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingHorizontal: SIDE },
+  right: { position: 'absolute', right: 0, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center' },
   center: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   date: { alignItems: 'center', paddingHorizontal: spacing.xs, minHeight: 36, justifyContent: 'center', flexShrink: 1 },
   dateText: { fontSize: 16, fontWeight: '700' },
