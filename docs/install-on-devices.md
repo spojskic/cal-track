@@ -81,11 +81,13 @@ brew install cocoapods               # once
 bash scripts/build-ios-ipa.sh        # 10-30 minutes the first time; needs apps/app/.env
 ```
 
-It runs `expo prebuild`, `pod install` and `xcodebuild archive` with code signing switched off, and writes
-`build/CalTrack-unsigned.ipa`. Install SideStore or AltStore on the iPhone (follow their own guides), open the `.ipa` with it
-and sign in with your Apple ID there. Because the file is unsigned, the HealthKit entitlement is whatever SideStore/AltStore
-grants a free account; if Apple Health access does not work that way, use the Xcode route above, which signs with the
-capability. Everything else in the app does not depend on it.
+It runs `expo prebuild`, `pod install` and `xcodebuild archive` with code signing switched off, embeds the entitlements (HealthKit)
+with an ad-hoc signature so the sideloading tool can see them, and writes `build/CalTrack-unsigned.ipa`. Install SideStore or
+AltStore on the iPhone (follow their own guides), open the `.ipa` with it and sign in with your Apple ID there.
+
+If **Connect Apple Health** answers *Missing com.apple.developer.healthkit entitlement*, the sideloading tool dropped the HealthKit
+capability when it re-signed the app (a first unsigned build had no entitlements at all). Everything except Apple Health works
+anyway. To get Apple Health, install with the Xcode route above, which signs with the capability from your Personal Team.
 
 **Apple Health:** it works on a physical iPhone only (not the simulator). HealthKit's *background delivery* entitlement is
 switched off by default because a free account may be unable to sign it, so the app syncs when you open it and on a

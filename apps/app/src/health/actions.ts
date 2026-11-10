@@ -17,6 +17,7 @@ import {
   serializeSettings,
   type HealthToggles,
 } from './settings';
+import { friendlyPermissionError } from './errors';
 import type { HealthProvider, LocalDate } from './types';
 
 const SIGNED_OUT = 'You are signed out. Please sign in again.';
@@ -56,9 +57,14 @@ export async function connectProvider(input: ConnectInput = {}): Promise<Connect
   if (types.length === 0) throw new Error('Choose at least one kind of data to import.');
 
   const backfillDate = input.backfillDate ?? existing?.backfill_date ?? defaultBackfillDate(todayLocal());
-  const permission = await provider.requestPermissions(types, {
-    wantHistory: needsExtendedHistory(provider.historyLimitDays, backfillDate, todayLocal()),
-  });
+  let permission: Awaited<ReturnType<HealthProvider['requestPermissions']>>;
+  try {
+    permission = await provider.requestPermissions(types, {
+      wantHistory: needsExtendedHistory(provider.historyLimitDays, backfillDate, todayLocal()),
+    });
+  } catch (error) {
+    throw friendlyPermissionError(error);
+  }
 
   const row = await saveIntegration(userId, provider.id, {
     enabled: permission.granted,

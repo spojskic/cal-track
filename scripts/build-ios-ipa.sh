@@ -44,6 +44,15 @@ echo "==> Archiving $SCHEME (Release, unsigned)"
 APP="$(find "$ARCHIVE/Products/Applications" -maxdepth 1 -name '*.app' | head -1)"
 [ -n "$APP" ] || fail "no .app in the archive; see $OUT/xcodebuild.log"
 
+# Embed the entitlements (HealthKit ...) with an AD-HOC signature. Without any signature the entitlements are not in the binary at all,
+# SideStore/AltStore cannot see that the app wants HealthKit and iOS then answers "Missing com.apple.developer.healthkit entitlement".
+# The tool replaces this signature with your Apple ID's when you install.
+ENTITLEMENTS="$(ls "$ROOT"/apps/app/ios/*/*.entitlements 2>/dev/null | head -1 || true)"
+if [ -n "$ENTITLEMENTS" ]; then
+  echo "==> Embedding entitlements from ${ENTITLEMENTS#"$ROOT"/} (ad-hoc signature)"
+  codesign --force --deep --sign - --entitlements "$ENTITLEMENTS" "$APP"
+fi
+
 echo "==> Packaging the .ipa"
 mkdir -p "$OUT/Payload"
 cp -R "$APP" "$OUT/Payload/"
