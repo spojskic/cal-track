@@ -44,7 +44,7 @@ export function ChatInput({
   onStop,
   phase,
   disabled = false,
-  placeholder = 'Ask about nutrition, training, recovery...',
+  placeholder = 'Ask your coach...',
 }: {
   onSend: (text: string) => boolean;
   onStop: () => void;
@@ -96,7 +96,15 @@ export function ChatInput({
             value={value}
             onChangeText={setValue}
             onKeyPress={onKeyPress}
-            onContentSizeChange={(e) => setHeight(Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, e.nativeEvent.contentSize.height + spacing.md)))}
+            onContentSizeChange={(e) =>
+              // The box grows with the TEXT only (a placeholder that wraps must not make an empty box taller than the button),
+              // and its own top/bottom padding is part of the height.
+              setHeight(
+                value.length === 0
+                  ? MIN_HEIGHT
+                  : Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(e.nativeEvent.contentSize.height) + spacing.md * 2)),
+              )
+            }
             placeholder={disabled ? 'Loading conversation...' : placeholder}
             placeholderTextColor={colors.textMuted}
             editable={!disabled}
