@@ -40,7 +40,10 @@ Apply the migrations first (`npx supabase db push --remote`):
 - `20261110000012_upsert_branded_food.sql`: `public.upsert_branded_food()` (used by `barcode-lookup`).
 - `20261110000100_invite_codes.sql`: `private.invite_codes` + `consume_invite_code()` / `release_invite_code()` (used by `sign-up`) and the owner's `create_invite_code()` / `list_invite_codes()` / `revoke_invite_code()`.
 
-All of them are executable by `service_role` only (the owner's SQL editor runs as `postgres`, which can execute them too).
+- `20261110000107_super_admin_invites.sql`: `profiles.is_admin` (guarded by a trigger) and the `admin_create_invite_code()` / `admin_list_invite_codes()` / `admin_revoke_invite_code()` wrappers, which check the flag and are for signed-in users.
+- `20261110000108_invite_email.sql`: `private.invite_codes.invited_email`, `create_invite_code_for()` (owner / service role: a code for an e-mail address) and the app's `admin_create_invite_code_for()` / `admin_list_invites()` (the Invite people screen). The functions of 107 stay for app builds made before.
+
+The functions of the other migrations are executable by `service_role` only (the owner's SQL editor runs as `postgres`, which can execute them too).
 
 There is no Garmin function any more: Garmin data is read by the phone itself (see [docs/features.md](../../docs/features.md)),
 and `20261110000101_drop_garmin_push.sql` removes the database objects of the old push design.

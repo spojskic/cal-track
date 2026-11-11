@@ -41,6 +41,10 @@ describe('migrations', () => {
     expect(afterInvites[0]).toBe('20261110000101_drop_garmin_push.sql');
     // the profile preferences of the energy summary come after those, again so `supabase db push` needs no --include-all.
     expect(afterInvites).toContain('20261110000103_energy_summary_mode.sql');
+    // the super admin flag and the admin invite RPCs are the newest, for the same reason.
+    expect(afterInvites).toContain('20261110000107_super_admin_invites.sql');
+    // ...and the invited e-mail of the codes (new functions, so every migration stays re-appliable).
+    expect(afterInvites).toContain('20261110000108_invite_email.sql');
   });
 
   it('applies all non-Supabase migrations cleanly', async () => {
