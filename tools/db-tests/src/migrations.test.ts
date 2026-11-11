@@ -45,6 +45,8 @@ describe('migrations', () => {
     expect(afterInvites).toContain('20261110000107_super_admin_invites.sql');
     // ...and the invited e-mail of the codes (new functions, so every migration stays re-appliable).
     expect(afterInvites).toContain('20261110000108_invite_email.sql');
+    // ...and the friends (a table, a few functions and policies, the search function replaced with an identical signature).
+    expect(afterInvites).toContain('20261110000109_friends.sql');
   });
 
   it('applies all non-Supabase migrations cleanly', async () => {
@@ -70,6 +72,7 @@ describe('migrations', () => {
         'food_portions',
         'food_usage',
         'foods',
+        'friendships',
         'integrations',
         'macro_targets',
         'meal_groups',

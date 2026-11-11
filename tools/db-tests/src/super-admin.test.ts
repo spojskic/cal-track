@@ -22,6 +22,12 @@ const KNOWN_CLIENT_DEFINER_FUNCTIONS: string[] = [
   'public.admin_list_invite_codes()',
   'public.admin_list_invites()',
   'public.admin_revoke_invite_code(p_code text)',
+  // migration 109 (friends): none of them writes profiles; list_friendships only READS display_name
+  'public.list_friendships()',
+  'public.my_friend_ids()',
+  'public.my_used_food(p_food_id uuid)',
+  'public.respond_friend_request(p_id uuid, p_accept boolean)',
+  'public.send_friend_request(p_email text)',
 ];
 
 interface CodeRow {
@@ -238,7 +244,9 @@ describe('super admin and the in-app invite codes (migration 20261110000107)', (
       // A new client-callable SECURITY DEFINER function runs with its owner's rights: add it here only after checking that it cannot
       // be used to write profiles.is_admin (the trigger lets the owner role through).
       expect(r.rows.map((x) => x.fn).sort()).toEqual([...KNOWN_CLIENT_DEFINER_FUNCTIONS].sort());
-      const touching = r.rows.filter((x) => !x.fn.startsWith('public.admin_') && /\bprofiles\b/i.test(x.src)).map((x) => x.fn);
+      const touching = r.rows
+        .filter((x) => !x.fn.startsWith('public.admin_') && x.fn !== 'public.list_friendships()' && /\bprofiles\b/i.test(x.src))
+        .map((x) => x.fn);
       expect(touching).toEqual([]);
     });
 
