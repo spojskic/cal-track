@@ -14,6 +14,7 @@ import type { HighlightRingItem } from '@/components/charts/HighlightRings';
 import type { ResolvedTargets } from '@/data/targets';
 import { useTheme } from '@/theme';
 
+import { scoreDetailText } from './score-details';
 import { amountOf, buildHighlights, effectiveTarget } from './targets-view';
 
 const SUB_NUTRIENTS = new Set<NutrientCode>([
@@ -50,6 +51,8 @@ export interface NutrientModel {
   score: ReturnType<typeof nutritionScore> | undefined;
   scoreColor: string;
   coverageText: string;
+  /** Why the score is what it is (targets reached, nutrients over a limit); undefined without a score. */
+  scoreDetailText: string | undefined;
   highlights: HighlightRingItem[];
   groups: NutrientGroupData[];
 }
@@ -109,5 +112,7 @@ export function useNutrientModel(args: {
       ? 'Log food to see your score.'
       : `${Math.round((score?.coverage ?? 0) * 100)}% of targeted nutrients have data in your foods.`;
 
-  return { hasTargets: targets !== undefined, score, scoreColor, coverageText, highlights, groups };
+  const detailText = score ? scoreDetailText(score) : undefined;
+
+  return { hasTargets: targets !== undefined, score, scoreColor, coverageText, scoreDetailText: detailText, highlights, groups };
 }

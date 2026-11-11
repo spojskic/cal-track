@@ -12,7 +12,7 @@ import type { NutrientModel } from './use-nutrient-model';
 
 /** The nutrition score ring with what it covers. */
 function ScoreContent({ model }: { model: NutrientModel }) {
-  const { score, scoreColor, coverageText } = model;
+  const { score, scoreColor, coverageText, scoreDetailText } = model;
   return (
     <View style={styles.scoreRow}>
       <ProgressRing
@@ -24,9 +24,16 @@ function ScoreContent({ model }: { model: NutrientModel }) {
         animated
         accessibilityLabel={score ? `Nutrition score ${score.score} percent for all targets` : 'Nutrition score not available'}
       />
-      <AppText variant="small" muted style={styles.coverage}>
-        {coverageText}
-      </AppText>
+      <View style={styles.coverage}>
+        <AppText variant="small" muted>
+          {coverageText}
+        </AppText>
+        {scoreDetailText ? (
+          <AppText variant="small" muted style={styles.detail}>
+            {scoreDetailText}
+          </AppText>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -135,7 +142,8 @@ export function NutrientGroupPanels({ model, incompleteNutrients }: { model: Nut
 const styles = StyleSheet.create({
   centered: { justifyContent: 'center' },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  coverage: { flex: 1 },
+  coverage: { flex: 1, gap: 6 },
+  detail: { fontSize: 12 },
   highlights: { gap: 8 },
   subTitle: { fontWeight: '600' },
   groups: { gap: 12 },

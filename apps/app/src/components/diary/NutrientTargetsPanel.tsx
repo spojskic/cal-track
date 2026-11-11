@@ -31,7 +31,7 @@ export function NutrientTargetsPanel({
   netCarbs: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Partial<Record<NutrientGroup, boolean>>>({});
-  const { score, scoreColor, coverageText, highlights, groups } = useNutrientModel({
+  const { score, scoreColor, coverageText, scoreDetailText, highlights, groups } = useNutrientModel({
     totals,
     hasEntries,
     incompleteNutrients,
@@ -59,9 +59,16 @@ export function NutrientTargetsPanel({
               animated
               accessibilityLabel={score ? `Nutrition score ${score.score} percent for all targets` : 'Nutrition score not available'}
             />
-            <AppText variant="small" muted style={styles.coverage}>
-              {coverageText}
-            </AppText>
+            <View style={styles.coverage}>
+              <AppText variant="small" muted>
+                {coverageText}
+              </AppText>
+              {scoreDetailText ? (
+                <AppText variant="small" muted>
+                  {scoreDetailText}
+                </AppText>
+              ) : null}
+            </View>
           </View>
         </Card>
         <Card>
@@ -130,7 +137,7 @@ export function NutrientTargetsPanel({
 const styles = StyleSheet.create({
   wrap: { gap: spacing.md },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  coverage: { flex: 1 },
+  coverage: { flex: 1, gap: 6 },
   groupCard: { gap: spacing.xs },
   groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 36 },
   groupTitle: { fontSize: 16 },
