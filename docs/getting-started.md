@@ -67,7 +67,8 @@ One-time setup: the migration from step 4 already created the code table; deploy
 npx supabase functions deploy sign-up --use-api
 ```
 
-Then, for every person, generate a code in the **SQL Editor** of the dashboard:
+Then, for every person, create a code. The easiest way is **in the app as the super admin** (next section). The other way is the
+**SQL Editor** of the dashboard:
 
 ```sql
 -- note, max uses, valid days  ->  returns something like  K7M2-9QXA-F3TW
@@ -86,6 +87,34 @@ code (dashes, spaces and capital letters do not matter), and are signed in strai
 - A code that was refused because the e-mail already has an account is not used up.
 - Guessing is throttled by the function: 5 attempts per 10 minutes per connection and 20 per 10 minutes in total. If you are
   testing and lock yourself out, wait ten minutes (or `delete from private.edge_rate_limits where bucket like 'sign-up%';`).
+
+#### Invite people from the app (super admin)
+
+One person, you, is the **super admin**: a boolean `is_admin` on your profile row. Only that account sees **More > Admin > Invite
+people** on a phone (the **Admin** group of the sidebar in a wide window) and can use the three `admin_*_invite_code` functions
+behind it; the database refuses everybody else, whatever the app shows. The flag cannot be set from the app or the Data API, not even
+by its owner: only the SQL editor / Table Editor and the service key can change it.
+
+1. Apply the migrations `20261110000107_super_admin_invites.sql` and `20261110000108_invite_email.sql` (`npx supabase db push`).
+2. Make yourself the super admin, once, in the SQL Editor (or Table Editor > `profiles` > tick `is_admin` on your row):
+
+   ```sql
+   update public.profiles set is_admin = true
+    where user_id = (select id from auth.users where email = 'you@example.com');
+   ```
+
+   Sign out and in again, or reopen the app, so the profile is read again.
+3. Open **More > Admin > Invite people**. **Create an invite code**: the **e-mail** of the person (required, checked; **nothing is sent**, it
+   is kept with the code so you know whom it is for), how many accounts it can create (usually 1) and how long it is valid (7, 14 or 30
+   days, or no expiry). **Copy code** or **Copy message** (a sentence with the code) and send it to the person yourself.
+4. **Active codes** are the ones that can still be used (not used yet, or used fewer times than allowed); **Revoke** withdraws one
+   after a confirmation. **Closed codes** (used up, expired, revoked) are listed under a Show button. Both lists show 20 codes a page,
+   newest first, with **Previous** / **Next** and "1-20 of 137", so a long history costs the same as a short one.
+
+From the SQL editor you can make a code for an e-mail too: `select public.create_invite_code_for('anna@example.com', 1, 14);` (the older
+`create_invite_code('note', 1, 14)` with a free-text note still works).
+
+To take the flag away: `update public.profiles set is_admin = false where user_id = ...;` The admin functions stop working at once.
 
 ### B. By hand in the dashboard
 

@@ -34,6 +34,17 @@ import {
 import { SCHEMA, CLIENT_RPCS, SERVICE_ONLY_RPCS, starColumns, type ColumnDef, type FkDef, type TableDef } from './schema';
 import { searchFoods, searchTextOf } from './search';
 import { authUserJson, buildSession, decodeJwt, stableUuid, type MockUser } from './session';
+import {
+  INVITES_TABLE,
+  InviteAdminError,
+  createInvite,
+  createInviteFor,
+  listInvites,
+  listInvitesWithEmail,
+  pageInvites,
+  revokeInvite,
+  seedInvites,
+} from './invite-admin';
 import { SignUpFunctionMock } from './signup-function';
 
 export type Row = Record<string, unknown>;
@@ -176,6 +187,7 @@ class MockBackendImpl implements MockBackend {
   private tick = 0;
   private seq = 0;
   private uuidCounter = 0;
+  private inviteSeq = 0;
   private serials = new Map<string, number>();
   private indexCache = new Map<string, Map<string, Row[]>>();
   private txMs = 0;
@@ -186,6 +198,8 @@ class MockBackendImpl implements MockBackend {
     for (const u of seed.users) this.users.set(u.id, u);
     this.userId = seed.users[0]?.id ?? '';
     for (const name of Object.keys(SCHEMA)) this.tables.set(name, []);
+    // private.invite_codes: not a public table, so it is not in SCHEMA; kept here so snapshot / restore cover it.
+    this.tables.set(INVITES_TABLE, seedInvites(this.nowBase));
 
     for (const [name, rows] of Object.entries(seed.tables)) {
       const def = SCHEMA[name];
@@ -817,6 +831,10 @@ class MockBackendImpl implements MockBackend {
     if (opts.ctx && !this.writable(def, row, opts.ctx) && !opts.seed) {
       throw rls(def.name, opts.ctx.uid === null);
     }
+    // private.guard_profile_admin_flag (BEFORE INSERT): a client cannot create a profile that is a super admin.
+    if (def.name === 'profiles' && opts.ctx && !opts.seed && row.is_admin === true) {
+      throw new PgError(403, '42501', 'is_admin can only be set by the app owner (SQL editor)');
+    }
     this.beforeWrite(def, row, null); // BEFORE triggers run before CHECK constraints (e.g. GTIN padding)
     validateRow(def, row);
     return row;
@@ -979,6 +997,11 @@ class MockBackendImpl implements MockBackend {
 
   /** `foods_protect_referenced` (BEFORE UPDATE OF nutrients, carb_basis, density_g_per_ml). */
   private applyOldGuards(def: TableDef, old: Row, next: Row): void {
+    if (def.name === 'profiles') {
+      // private.guard_profile_admin_flag (BEFORE UPDATE): a client cannot change the super admin flag, in either direction.
+      if (old.is_admin !== next.is_admin) throw new PgError(403, '42501', 'is_admin can only be changed by the app owner (SQL editor)');
+      return;
+    }
     if (def.name !== 'foods') return;
     const changed =
       canonicalJson(old.nutrients) !== canonicalJson(next.nutrients) ||
@@ -1142,7 +1165,13 @@ class MockBackendImpl implements MockBackend {
 
     const wantsObject = (headers.accept ?? '').includes('application/vnd.pgrst.object+json');
     const snapshot = this.snapshot();
-    const mutating = name === 'supersede_food' || name === 'delete_all_my_coach_data';
+    const mutating =
+      name === 'supersede_food' ||
+      name === 'delete_all_my_coach_data' ||
+      name === 'admin_create_invite_code' ||
+      name === 'admin_create_invite_code_for' ||
+      name === 'admin_revoke_invite_code';
+    const extraHeaders: Record<string, string> = {};
     try {
       let result: unknown;
       switch (name) {
@@ -1161,6 +1190,46 @@ class MockBackendImpl implements MockBackend {
         case 'delete_all_my_coach_data':
           result = this.deleteAllCoachData(ctx);
           break;
+        case 'admin_create_invite_code':
+          this.requireSuperAdmin(ctx, 'create invite codes');
+          result = this.inviteAdmin(() =>
+            createInvite(this.table(INVITES_TABLE), this.txMs, ++this.inviteSeq, {
+              note: args.p_note ?? null,
+              maxUses: args.p_max_uses === undefined ? 1 : args.p_max_uses,
+              validDays: args.p_valid_days === undefined ? 14 : args.p_valid_days,
+            }),
+          );
+          break;
+        case 'admin_list_invite_codes':
+          this.requireSuperAdmin(ctx, 'list invite codes');
+          result = listInvites(this.table(INVITES_TABLE), this.txMs);
+          break;
+        case 'admin_create_invite_code_for':
+          this.requireSuperAdmin(ctx, 'create invite codes');
+          result = this.inviteAdmin(() =>
+            createInviteFor(this.table(INVITES_TABLE), this.txMs, ++this.inviteSeq, {
+              email: args.p_email,
+              maxUses: args.p_max_uses === undefined ? 1 : args.p_max_uses,
+              validDays: args.p_valid_days === undefined ? 14 : args.p_valid_days,
+            }),
+          );
+          break;
+        case 'admin_list_invites': {
+          this.requireSuperAdmin(ctx, 'list invite codes');
+          // A function that returns a table is paged and filtered by PostgREST: limit / offset / status=eq.x / Prefer: count=exact.
+          const page = pageInvites(listInvitesWithEmail(this.table(INVITES_TABLE), this.txMs), url.searchParams);
+          for (const u of page.unsupported) this.warnings.push(`rpc admin_list_invites: the query parameter "${u}" is not emulated`);
+          result = page.rows;
+          if (parsePrefer(headers.prefer).count !== null) {
+            const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0) || 0);
+            extraHeaders['content-range'] = page.rows.length === 0 ? `*/${page.total}` : `${offset}-${offset + page.rows.length - 1}/${page.total}`;
+          }
+          break;
+        }
+        case 'admin_revoke_invite_code':
+          this.requireSuperAdmin(ctx, 'revoke invite codes');
+          result = revokeInvite(this.table(INVITES_TABLE), this.txMs, args.p_code);
+          break;
         default:
           throw new PgError(404, 'PGRST202', `Could not find the function public.${name} in the schema cache`);
       }
@@ -1172,7 +1241,7 @@ class MockBackendImpl implements MockBackend {
         if (result.length !== 1) throw new PgError(406, 'PGRST116', 'JSON object requested, multiple (or no) rows returned', `The result contains ${result.length} rows`);
         return jsonResponse(200, result[0], {}, OBJECT_CT);
       }
-      return jsonResponse(200, result);
+      return jsonResponse(200, result, extraHeaders);
     } catch (e) {
       this.restore(snapshot);
       if (mutating) {
@@ -1231,6 +1300,22 @@ class MockBackendImpl implements MockBackend {
       this.table('food_portions').push({ ...clone(p), id: this.genUuid(), food_id: newRow.id });
     }
     return String(newRow.id);
+  }
+
+  /** private.is_super_admin(): the caller's profile has is_admin; anybody else gets 42501, like the real wrappers. */
+  private requireSuperAdmin(ctx: Ctx, what: string): void {
+    const profile = this.table('profiles').find((p) => p.user_id === ctx.uid);
+    if (profile?.is_admin !== true) throw new PgError(403, '42501', `only the app owner can ${what}`);
+  }
+
+  /** Maps the SQL exceptions of the invite RPCs to the error PostgREST sends. */
+  private inviteAdmin<T>(run: () => T): T {
+    try {
+      return run();
+    } catch (e) {
+      if (e instanceof InviteAdminError) throw new PgError(e.status, e.sqlstate, e.message);
+      throw e;
+    }
   }
 
   private deleteAllCoachData(ctx: Ctx): number {

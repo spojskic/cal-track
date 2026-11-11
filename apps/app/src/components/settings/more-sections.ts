@@ -7,7 +7,7 @@ import type { SymbolViewProps } from 'expo-symbols';
 /** A symbol for every platform: SF Symbols on iOS, Material Symbols on Android and the web build (same style as components/app-nav.tsx). */
 export type MoreSymbol = Required<Extract<SymbolViewProps['name'], object>>;
 
-export type MoreSectionId = 'training' | 'coach' | 'profile' | 'connections' | 'app' | 'account';
+export type MoreSectionId = 'training' | 'coach' | 'profile' | 'connections' | 'app' | 'admin' | 'account';
 
 export interface MoreRow {
   /** Stable key, not shown. */
@@ -30,7 +30,11 @@ export interface MoreSection {
   rows: MoreRow[];
 }
 
-export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSection[] {
+/**
+ * `isAdmin`: the signed-in user is the super admin (profiles.is_admin). Only then is the Admin section listed; the database refuses the
+ * admin RPCs for everybody else anyway.
+ */
+export function buildMoreSections({ aiEnabled, isAdmin = false }: { aiEnabled: boolean; isAdmin?: boolean }): MoreSection[] {
   const coachRows: MoreRow[] = [];
   if (aiEnabled) {
     coachRows.push({
@@ -49,6 +53,24 @@ export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSe
     symbol: { ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' },
     badge: aiEnabled ? 'On' : 'Off',
   });
+
+  const adminSections: MoreSection[] = isAdmin
+    ? [
+        {
+          id: 'admin',
+          label: 'Admin',
+          rows: [
+            {
+              id: 'invites',
+              label: 'Invite people',
+              description: 'Create invite codes and see which are still unused',
+              href: '/settings/invites',
+              symbol: { ios: 'person.badge.plus', android: 'person_add', web: 'person_add' },
+            },
+          ],
+        },
+      ]
+    : [];
 
   return [
     {
@@ -126,6 +148,7 @@ export function buildMoreSections({ aiEnabled }: { aiEnabled: boolean }): MoreSe
         },
       ],
     },
+    ...adminSections,
     { id: 'account', label: 'Account', rows: [] },
   ];
 }

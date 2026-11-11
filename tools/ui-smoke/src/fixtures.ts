@@ -30,8 +30,8 @@ import { stableUuid, type MockUser } from './session';
 
 export { FIXED_NOW, TODAY } from './constants';
 
-export type FixtureVariant = 'default' | 'imperial' | 'not-onboarded' | 'empty-diary' | 'fresh-account';
-export const FIXTURE_VARIANTS: readonly FixtureVariant[] = ['default', 'imperial', 'not-onboarded', 'empty-diary', 'fresh-account'];
+export type FixtureVariant = 'default' | 'imperial' | 'not-onboarded' | 'empty-diary' | 'fresh-account' | 'admin';
+export const FIXTURE_VARIANTS: readonly FixtureVariant[] = ['default', 'imperial', 'not-onboarded', 'empty-diary', 'fresh-account', 'admin'];
 
 // ----------------------------------------------------------------------------- dates
 
@@ -1095,10 +1095,13 @@ function profileRow(variant: FixtureVariant): Row {
     lactating: false,
     coach_auto_delete: true,
     onboarded: true,
+    is_admin: false,
     created_at: USER.createdAt,
     updated_at: USER.createdAt,
   };
   if (variant === 'imperial') return { ...base, unit_system: 'imperial' };
+  // The app owner: sees More > Admin > Invite people.
+  if (variant === 'admin') return { ...base, is_admin: true };
   if (variant === 'not-onboarded') {
     // What the signup trigger creates: display name from the e-mail, everything else empty/default.
     return {

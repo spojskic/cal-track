@@ -415,7 +415,7 @@ describe('sidebar collapse state', () => {
   it('starts with every group open and the calendar closed', () => {
     for (const id of SIDEBAR_SECTION_IDS) expect(isSectionCollapsed(DEFAULT_SIDEBAR_STATE, id), id).toBe(id === 'calendar');
     expect(COLLAPSED_BY_DEFAULT.calendar).toBe(true);
-    expect([...SIDEBAR_SECTION_IDS]).toEqual(['daily', 'training', 'coach', 'profile', 'connections', 'app', 'calendar']);
+    expect([...SIDEBAR_SECTION_IDS]).toEqual(['daily', 'training', 'coach', 'profile', 'connections', 'app', 'admin', 'calendar']);
   });
 
   it('has a collapsible section for every group of the sidebar, plus the calendar', () => {

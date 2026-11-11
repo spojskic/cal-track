@@ -97,7 +97,8 @@ button and the More tab.
   with a chevron that collapses it (the groups you close stay closed the next time you open the app on this device):
   **Daily** (Dashboard, Diary, Foods), **Training** (Workouts), **Coach** (Coach when AI is on; AI Coach & keys, or AI (optional),
   with a small *On* / *Off* at the right), **Profile** (Profile & targets, Personal details, Nutrient targets), **Connections** (Connected
-  apps & devices) and **App** (Display & units, About). These are the rows of the phone's More tab; there is no *More* item. The row of
+  apps & devices) and **App** (Display & units, About), plus **Admin** (Invite people) for the super admin only. These are the rows of the
+  phone's More tab; there is no *More* item. The row of
   the page you are on is highlighted (for a workout's page that is Workouts; for a food's page, Foods).
 - **Calendar** (last group, closed at first): a month with Monday first, today ringed and the diary date filled in. The arrows page between
   months, **Today** jumps back, and a day makes it the diary date and opens the diary.
@@ -148,12 +149,33 @@ and a one-line description, and a chevron):
 | **Profile** | Profile & targets, Personal details, Nutrient targets |
 | **Connections** | Connected apps & devices |
 | **App** | Display & units (colour theme, light or dark mode, rounded or boxy corners, units), About |
+| **Admin** | Invite people (only for the super admin, see below) |
 | **Account** | The e-mail you are signed in with and **Sign out** |
 
 On a phone the groups follow one another in that order. A desktop window (900 px or more) has **no More page**: the same groups
-(Training, Coach, Profile, Connections, App) are in the sidebar and the account sits at its bottom (see [Desktop navigation](#desktop-navigation-the-sidebar-and-the-status-bar)),
+(Training, Coach, Profile, Connections, App, and Admin for the super admin) are in the sidebar and the account sits at its bottom (see [Desktop navigation](#desktop-navigation-the-sidebar-and-the-status-bar)),
 so an old link to `/more` just opens the dashboard. The paths in this documentation (for example **More > Profile & targets**) name the
 row, not the group; on a desktop it is the row of that name in the sidebar.
+
+## Invite people (More > Admin, super admin only)
+
+Accounts are invite-only. One person, the app owner, is the **super admin**: a single yes/no flag (`is_admin`) on their profile that only
+the SQL editor can set (see [Getting started](getting-started.md#invite-people-from-the-app-super-admin)). Only that account has the
+**Admin** group in More (a phone) or the sidebar (a wide window), with **Invite people**:
+
+- **Create an invite code**: the person's **E-mail** (required and checked; it is only kept with the code, **nothing is sent**), *Number of
+  uses* (how many accounts it can create, usually 1) and how long it is valid (7, 14, 30 days or no expiry). The new code is shown large
+  with **Copy code** and **Copy message** (a sentence that tells the person to tap Create account and enter the code).
+- **Active codes**: the codes that can still be used, each with the e-mail it was made for, *Not used yet* or *1 of 3 used*, when it
+  expires and the day it was made; **Copy** and **Revoke** (after a confirmation; people who already signed up with it keep their
+  account). Codes made before the e-mail field existed show their old note instead.
+- **Closed codes** (used up, expired, revoked) behind a Show button, with their status.
+- **Paging**: each list shows 20 codes a page, newest first, with **Previous** / **Next** and "1-20 of 137"; the server cuts the pages, so
+  thousands of codes load as fast as a few.
+
+Everybody else does not see the group, and if they open the page by its address it says that only the app owner can invite people.
+The database enforces this, not the screen: the three functions behind it answer *permission denied* to anyone without the flag, and a
+client cannot set the flag on its own profile. **Not built yet:** sending the invitation by e-mail from the app (see below).
 
 ## Workouts (More > Workouts)
 
@@ -238,3 +260,5 @@ label (photograph a label and review a pre-filled New food form), AI recipe draf
 - UK CoFID food import
 - Writing your nutrition back to Apple Health / Health Connect
 - Over-the-air app updates
+- Inviting people by e-mail from the app (the admin copies the code and sends it themselves for now; sending the mail itself, for
+  example through Cloudflare's e-mail sending on a paid plan, is a possible later step that can reuse the same admin check)

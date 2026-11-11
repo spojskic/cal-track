@@ -7,6 +7,7 @@ import { useDesktopShell } from '@/components/desktop/shell-context';
 import { buildMoreSections, type MoreSection } from '@/components/settings/more-sections';
 import { Divider, LIST_CARD_PADDING, LIST_DIVIDER_INSET, NavRow } from '@/components/settings/rows';
 import { AppText, Button, Card, Screen } from '@/components/ui';
+import { useIsSuperAdmin } from '@/data/invites';
 import { useAuth } from '@/lib/auth';
 import { spacing } from '@/theme';
 
@@ -14,7 +15,7 @@ import { spacing } from '@/theme';
 const SECTION_GAP = 20;
 
 /**
- * The More screen (phone): grouped lists (Training, Coach, Profile, Connections, App, Account), each a small heading above a card of
+ * The More screen (phone): grouped lists (Training, Coach, Profile, Connections, App, Admin for the super admin, Account), each a small heading above a card of
  * rows. What is listed and in which section lives in components/settings/more-sections.ts.
  *
  * A desktop window has no More page: the sidebar (components/desktop/Sidebar.tsx) lists all of these rows, and the account with Sign
@@ -29,7 +30,8 @@ export default function MoreScreen() {
 function MoreContent() {
   const { session, signOut } = useAuth();
   const ai = useAiGate();
-  const sections = useMemo(() => buildMoreSections({ aiEnabled: ai.enabled }), [ai.enabled]);
+  const { isAdmin } = useIsSuperAdmin();
+  const sections = useMemo(() => buildMoreSections({ aiEnabled: ai.enabled, isAdmin }), [ai.enabled, isAdmin]);
 
   return (
     <Screen title="More">

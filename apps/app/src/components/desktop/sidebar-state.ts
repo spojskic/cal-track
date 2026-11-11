@@ -1,8 +1,8 @@
 // Pure (no React Native imports): which sidebar groups the user collapsed, and how that choice is saved and read back. The store
 // (sidebar-store.ts) is the AsyncStorage / zustand side of this.
 
-/** The groups of the sidebar that can be collapsed: the six groups of the rows and the calendar. */
-export const SIDEBAR_SECTION_IDS = ['daily', 'training', 'coach', 'profile', 'connections', 'app', 'calendar'] as const;
+/** The groups of the sidebar that can be collapsed: the groups of the rows (Admin only exists for the super admin) and the calendar. */
+export const SIDEBAR_SECTION_IDS = ['daily', 'training', 'coach', 'profile', 'connections', 'app', 'admin', 'calendar'] as const;
 export type SidebarSectionId = (typeof SIDEBAR_SECTION_IDS)[number];
 
 /** localStorage / AsyncStorage key. The version is part of the key: change the shape, bump it. */
@@ -26,6 +26,7 @@ export const COLLAPSED_BY_DEFAULT: Readonly<Record<SidebarSectionId, boolean>> =
   profile: false,
   connections: false,
   app: false,
+  admin: false,
   calendar: true,
 };
 

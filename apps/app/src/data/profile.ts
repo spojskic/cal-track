@@ -30,10 +30,12 @@ export interface Profile {
   lactating: boolean;
   coach_auto_delete: boolean;
   onboarded: boolean;
+  /** Super admin: sees the Invite people screen. Only the app owner can set it (SQL editor); the database refuses a client that tries. */
+  is_admin: boolean;
 }
 
-/** Writable profile columns. */
-export type ProfilePatch = Partial<Omit<Profile, 'user_id'>>;
+/** Writable profile columns (`is_admin` is not one of them: the database refuses it from a client). */
+export type ProfilePatch = Partial<Omit<Profile, 'user_id' | 'is_admin'>>;
 
 /** The signed-in user's id, or undefined while signed out. */
 export function useUserId(): string | undefined {

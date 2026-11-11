@@ -258,6 +258,15 @@ either its phone code, untouched, or the desktop body; the desktop body is a sep
 
 - The app ships only the Supabase URL and the anon key. All protection is row-level security (tested, including cross-user checks).
 - Accounts are created by the owner, or by a friend with an invite code the owner generated (the `sign-up` Edge Function creates the account on the server); public sign-up stays off in Supabase.
+- **Super admin**: `profiles.is_admin` (one boolean, default false) is what shows the Invite people screen and lets the `admin_*` RPCs
+  (migrations 107 and 108) call the owner-only invite functions. The profile row is owner-writable through the Data API, so a trigger
+  (`profiles_guard_admin_flag`, SECURITY INVOKER, keyed on `current_user` being `anon`/`authenticated`) refuses any client that sets or
+  changes the flag; the SQL editor and `service_role` can. The RPCs check `private.is_super_admin()` themselves and raise 42501
+  otherwise (also for `service_role`, which has no `auth.uid()`), so the screen is a convenience and the database is the gate. A test
+  pins the list of SECURITY DEFINER functions that clients can call. Invite codes are made **for an e-mail address**
+  (`private.invite_codes.invited_email`, lower-case, checked); nothing is sent, the column is the groundwork for e-mail invites later.
+  The Invite people lists are paged by 20 with PostgREST (`admin_list_invites()` returns a table, so the app adds `status=eq.active`,
+  `limit`, `offset` and `Prefer: count=exact`), not by loading every code.
 - The OpenRouter key never leaves the device. Health data goes only to your own rows.
 - Edge functions require a signed-in user (except `sign-up`, which is gated by an invite code), have per-user, per-client and global rate limits, and use the service key only inside Supabase.
 - Garmin has no server side at all: the phone signs in on Garmin's own page, keeps the token in its secure storage (never in Supabase), reads Garmin itself and saves the result through the normal owner-only tables.

@@ -257,6 +257,8 @@ const defs: TableDef[] = [
       lactating: bool({ notNull: true, default: { value: false } }),
       coach_auto_delete: bool({ notNull: true, default: { value: true } }),
       onboarded: bool({ notNull: true, default: { value: false } }),
+      // 20261110000107: the super admin flag; only the SQL editor / service_role can change it (a client's write of it is refused).
+      is_admin: bool({ notNull: true, default: { value: false } }),
       created_at: nowCol(),
       updated_at: nowCol(),
     },
@@ -627,6 +629,13 @@ export const CLIENT_RPCS: Readonly<Record<string, { args: readonly string[]; req
   get_food_by_gtin: { args: ['gtin'], required: ['gtin'] },
   supersede_food: { args: ['p_food_id'], required: ['p_food_id'] },
   delete_all_my_coach_data: { args: [], required: [] },
+  // 20261110000107: super admin only (the database raises 42501 for everybody else).
+  admin_create_invite_code: { args: ['p_note', 'p_max_uses', 'p_valid_days'], required: [] },
+  admin_list_invite_codes: { args: [], required: [] },
+  admin_revoke_invite_code: { args: ['p_code'], required: ['p_code'] },
+  // 20261110000108: codes made for an e-mail address, and the list with the e-mail (the app pages it with PostgREST limit / offset).
+  admin_create_invite_code_for: { args: ['p_email', 'p_max_uses', 'p_valid_days'], required: ['p_email'] },
+  admin_list_invites: { args: [], required: [] },
 };
 
 /** Functions that exist but are service_role only: a client call is a bug (permission denied). */
@@ -642,6 +651,8 @@ export const SERVICE_ONLY_RPCS: readonly string[] = [
   'revoke_invite_code',
   'consume_invite_code',
   'release_invite_code',
+  // 20261110000108: the owner's e-mail version of create_invite_code.
+  'create_invite_code_for',
 ];
 
 export const KNOWN_RPCS: readonly string[] = [...Object.keys(CLIENT_RPCS), ...SERVICE_ONLY_RPCS];

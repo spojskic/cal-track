@@ -2,7 +2,7 @@
 // server side. On the web nothing runs: no query is enabled and no Garmin code is called.
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { formatDetailReport } from '@ration/garmin';
-import { Platform, Share } from 'react-native';
+import { Platform } from 'react-native';
 
 import {
   GARMIN_NO_REPORT,
@@ -18,23 +18,10 @@ import { loadLocalState } from '@/health/garmin-local';
 import { runGarminSync } from '@/health/garmin-runner';
 import { useGarminSyncStore } from '@/health/garmin-status';
 import { hasGarminTokens } from '@/health/garmin-tokens';
+import { copyText } from '@/lib/copy-text';
 
 import { useIntegration } from './health';
 import { useUserId } from './profile';
-
-/**
- * Copies text to the clipboard. `expo-clipboard` is a native module: an app that was installed BEFORE it was added does not
- * contain it, and importing it at the top of a screen's code crashes the whole app. So it is loaded on demand, and when it is
- * missing the system share sheet is offered instead.
- */
-async function copyText(text: string): Promise<void> {
-  try {
-    const Clipboard = await import('expo-clipboard');
-    await Clipboard.setStringAsync(text);
-  } catch {
-    await Share.share({ message: text });
-  }
-}
 
 const NATIVE = Platform.OS === 'ios' || Platform.OS === 'android';
 

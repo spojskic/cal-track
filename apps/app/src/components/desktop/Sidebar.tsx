@@ -11,6 +11,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useAiBootstrap } from '@/ai/use-ai-bootstrap';
 import { useAiGate } from '@/ai/use-ai-gate';
 import { Glyph } from '@/components/Glyph';
+import { useIsSuperAdmin } from '@/data/invites';
 import { useAuth } from '@/lib/auth';
 import { useSelectedDate } from '@/state/selected-date';
 import { useTheme, withAlpha } from '@/theme';
@@ -40,7 +41,8 @@ export function Sidebar() {
   // outside the tabs (a reload on /workouts, a link to /settings/display) never mounts that layout. Idempotent.
   useAiBootstrap();
   const ai = useAiGate();
-  const groups = useMemo(() => buildSidebarGroups({ aiEnabled: ai.enabled }), [ai.enabled]);
+  const { isAdmin } = useIsSuperAdmin();
+  const groups = useMemo(() => buildSidebarGroups({ aiEnabled: ai.enabled, isAdmin }), [ai.enabled, isAdmin]);
   const activeRowId = resolveActiveRowId(groups, pathname);
 
   return (

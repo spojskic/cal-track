@@ -6,7 +6,7 @@
 // once, there. A phone shows them on the More screen, a desktop window in this sidebar (which has no "More" item).
 import { buildMoreSections, type MoreSymbol } from '../settings/more-sections';
 
-export type SidebarGroupId = 'daily' | 'training' | 'coach' | 'profile' | 'connections' | 'app';
+export type SidebarGroupId = 'daily' | 'training' | 'coach' | 'profile' | 'connections' | 'app' | 'admin';
 
 export interface SidebarRow {
   /** Stable key, not shown. */
@@ -69,12 +69,12 @@ const ALSO_ACTIVE_ON: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * The groups of the sidebar, top to bottom: Daily (the three tab pages), then the sections of the More screen (Training, Coach,
- * Profile, Connections, App) with their rows as the More screen lists them: the Coach row only when the AI gate is open, the AI row
- * with its On / Off badge.
+ * Profile, Connections, App, and Admin for the super admin) with their rows as the More screen lists them: the Coach row only when the
+ * AI gate is open, the AI row with its On / Off badge.
  */
-export function buildSidebarGroups({ aiEnabled }: { aiEnabled: boolean }): SidebarGroup[] {
+export function buildSidebarGroups({ aiEnabled, isAdmin = false }: { aiEnabled: boolean; isAdmin?: boolean }): SidebarGroup[] {
   const groups: SidebarGroup[] = [{ id: 'daily', label: 'Daily', rows: TAB_ROWS.map((row) => ({ ...row })) }];
-  for (const section of buildMoreSections({ aiEnabled })) {
+  for (const section of buildMoreSections({ aiEnabled, isAdmin })) {
     // The account section is the footer of the sidebar (the signed-in email and Sign out), not a list of rows.
     if (section.id === 'account') continue;
     groups.push({
