@@ -31,6 +31,14 @@ export const BOXY_RADII: Radii = { sm: 3, md: 4, lg: 6, pill: 4 };
 /** Never rounder than this in the boxy look, whatever size the element is. */
 export const BOXY_MAX_RADIUS = BOXY_RADII.lg;
 
+/**
+ * The corner radius of a native iOS sheet (`sheetCornerRadius` of a screen presented as `formSheet`), in points. Boxy: the card
+ * radius, so the top edge of a sheet matches the cards inside it. Rounded: -1, which tells iOS to use its own (large, rounded) radius.
+ */
+export function nativeSheetRadius(corners: Corners): number {
+  return corners === 'boxy' ? BOXY_RADII.lg : -1;
+}
+
 /** The scale for a corner style. The same object every time, so it is safe in dependency lists. */
 export function radiiFor(corners: Corners): Radii {
   return corners === 'boxy' ? BOXY_RADII : ROUNDED_RADII;
@@ -109,6 +117,8 @@ export interface Shape {
   dot: (size: number) => number;
   inner: (outer: number, inset: number) => number;
   tailed: (radius: number, tail: number, tailCorner: 'bottomLeft' | 'bottomRight') => CornerRadii;
+  /** `sheetCornerRadius` of a native iOS form sheet (see {@link nativeSheetRadius}). */
+  sheet: () => number;
 }
 
 function makeShape(corners: Corners): Shape {
@@ -119,6 +129,7 @@ function makeShape(corners: Corners): Shape {
     dot: dotRadius,
     inner: (outer, inset) => innerRadius(outer, inset, corners),
     tailed: tailedRadii,
+    sheet: () => nativeSheetRadius(corners),
   };
 }
 

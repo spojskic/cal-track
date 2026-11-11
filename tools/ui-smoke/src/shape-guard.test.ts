@@ -21,6 +21,7 @@ import {
   circleRadius,
   dotRadius,
   innerRadius,
+  nativeSheetRadius,
   pxRadius,
   radiiFor,
   shapeFor,
@@ -88,6 +89,14 @@ describe('radius helpers', () => {
     expect(pxRadius(14, 'boxy')).toBe(6);
     expect(pxRadius(3, 'boxy')).toBe(3);
     expect(pxRadius(2, 'boxy')).toBe(2);
+  });
+
+  it('native sheet: the Boxy card radius when Boxy, -1 (the system radius) when Rounded', () => {
+    expect(nativeSheetRadius('boxy')).toBe(BOXY_RADII.lg);
+    expect(nativeSheetRadius('boxy')).toBeLessThanOrEqual(8);
+    expect(nativeSheetRadius('rounded')).toBe(-1);
+    expect(shapeFor('boxy').sheet()).toBe(BOXY_RADII.lg);
+    expect(shapeFor('rounded').sheet()).toBe(-1);
   });
 
   it('dot: always a circle, in both looks', () => {

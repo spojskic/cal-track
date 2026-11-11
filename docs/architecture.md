@@ -100,6 +100,9 @@ The colours of every screen come from `useTheme()` in `apps/app/src/theme/`, whi
   a circle: legend dots, radio buttons), `shape.inner(outer, inset)` (the segments inside a segmented control stay concentric) and
   `shape.tailed(radius, tail, corner)` (the four corners of a chat bubble with its pointed corner).
   `useTheme()` returns the active scale as `radius` and the helpers bound to it as `shape`; both are memoised by (palette, corners).
+  The one native sheet, `/add` ("Add to diary"), is presented as an iOS `formSheet` at the full detent with
+  `sheetCornerRadius: shape.sheet()` (the Boxy card radius, or -1 = the system radius when Rounded): a plain `modal`
+  gets iOS's own large rounded top edge, which cannot be changed. Android and the web draw it as a normal screen.
 - **Why radii are inline now.** A `StyleSheet.create({ card: { borderRadius: radius.lg } })` runs once at import time, so it cannot
   follow a setting. The static `radius` export of `theme/index.ts` is gone and every radius is applied in render:
   `const { radius, shape } = useTheme();` and `style={[styles.card, { borderRadius: radius.lg }]}`. To add a rounded element, do the
