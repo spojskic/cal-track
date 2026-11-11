@@ -1,4 +1,4 @@
-import { LABEL_NUTRIENT_KEYS, NUTRIENT_BY_CODE, labelToFoodDraft } from '@cal/core';
+import { LABEL_NUTRIENT_KEYS, NUTRIENT_BY_CODE, labelToFoodDraft } from '@ration/core';
 import { describe, expect, it } from 'vitest';
 
 import { isAbortError, isNoLabelFoundError, NoLabelFoundError, OpenRouterError } from './errors';

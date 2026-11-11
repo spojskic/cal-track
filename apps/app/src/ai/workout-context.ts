@@ -1,4 +1,4 @@
-import { needsGarminDetails } from '@cal/garmin';
+import { needsGarminDetails } from '@ration/garmin';
 
 import { selectComparable } from '@/components/workouts/kinds';
 import { fetchWorkout, fetchWorkoutsUpTo, type WorkoutEntry } from '@/data/workouts';

@@ -21,7 +21,7 @@ import {
   type GarminActivitySource,
   type GarminTokens,
   type WorkoutDetails,
-} from '@cal/garmin';
+} from '@ration/garmin';
 
 import { formatClock, isRateLimited, parseGarminSettings, rateLimitedUntil, serializeGarminSettings, type GarminLocalState } from './garmin';
 import type { GarminIntegrationPatch, GarminIntegrationRow } from './garmin-sync';

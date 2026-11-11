@@ -8,7 +8,7 @@ import {
   type CarbBasis,
   type NutrientCode,
   type NutrientMap,
-} from '@cal/core';
+} from '@ration/core';
 
 import { Glyph } from '@/components/Glyph';
 import type { FoodInput } from '@/data/foods';

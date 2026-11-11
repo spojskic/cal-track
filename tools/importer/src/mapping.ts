@@ -3,7 +3,7 @@
  * per-food nutrient resolution.
  *
  * DECISION (computed nutrients): NET_CARBS_G, OMEGA3_G and OMEGA6_G are NOT
- * stored. In @cal/core they are `computed: true` ("derived from other
+ * stored. In @ration/core they are `computed: true` ("derived from other
  * nutrients, never imported"), `deriveNutrients()` fills them at read time and
  * net carbs depend on the user's net-carb mode. Storing them would freeze one
  * interpretation into every row (and bloat the jsonb). ENERGY_KCAL, which is
@@ -19,7 +19,7 @@ import {
   type NutrientCode,
   type NutrientMap,
   type NutrientUnit,
-} from '@cal/core';
+} from '@ration/core';
 import type { EnergySource } from './types';
 
 // ---------------------------------------------------------------------- units

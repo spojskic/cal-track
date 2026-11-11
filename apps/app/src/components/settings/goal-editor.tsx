@@ -1,4 +1,4 @@
-import { formatWeight, type ResolvedTargetsCore, type UnitSystem } from '@cal/core';
+import { formatWeight, type ResolvedTargetsCore, type UnitSystem } from '@ration/core';
 import { StyleSheet, View } from 'react-native';
 
 import { NumberField, Segmented } from '@/components/forms';

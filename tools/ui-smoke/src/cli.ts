@@ -1,4 +1,4 @@
-/** Command line parsing for `pnpm --filter @cal/ui-smoke smoke [-- flags]`. */
+/** Command line parsing for `pnpm --filter @ration/ui-smoke smoke [-- flags]`. */
 import { KNOWN_CORNERS, KNOWN_PALETTE_IDS, type Corners } from './theme-seed';
 
 export interface CliOptions {
@@ -45,7 +45,7 @@ function wrapIds(ids: readonly string[], width = 62): string {
   return lines.join('\n                        ');
 }
 
-export const USAGE = `Usage: pnpm --filter @cal/ui-smoke smoke [-- options]
+export const USAGE = `Usage: pnpm --filter @ration/ui-smoke smoke [-- options]
 
   --skip-build          reuse the existing web export (--dist)
   --keep-cache          do not pass --clear to expo export (faster rebuilds; EXPO_PUBLIC_* may be stale)

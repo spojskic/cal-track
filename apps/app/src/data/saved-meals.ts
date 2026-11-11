@@ -6,7 +6,7 @@ import {
   sumNutrients,
   type CarbBasis,
   type NutrientMap,
-} from '@cal/core';
+} from '@ration/core';
 
 import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';

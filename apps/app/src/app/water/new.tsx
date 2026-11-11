@@ -1,4 +1,4 @@
-import { flOzToMl, mlToFlOz, parseNumber, type UnitSystem } from '@cal/core';
+import { flOzToMl, mlToFlOz, parseNumber, type UnitSystem } from '@ration/core';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -28,7 +28,7 @@ import { spacing, useTheme } from '@/theme';
 
 const QUICK_ML = [250, 330, 500, 1000] as const;
 const MAX_SINGLE_ML = 5000;
-/** Nutrition-label cup used by @cal/core (240 mL). */
+/** Nutrition-label cup used by @ration/core (240 mL). */
 const ML_PER_CUP = 240;
 
 type Feedback = { tone: 'success' | 'neutral' | 'error'; text: string };

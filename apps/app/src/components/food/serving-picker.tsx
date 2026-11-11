@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { parseNumber } from '@cal/core';
+import { parseNumber } from '@ration/core';
 
 import { spacing, useTheme } from '@/theme';
 

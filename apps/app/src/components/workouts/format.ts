@@ -1,7 +1,7 @@
 // Text and numbers of the Workouts screens as plain functions (no React), so they are unit tested in tools/ui-smoke and shared with
 // the coach's workout context (ai/workout-context-text.ts). Locale independent and Hermes safe (no Intl).
-import { formatWeight, kgToLb, type UnitSystem } from '@cal/core';
-import type { WorkoutHrZone, WorkoutSet } from '@cal/garmin';
+import { formatWeight, kgToLb, type UnitSystem } from '@ration/core';
+import type { WorkoutHrZone, WorkoutSet } from '@ration/garmin';
 
 const KM_PER_MILE = 1.609344;
 const M_PER_FOOT = 0.3048;

@@ -1,5 +1,5 @@
-import type { UnitSystem } from '@cal/core';
-import type { WorkoutDetails } from '@cal/garmin';
+import type { UnitSystem } from '@ration/core';
+import type { WorkoutDetails } from '@ration/garmin';
 import { View, StyleSheet } from 'react-native';
 
 import { KeyValueRow, Divider } from '@/components/settings/rows';

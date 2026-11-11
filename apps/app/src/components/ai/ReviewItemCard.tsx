@@ -1,4 +1,4 @@
-import type { NutrientMap } from '@cal/core';
+import type { NutrientMap } from '@ration/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 

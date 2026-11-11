@@ -1,7 +1,7 @@
 // Garmin tokens live in THIS phone's secure storage (Keychain / Android Keystore via expo-secure-store) and nowhere else:
 // never in Supabase, never in AsyncStorage, never in a log. Metro uses garmin-tokens.web.ts on the web, where nothing is stored.
 // The logic (user binding, item layout) is in garmin-token-store.ts.
-import type { GarminTokens } from '@cal/garmin';
+import type { GarminTokens } from '@ration/garmin';
 import * as SecureStore from 'expo-secure-store';
 
 import { createTokenStore, migrateLegacyTokens } from './garmin-token-store';

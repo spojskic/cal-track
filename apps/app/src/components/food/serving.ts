@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { G_PER_OZ, convertVolume, gramsFromVolume, implausibleAmount, parseNumber } from '@cal/core';
+import { G_PER_OZ, convertVolume, gramsFromVolume, implausibleAmount, parseNumber } from '@ration/core';
 
 import type { FoodPortion } from '@/data/foods';
 
@@ -75,7 +75,7 @@ export interface AmountWarning {
 }
 
 /**
- * Warns when ONE amount is implausible (more than 5 kg or 5000 kcal; see `implausibleAmount` in @cal/core),
+ * Warns when ONE amount is implausible (more than 5 kg or 5000 kcal; see `implausibleAmount` in @ration/core),
  * typically a portion unit combined with a number meant as grams (200 x "breast (174 g)" = 34.8 kg).
  *
  * @param grams    resulting mass

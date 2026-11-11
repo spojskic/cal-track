@@ -1,4 +1,4 @@
-import type { AiErrorPresentation } from '@cal/ai';
+import type { AiErrorPresentation } from '@ration/ai';
 import { router, type Href } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 

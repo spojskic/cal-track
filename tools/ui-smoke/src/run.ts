@@ -1,5 +1,5 @@
 /**
- * Entry point: `pnpm --filter @cal/ui-smoke smoke [-- --skip-build --only=<text> --out=<dir> --chrome=<path>]`
+ * Entry point: `pnpm --filter @ration/ui-smoke smoke [-- --skip-build --only=<text> --out=<dir> --chrome=<path>]`
  *
  * Builds the web export (unless --skip-build), starts Chrome through playwright-core and walks every scenario at
  * every viewport. Needs NO local server: the build is served from disk and the Supabase backend is an in-process

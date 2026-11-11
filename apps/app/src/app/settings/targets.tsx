@@ -1,4 +1,4 @@
-import { formatWeight, type MacroMode, type ResolveTargetsInput, type UnitSystem } from '@cal/core';
+import { formatWeight, type MacroMode, type ResolveTargetsInput, type UnitSystem } from '@ration/core';
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';

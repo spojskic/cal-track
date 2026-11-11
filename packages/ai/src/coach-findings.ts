@@ -21,7 +21,7 @@
  * hand-built week in coach-findings.test.ts. See docs/coach.md.
  */
 
-import { NUTRIENT_BY_CODE, isNutrientCode } from '@cal/core';
+import { NUTRIENT_BY_CODE, isNutrientCode } from '@ration/core';
 
 import type { CoachActivityDay, CoachGoals, CoachRecoveryDay, CoachSleepNight, CoachTargets, CoachWeightPoint } from './coach';
 

@@ -1,4 +1,4 @@
-import { ACTIVITY_FRACTIONS, type ActivityLevel, type BmrFormula, type EnergyMode } from '@cal/core';
+import { ACTIVITY_FRACTIONS, type ActivityLevel, type BmrFormula, type EnergyMode } from '@ration/core';
 
 export interface OptionDef<T extends string> {
   value: T;

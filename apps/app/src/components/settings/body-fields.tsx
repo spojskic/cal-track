@@ -1,4 +1,4 @@
-import { parseBirthdateInput, type UnitSystem } from '@cal/core';
+import { parseBirthdateInput, type UnitSystem } from '@ration/core';
 import { StyleSheet, View } from 'react-native';
 
 import { NumberField, Segmented, TextField } from '@/components/forms';

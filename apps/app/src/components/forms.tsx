@@ -84,7 +84,7 @@ export function NumberField({
   ...input
 }: Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange'> & {
   label: string;
-  /** Raw text being edited. Parse with parseNumber from @cal/core when submitting. */
+  /** Raw text being edited. Parse with parseNumber from @ration/core when submitting. */
   value: string;
   onChange: (text: string) => void;
   unit?: string;

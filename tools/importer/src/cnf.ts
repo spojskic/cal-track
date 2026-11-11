@@ -24,7 +24,7 @@
  * Headers are matched case/space/BOM-insensitively; files may be UTF-8 (with or
  * without BOM) or ISO-8859-1 / windows-1252 (auto-detected, or `--encoding`).
  */
-import type { NutrientCode } from '@cal/core';
+import type { NutrientCode } from '@ration/core';
 import { assembleFood } from './build';
 import { field, parseDecimal, readCsvFile, type Row } from './csv';
 import { RuleSet, sanitizeAmount, type MappingRule } from './mapping';

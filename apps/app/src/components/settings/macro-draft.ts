@@ -5,7 +5,7 @@ import {
   type MacroMode,
   type MacroPresetId,
   type MacroTargets,
-} from '@cal/core';
+} from '@ration/core';
 
 /** The three editor tabs (the core `protein_per_kg` mode is not editable here). */
 export type MacroEditorMode = 'ratios' | 'fixed' | 'keto';

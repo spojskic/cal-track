@@ -787,7 +787,7 @@ describe('computeCompleteness', () => {
     expect(computeCompleteness(everything)).toBe(1);
   });
 
-  it('agrees with @cal/core completeness()', () => {
+  it('agrees with @ration/core completeness()', () => {
     const sample = {
       ENERGY_KCAL: 539,
       PROTEIN_G: 6.3,

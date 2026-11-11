@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { parseNumber } from '@cal/core';
+import { parseNumber } from '@ration/core';
 
 import { useContentWidth } from '@/components/desktop/shell-context';
 import { formatKcal } from '@/components/food/format';

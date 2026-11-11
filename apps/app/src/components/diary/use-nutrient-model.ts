@@ -8,7 +8,7 @@ import {
   type NutrientCode,
   type NutrientGroup,
   type NutrientMap,
-} from '@cal/core';
+} from '@ration/core';
 
 import type { HighlightRingItem } from '@/components/charts/HighlightRings';
 import type { ResolvedTargets } from '@/data/targets';

@@ -9,7 +9,7 @@ import {
   type CarbBasis,
   type NutrientCode,
   type NutrientMap,
-} from '@cal/core';
+} from '@ration/core';
 
 import { supabase } from '@/lib/supabase';
 import { addDays, todayISO } from '@/state/selected-date';

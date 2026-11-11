@@ -214,7 +214,7 @@ describe('dates are relative to FIXED_NOW', () => {
   });
 });
 
-describe('the fixtures drive the real calculations of @cal/core (the same ones useTargets / useDayNutrients run)', () => {
+describe('the fixtures drive the real calculations of @ration/core (the same ones useTargets / useDayNutrients run)', () => {
   it('resolve to sensible daily targets for the default user', () => {
     const profile = rows('profiles')[0]!;
     const result = resolveTargets({

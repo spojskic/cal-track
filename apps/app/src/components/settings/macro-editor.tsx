@@ -1,4 +1,4 @@
-import { tryComputeMacroTargets, type MacroTargets } from '@cal/core';
+import { tryComputeMacroTargets, type MacroTargets } from '@ration/core';
 import { StyleSheet, View } from 'react-native';
 
 import { NumberField, Segmented } from '@/components/forms';

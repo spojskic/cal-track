@@ -6,8 +6,8 @@
 // Garmin's activity type stands in for it. A workout entered by hand or read from Apple Health / Health Connect keeps its name.
 //
 // The last line always says what is NOT known ("No heart-rate data recorded"), so the coach does not make up a heart rate.
-import type { WorkoutDetails } from '@cal/garmin';
-import { isPacedKey } from '@cal/garmin';
+import type { WorkoutDetails } from '@ration/garmin';
+import { isPacedKey } from '@ration/garmin';
 
 import {
   ZONE_NAMES,

@@ -1,6 +1,6 @@
 // Text of the exercise / biometric / note rows of a diary day, as plain data (no React) so it is unit tested in
 // tools/ui-smoke.
-import { formatWeight, type UnitSystem } from '@cal/core';
+import { formatWeight, type UnitSystem } from '@ration/core';
 
 import { formatNumber } from '@/components/charts/format';
 import type { BiometricEntry, ExerciseEntry, NoteEntry } from '@/data/activity';

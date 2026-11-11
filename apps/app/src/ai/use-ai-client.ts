@@ -1,4 +1,4 @@
-import type { ModelInfo, OpenRouterClient } from '@cal/ai';
+import type { ModelInfo, OpenRouterClient } from '@ration/ai';
 import { useMemo } from 'react';
 
 import { selectSelectedModel, useAiStore } from './ai-store';

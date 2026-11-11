@@ -4,7 +4,7 @@
 // Four small items instead of one JSON blob (an access token alone is over a kilobyte, and some platforms refuse large values):
 // the access token, the refresh token, the client id the tokens were issued for, and the Ration user they belong to.
 // Tokens of another Ration user on the same phone are never handed out.
-import { isGarminTokens, type GarminTokens } from '@cal/garmin';
+import { isGarminTokens, type GarminTokens } from '@ration/garmin';
 
 export interface SecretStore {
   get(key: string): Promise<string | null>;

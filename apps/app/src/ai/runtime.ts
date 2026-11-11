@@ -1,12 +1,12 @@
 /**
- * Runtime guards for @cal/ai on React Native (Hermes).
+ * Runtime guards for @ration/ai on React Native (Hermes).
  *
- * @cal/ai needs `TextEncoder` (PKCE challenge) and `TextDecoder` (streaming SSE replies). expo/fetch itself
+ * @ration/ai needs `TextEncoder` (PKCE challenge) and `TextDecoder` (streaming SSE replies). expo/fetch itself
  * already relies on a global `TextDecoder`, so current Hermes builds are expected to provide both. These tiny
  * UTF-8 shims are installed ONLY when a global is missing; where it exists nothing is touched.
  *
  * `crypto.getRandomValues` is deliberately NOT polyfilled globally: the PKCE code receives expo-crypto's
- * CSPRNG by injection (see oauth.ts), and SHA-256 falls back to @cal/ai's pure-JS implementation.
+ * CSPRNG by injection (see oauth.ts), and SHA-256 falls back to @ration/ai's pure-JS implementation.
  */
 
 function encodeUtf8(input: string): Uint8Array {
@@ -99,7 +99,7 @@ class Utf8Decoder {
 
 let installed = false;
 
-/** Idempotent. Safe to call from anywhere before using @cal/ai. */
+/** Idempotent. Safe to call from anywhere before using @ration/ai. */
 export function ensureAiRuntime(): void {
   if (installed) return;
   installed = true;

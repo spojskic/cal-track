@@ -101,11 +101,11 @@ The importer needs a database connection string. In the dashboard click **Connec
 ```bash
 export SUPABASE_DB_URL='postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres'
 
-pnpm --filter @cal/importer run import -- download sr_legacy        # about 6 MB
-pnpm --filter @cal/importer run import -- download foundation
-pnpm --filter @cal/importer run import -- download fndds
-pnpm --filter @cal/importer run import -- all --dry-run             # parse only, prints sizes
-pnpm --filter @cal/importer run import -- all                       # writes to the database
+pnpm --filter @ration/importer run import -- download sr_legacy        # about 6 MB
+pnpm --filter @ration/importer run import -- download foundation
+pnpm --filter @ration/importer run import -- download fndds
+pnpm --filter @ration/importer run import -- all --dry-run             # parse only, prints sizes
+pnpm --filter @ration/importer run import -- all                       # writes to the database
 ```
 
 Expect about 7,800 SR Legacy foods, 400 Foundation foods and 5,400 survey (FNDDS) foods, roughly 35 to 50 MB in total
@@ -133,7 +133,7 @@ Sign in with a user you created, finish the onboarding wizard (body details, act
 ## Troubleshooting
 
 - **"Connect your Supabase project" screen**: `apps/app/.env` is missing or still has the placeholder values. Restart the dev server
-  after editing it; if it still shows old values, start with `pnpm --filter @cal/app exec expo start --web --clear`.
+  after editing it; if it still shows old values, start with `pnpm --filter @ration/app exec expo start --web --clear`.
 - **Sign-in says invalid credentials**: the user does not exist, or was created by hand without *Auto Confirm User*.
 - **"Sign-up is not available right now" on Create account**: the `sign-up` function is not deployed (or the migration of step 4 was not pushed).
 - **Search finds nothing**: step 6 has not run, or `analyze public.foods;` was skipped on a big import.

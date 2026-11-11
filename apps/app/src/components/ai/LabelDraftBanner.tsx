@@ -1,4 +1,4 @@
-import type { LabelFoodDraft } from '@cal/core';
+import type { LabelFoodDraft } from '@ration/core';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Card } from '@/components/ui';

@@ -1,4 +1,4 @@
-# @cal/ui-smoke
+# @ration/ui-smoke
 
 Visual / runtime smoke test for the Ration **web build**. It loads the real Expo web export in headless Chrome
 against a **mocked Supabase backend**, walks through every screen at a phone and a desktop size, saves
@@ -10,24 +10,24 @@ build from disk under `https://app.test` and answers `https://mock.supabase.test
 GoTrue emulator. Every other request is aborted and listed in the report.
 
 > **Needs a normal terminal.** Chrome cannot start inside the Optimus sandbox (no sockets / IPC). Everything that
-> is pure Node (the mock backend, fixtures, scenario list, report) is covered by `pnpm --filter @cal/ui-smoke test`,
+> is pure Node (the mock backend, fixtures, scenario list, report) is covered by `pnpm --filter @ration/ui-smoke test`,
 > which does run in the sandbox.
 
 ## Run
 
 ```bash
 # one command: builds the web export, starts Chrome, writes screenshots + report
-pnpm --filter @cal/ui-smoke smoke
+pnpm --filter @ration/ui-smoke smoke
 
 # options
-pnpm --filter @cal/ui-smoke smoke -- --skip-build            # reuse the last export
-pnpm --filter @cal/ui-smoke smoke -- --only=diary            # scenarios whose name or path contain "diary"
-pnpm --filter @cal/ui-smoke smoke -- --out=/tmp/my-run --viewports=phone,phone-dark   # dark mode is opt-in
-pnpm --filter @cal/ui-smoke smoke -- --chrome="/Applications/Chromium.app/Contents/MacOS/Chromium"
-pnpm --filter @cal/ui-smoke smoke -- --theme=dracula          # start the app with another palette (see below)
-pnpm --filter @cal/ui-smoke smoke -- --corners=boxy           # start the app with the Boxy corners (see below)
-pnpm --filter @cal/ui-smoke smoke -- --list                  # print scenarios + route coverage (no Chrome needed)
-pnpm --filter @cal/ui-smoke smoke -- --headed --workers=1    # watch it
+pnpm --filter @ration/ui-smoke smoke -- --skip-build            # reuse the last export
+pnpm --filter @ration/ui-smoke smoke -- --only=diary            # scenarios whose name or path contain "diary"
+pnpm --filter @ration/ui-smoke smoke -- --out=/tmp/my-run --viewports=phone,phone-dark   # dark mode is opt-in
+pnpm --filter @ration/ui-smoke smoke -- --chrome="/Applications/Chromium.app/Contents/MacOS/Chromium"
+pnpm --filter @ration/ui-smoke smoke -- --theme=dracula          # start the app with another palette (see below)
+pnpm --filter @ration/ui-smoke smoke -- --corners=boxy           # start the app with the Boxy corners (see below)
+pnpm --filter @ration/ui-smoke smoke -- --list                  # print scenarios + route coverage (no Chrome needed)
+pnpm --filter @ration/ui-smoke smoke -- --headed --workers=1    # watch it
 ```
 
 Other flags: `--dist=<dir>` (export directory, default `/tmp/cal-ui-smoke-dist`), `--console-errors=warn`

@@ -3,7 +3,7 @@
  *
  * The model only TRANSCRIBES what is printed (see NUTRITION_LABEL_SYSTEM_PROMPT); this module validates the reply
  * with zod, drops what cannot be trusted (unknown keys, impossible amounts, duplicates) and reports it in `warnings`.
- * Converting the reading into a food (kJ -> kcal, salt -> sodium, units, basis) is `labelToFoodDraft` in @cal/core.
+ * Converting the reading into a food (kJ -> kcal, salt -> sodium, units, basis) is `labelToFoodDraft` in @ration/core.
  *
  * Like the other pipelines, nothing here touches the network directly: the OpenRouter client is injected.
  */
@@ -22,7 +22,7 @@ import {
   type LabelNutrientReading,
   type LabelReading,
   type LabelUnit,
-} from '@cal/core';
+} from '@ration/core';
 import { z } from 'zod';
 
 import { NoLabelFoundError } from './errors';
@@ -31,7 +31,7 @@ import { toStrictJsonSchema } from './json-schema';
 import type { OpenRouterClient } from './openrouter';
 import { NUTRITION_LABEL_SYSTEM_PROMPT } from './prompts';
 
-export type { LabelReading } from '@cal/core';
+export type { LabelReading } from '@ration/core';
 
 type JsonClient = Pick<OpenRouterClient, 'chatJson'>;
 

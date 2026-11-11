@@ -1,6 +1,6 @@
 // Hands the result of "Scan nutrition label" (the food form's values, read from a photo) to the new-food screen.
 // In memory only: /food/new shows it and clears it when it closes. Nothing is saved until the user presses Save food.
-import type { LabelFoodDraft } from '@cal/core';
+import type { LabelFoodDraft } from '@ration/core';
 import { create } from 'zustand';
 
 import type { FoodFormInitial } from '@/components/food/food-form';

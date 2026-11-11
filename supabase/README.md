@@ -98,8 +98,8 @@ Either way the new row in `auth.users` fires `handle_new_user`, which creates th
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use 22
-pnpm --filter @cal/db-tests test        # ~10 s
-pnpm --filter @cal/db-tests typecheck
+pnpm --filter @ration/db-tests test        # ~10 s
+pnpm --filter @ration/db-tests typecheck
 ```
 
 The tests need **no Docker**: they boot [PGlite](https://pglite.dev) (a real Postgres

@@ -7,8 +7,8 @@ import {
   scaleNutrients,
   sumNutrientsDetailed,
   type NutrientMap,
-} from '@cal/core';
-import type { MatchedItem, NutrientEstimate, ParsedMealItem } from '@cal/ai';
+} from '@ration/core';
+import type { MatchedItem, NutrientEstimate, ParsedMealItem } from '@ration/ai';
 
 import { cachedSummary } from '@/ai/search-adapter';
 

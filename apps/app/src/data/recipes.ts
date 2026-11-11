@@ -10,7 +10,7 @@
 // recipe goes through `supersede_food`: the old row is archived and keeps its recipe / ingredient rows (old diary
 // entries keep pointing to it), the new version gets copies. Unlogged recipes are updated in place.
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
-import type { CarbBasis, NutrientMap } from '@cal/core';
+import type { CarbBasis, NutrientMap } from '@ration/core';
 
 import {
   computeRecipeNutrition,

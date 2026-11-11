@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { KCAL_PER_G } from '@cal/core';
+import { KCAL_PER_G } from '@ration/core';
 
 import { spacing, useTheme } from '@/theme';
 

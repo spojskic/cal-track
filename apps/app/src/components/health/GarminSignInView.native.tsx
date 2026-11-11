@@ -1,7 +1,7 @@
 // Garmin's own sign-in page in a web view. Ration never sees the password. When the page redirects to garmin.com with a
 // single-use ticket, the app STOPS that navigation (so Garmin Connect does not spend the ticket), trades the ticket once for the
 // token pair, keeps the pair in this phone's secure storage and goes back. Same flow as the reference app.
-import { createTicketGate, isGarminError, SIGN_IN_URL } from '@cal/garmin';
+import { createTicketGate, isGarminError, SIGN_IN_URL } from '@ration/garmin';
 import { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { WebView } from 'react-native-webview';

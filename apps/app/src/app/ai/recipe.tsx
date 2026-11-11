@@ -1,4 +1,4 @@
-import { parseNumber } from '@cal/core';
+import { parseNumber } from '@ration/core';
 import { router, Stack, type Href } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';

@@ -1,4 +1,4 @@
-import type { CoachSummary } from '@cal/ai';
+import type { CoachSummary } from '@ration/ai';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { fetchCoachGrounding } from '@/data/coach';

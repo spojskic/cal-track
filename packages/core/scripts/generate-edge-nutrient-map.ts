@@ -4,7 +4,7 @@
  * catalog in `packages/core/src/nutrients.ts`.
  *
  * Supabase Edge Functions run on Deno and cannot import workspace packages
- * (`@cal/core`), so the parts of the catalog the functions need are copied
+ * (`@ration/core`), so the parts of the catalog the functions need are copied
  * into a generated file that IS committed. Re-run after changing the catalog:
  *
  *   node --import tsx packages/core/scripts/generate-edge-nutrient-map.ts

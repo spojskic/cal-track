@@ -147,7 +147,7 @@ export interface LabelNutrientReading {
   unclear: boolean;
 }
 
-/** What the label says (validated and cleaned up; see `@cal/ai` runLabelPipeline). */
+/** What the label says (validated and cleaned up; see `@ration/ai` runLabelPipeline). */
 export interface LabelReading {
   productName: string | null;
   brand: string | null;

@@ -1,4 +1,4 @@
-import { exerciseKcalNetMet, kgToLb, lbToKg, parseNumber, type MetActivity } from '@cal/core';
+import { exerciseKcalNetMet, kgToLb, lbToKg, parseNumber, type MetActivity } from '@ration/core';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable } from 'react-native';

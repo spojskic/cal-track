@@ -6,7 +6,7 @@ import {
   type MacroMode,
   type MacroTargets,
   type Targets,
-} from '@cal/core';
+} from '@ration/core';
 
 import { todayISO } from '@/state/selected-date';
 
@@ -66,7 +66,7 @@ interface Inputs {
 const LOADING: UseTargetsResult = { data: undefined, isLoading: true, needsOnboarding: false };
 const NOTHING: UseTargetsResult = { data: undefined, isLoading: false, needsOnboarding: false };
 
-/** Pure composition of the loaded pieces; see `resolveTargets` in @cal/core for the maths. */
+/** Pure composition of the loaded pieces; see `resolveTargets` in @ration/core for the maths. */
 function compose({ profile, body, goal, macroMode, overrides, today }: Inputs): UseTargetsResult {
   if (profile === undefined) return NOTHING; // not loaded (signed out / offline without cache)
   if (profile === null) return { data: undefined, isLoading: false, needsOnboarding: true };
@@ -129,7 +129,7 @@ function compose({ profile, body, goal, macroMode, overrides, today }: Inputs): 
 /**
  * Resolved daily targets for TODAY. Composes the profile, latest weight/body fat (`biometrics`),
  * the active weight goal, the latest all-days macro target and the nutrient overrides through
- * `resolveTargets` (@cal/core). Missing optional pieces fall back to: no goal = rate 0,
+ * `resolveTargets` (@ration/core). Missing optional pieces fall back to: no goal = rate 0,
  * no macro row = 30/40/30 ratios, no activity level = sedentary.
  *
  * Re-computed (memoised) whenever any input query changes. Inputs refresh when you invalidate

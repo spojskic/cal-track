@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { ModelInfo } from '@cal/ai';
+import type { ModelInfo } from '@ration/ai';
 
 import { migrateAsyncKey } from '@/lib/migrate-key';
 

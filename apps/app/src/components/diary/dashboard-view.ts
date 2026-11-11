@@ -1,6 +1,6 @@
 // The numbers and texts of the desktop dashboard as plain data (no React, no React Native), so what the KPI strip, the bar lists and
 // the weight panel say is unit tested in tools/ui-smoke. The components (DashboardPanels.tsx) only draw them.
-import { energySummaryCaption, type EnergySummaryMode } from '@cal/core';
+import { energySummaryCaption, type EnergySummaryMode } from '@ration/core';
 
 import { formatNumber } from '@/components/charts/format';
 import type { BarRow, BarTone } from '@/components/desktop-layout';

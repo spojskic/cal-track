@@ -1,5 +1,5 @@
 /**
- * @cal/ai - bring-your-own-key AI layer (OpenRouter), client side only.
+ * @ration/ai - bring-your-own-key AI layer (OpenRouter), client side only.
  *
  * Typical wiring in the app:
  *
@@ -17,7 +17,7 @@
  *   const turn = await runCoachTurn({ client, model, history, userMessage, summary, onDelta });
  *
  *   const label = await runLabelPipeline({ client, model: model.id, imageBase64, mimeType: 'image/jpeg' });
- *   const draft = labelToFoodDraft(label);                          // @cal/core: the values for the new-food form
+ *   const draft = labelToFoodDraft(label);                          // @ration/core: the values for the new-food form
  */
 
 export * from './errors';

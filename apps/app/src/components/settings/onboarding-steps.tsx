@@ -4,7 +4,7 @@ import {
   MACRO_PRESET_MODES,
   type MacroPresetId,
   type ResolvedTargetsCore,
-} from '@cal/core';
+} from '@ration/core';
 import { StyleSheet, View } from 'react-native';
 
 import { NumberField, Segmented, SwitchRow } from '@/components/forms';

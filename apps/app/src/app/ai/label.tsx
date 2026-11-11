@@ -1,4 +1,4 @@
-import type { LabelFoodDraft } from '@cal/core';
+import type { LabelFoodDraft } from '@ration/core';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, router, useLocalSearchParams } from 'expo-router';

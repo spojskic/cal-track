@@ -29,7 +29,7 @@ import {
   runCoachTurn,
   type CoachSummary,
   type GuardCategory,
-} from '@cal/ai';
+} from '@ration/ai';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';

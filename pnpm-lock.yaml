@@ -23,13 +23,13 @@ importers:
 
   apps/app:
     dependencies:
-      '@cal/ai':
+      '@ration/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@cal/core':
+      '@ration/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@cal/garmin':
+      '@ration/garmin':
         specifier: workspace:*
         version: link:../../packages/garmin
       '@expo/ui':
@@ -189,7 +189,7 @@ importers:
 
   packages/ai:
     dependencies:
-      '@cal/core':
+      '@ration/core':
         specifier: workspace:*
         version: link:../core
       zod:
@@ -242,7 +242,7 @@ importers:
 
   tools/importer:
     dependencies:
-      '@cal/core':
+      '@ration/core':
         specifier: workspace:*
         version: link:../../packages/core
       csv-parse:

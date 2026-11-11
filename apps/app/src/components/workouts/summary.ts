@@ -1,7 +1,7 @@
 // The rows of the workout detail screen as plain data (no React), so what the screen says is unit tested in tools/ui-smoke.
 // "Show only what exists": a value that is not known has no row.
-import type { UnitSystem } from '@cal/core';
-import { isPacedKey } from '@cal/garmin';
+import type { UnitSystem } from '@ration/core';
+import { isPacedKey } from '@ration/garmin';
 
 import type { WorkoutEntry, WorkoutRow } from '@/data/workouts';
 

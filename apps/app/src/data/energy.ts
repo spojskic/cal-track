@@ -15,7 +15,7 @@ import {
   type EnergyMode,
   type EnergyRemaining,
   type EnergySummaryMode,
-} from '@cal/core';
+} from '@ration/core';
 
 import { addDays, todayISO } from '@/state/selected-date';
 

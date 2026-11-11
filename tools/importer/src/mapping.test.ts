@@ -4,7 +4,7 @@ import {
   NUTRIENT_BY_CODE,
   NUTRIENT_BY_FDC_ID,
   type NutrientCode,
-} from '@cal/core';
+} from '@ration/core';
 import { describe, expect, it } from 'vitest';
 import { buildCnfRules } from './cnf';
 import {

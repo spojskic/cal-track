@@ -1,5 +1,5 @@
 {
-  "name": "@cal/app",
+  "name": "@ration/app",
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
@@ -13,9 +13,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cal/ai": "workspace:*",
-    "@cal/core": "workspace:*",
-    "@cal/garmin": "workspace:*",
+    "@ration/ai": "workspace:*",
+    "@ration/core": "workspace:*",
+    "@ration/garmin": "workspace:*",
     "@expo/ui": "~58.0.27",
     "@kingstinct/react-native-healthkit": "^16.2.0",
     "@react-native-async-storage/async-storage": "2.2.0",

@@ -15,7 +15,7 @@ There is no over-the-air update service set up: every code change means a new bu
 ## Web
 
 ```bash
-pnpm --filter @cal/app export:web      # writes apps/app/dist
+pnpm --filter @ration/app export:web      # writes apps/app/dist
 ```
 
 Upload `apps/app/dist` to any static host with a single-page-app fallback (all unknown paths serve `index.html`), for

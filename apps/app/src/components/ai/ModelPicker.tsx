@@ -1,4 +1,4 @@
-import { pickDefaultVisionModel } from '@cal/ai';
+import { pickDefaultVisionModel } from '@ration/ai';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 

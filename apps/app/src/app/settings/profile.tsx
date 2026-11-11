@@ -1,4 +1,4 @@
-import { formatWeight, parseBirthdateInput, type Sex, type UnitSystem } from '@cal/core';
+import { formatWeight, parseBirthdateInput, type Sex, type UnitSystem } from '@ration/core';
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';

@@ -1,7 +1,7 @@
 // Shared "food + amount" lines used by the recipe editor (ingredients) and the saved meal editor (items).
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { deriveNutrients, parseNumber, scaleNutrients } from '@cal/core';
+import { deriveNutrients, parseNumber, scaleNutrients } from '@ration/core';
 
 import { hapticSelection } from '@/components/food/feedback';
 import { formatKcal, trimNumber } from '@/components/food/format';

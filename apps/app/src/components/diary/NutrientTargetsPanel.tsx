@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { type NutrientCode, type NutrientGroup, type NutrientMap } from '@cal/core';
+import { type NutrientCode, type NutrientGroup, type NutrientMap } from '@ration/core';
 
 import { HighlightRings } from '@/components/charts/HighlightRings';
 import { NutrientBar } from '@/components/charts/NutrientBar';

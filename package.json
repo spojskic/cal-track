@@ -8,8 +8,8 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "pnpm --filter @cal/app start",
-    "web": "pnpm --filter @cal/app web",
+    "dev": "pnpm --filter @ration/app start",
+    "web": "pnpm --filter @ration/app web",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

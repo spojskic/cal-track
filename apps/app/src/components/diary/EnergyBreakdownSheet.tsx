@@ -1,4 +1,4 @@
-import type { EnergyBreakdown } from '@cal/core';
+import type { EnergyBreakdown } from '@ration/core';
 import { StyleSheet, View } from 'react-native';
 
 import { formatInt, formatKcal } from '@/components/settings/format';

@@ -1,4 +1,4 @@
-import type { AiGateReason } from '@cal/ai';
+import type { AiGateReason } from '@ration/ai';
 import { router, Stack, type Href } from 'expo-router';
 import { ActivityIndicator } from 'react-native';
 

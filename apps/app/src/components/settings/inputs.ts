@@ -8,7 +8,7 @@ import {
   type ResolveTargetsInput,
   type ResolvedTargetsCore,
   type UnitSystem,
-} from '@cal/core';
+} from '@ration/core';
 
 /** Plausible human ranges used for input validation. */
 export const WEIGHT_LIMITS_KG = { min: 30, max: 400 } as const;

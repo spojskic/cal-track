@@ -1,4 +1,4 @@
-import type { NutrientUnit } from '@cal/core';
+import type { NutrientUnit } from '@ration/core';
 
 import { addDays, fromISODate, todayISO } from '@/state/selected-date';
 

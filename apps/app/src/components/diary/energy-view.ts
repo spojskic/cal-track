@@ -5,7 +5,7 @@ import {
   type EnergyBreakdown,
   type EnergyMode,
   type EnergySummaryMode,
-} from '@cal/core';
+} from '@ration/core';
 
 import type { EnergySummaryProps } from '@/components/charts/EnergySummary';
 import { formatInt } from '@/components/settings/format';

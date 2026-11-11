@@ -1,4 +1,4 @@
-import type { CarbBasis, NutrientMap } from '@cal/core';
+import type { CarbBasis, NutrientMap } from '@ration/core';
 
 /** Values of `public.foods.source` this importer writes. */
 export type ImportSource = 'fdc_foundation' | 'fdc_sr_legacy' | 'fdc_fndds' | 'cnf';
@@ -27,7 +27,7 @@ export interface ImportFood {
   category: string | null;
   /** Per 100 g, catalog units, rounded to 4 significant digits. Absent key = unknown. */
   nutrients: NutrientMap;
-  /** 0..1, `completeness()` from @cal/core. */
+  /** 0..1, `completeness()` from @ration/core. */
   completeness: number;
   carbBasis: CarbBasis;
   portions: ImportPortion[];

@@ -9,7 +9,7 @@ import {
   type ScopedUlScope,
   type Target,
   type Targets,
-} from '@cal/core';
+} from '@ration/core';
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';

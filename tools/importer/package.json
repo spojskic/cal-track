@@ -1,5 +1,5 @@
 {
-  "name": "@cal/importer",
+  "name": "@ration/importer",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cal/core": "workspace:*",
+    "@ration/core": "workspace:*",
     "csv-parse": "^7.0.3",
     "pg": "^8.23.1",
     "yauzl-promise": "^4.0.0"

@@ -4,7 +4,7 @@
 //
 // Garmin is a SECOND integration next to Apple Health / Health Connect: its own `integrations` row (provider = 'garmin'), its own
 // status store, its own single-flight. Daily energy of both can exist for a day; data/energy.ts prefers the 'garmin' row.
-import { GarminConnectClient, type FetchInit, type FetchLike } from '@cal/garmin';
+import { GarminConnectClient, type FetchInit, type FetchLike } from '@ration/garmin';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 

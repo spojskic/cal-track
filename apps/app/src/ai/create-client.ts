@@ -1,4 +1,4 @@
-import { createOpenRouterClient, type FetchLike, type OpenRouterClient } from '@cal/ai';
+import { createOpenRouterClient, type FetchLike, type OpenRouterClient } from '@ration/ai';
 import { fetch as expoFetch } from 'expo/fetch';
 import { Platform } from 'react-native';
 
@@ -7,7 +7,7 @@ import { ensureAiRuntime } from './runtime';
 export const APP_TITLE = 'Ration';
 
 /**
- * `fetch` handed to @cal/ai. On native it is `expo/fetch` (WinterCG fetch with a streaming `response.body`;
+ * `fetch` handed to @ration/ai. On native it is `expo/fetch` (WinterCG fetch with a streaming `response.body`;
  * React Native's built-in fetch cannot stream). On web the browser's own fetch is used (undefined = default).
  * Always call OpenRouter directly from the device: the key never goes through our backend.
  */

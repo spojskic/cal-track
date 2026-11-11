@@ -1,5 +1,5 @@
 import { router, Stack, type Href } from 'expo-router';
-import { looksLikeOAuthReturn } from '@cal/ai';
+import { looksLikeOAuthReturn } from '@ration/ai';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 

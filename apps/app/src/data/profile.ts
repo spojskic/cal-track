@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { ActivityLevel, BmrFormula, EnergyMode, EnergySummaryMode, Sex, UnitSystem } from '@cal/core';
+import type { ActivityLevel, BmrFormula, EnergyMode, EnergySummaryMode, Sex, UnitSystem } from '@ration/core';
 
 import { useAuth } from '@/lib/auth';
 import { requireUserId } from '@/lib/auth-user';

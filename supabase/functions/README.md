@@ -29,7 +29,7 @@ functions/
   sign-up/index.ts               thin Deno.serve wiring (verify_jwt = false, see config.toml)
 ```
 
-Edge code cannot import workspace packages (`@cal/core`), hence the generated nutrient map.
+Edge code cannot import workspace packages (`@ration/core`), hence the generated nutrient map.
 Imports inside `_shared/` use relative paths **with** the `.ts` extension (Deno requires it).
 
 ## Database objects they need
@@ -265,7 +265,7 @@ A db-tests test fails when the committed file is stale.
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use 22
-pnpm --filter @cal/db-tests test          # includes tools/db-tests/src/edge-*.test.ts
+pnpm --filter @ration/db-tests test          # includes tools/db-tests/src/edge-*.test.ts
 ```
 
 The `_shared` modules are tested in Vitest with injected fakes (`fetch`, Supabase clients); the

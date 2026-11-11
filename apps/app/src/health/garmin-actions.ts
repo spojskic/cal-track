@@ -1,5 +1,5 @@
 // Sign in to / sign out of Garmin. Foreground only (the sign-in screen and the card call these).
-import { redeemServiceTicket, type FetchInit, type FetchLike } from '@cal/garmin';
+import { redeemServiceTicket, type FetchInit, type FetchLike } from '@ration/garmin';
 
 import { keys } from '@/data/keys';
 import { requireUserId } from '@/lib/auth-user';

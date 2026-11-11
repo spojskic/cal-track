@@ -1,7 +1,7 @@
 // What "Copy sync report" prints about the workout-detail reads of THIS phone: endpoint outcomes and field names, never a value
 // (packages/garmin activity-details.ts DetailStats). Kept on the phone only, like the sync report itself (garmin-local.ts).
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { emptyDetailStats, parseDetailStats, type DetailStats } from '@cal/garmin';
+import { emptyDetailStats, parseDetailStats, type DetailStats } from '@ration/garmin';
 
 import { migrateAsyncKey } from '@/lib/migrate-key';
 

@@ -10,11 +10,11 @@ Run from the repository root with Node 22 (`nvm use`).
 | `pnpm web` / `pnpm dev` | start the app in the browser / the Expo dev server for phones |
 | `pnpm test` | all unit and database tests through Turborepo |
 | `pnpm typecheck` | TypeScript across every package |
-| `pnpm --filter @cal/app lint` | ESLint with the Expo config (includes the React Compiler rules) |
+| `pnpm --filter @ration/app lint` | ESLint with the Expo config (includes the React Compiler rules) |
 | `pnpm seed:generate` | rewrite `supabase/seed/*.sql` from the catalog in `packages/core` |
 | `node --import tsx packages/core/scripts/generate-edge-nutrient-map.ts [--check]` | regenerate (or verify) the nutrient map used by the edge functions |
-| `pnpm --filter @cal/importer run import -- <cmd>` | food importer, see its [guide](../tools/importer/README.md) |
-| `pnpm --filter @cal/ui-smoke smoke` | browser smoke test against a mocked backend, see its [guide](../tools/ui-smoke/README.md) |
+| `pnpm --filter @ration/importer run import -- <cmd>` | food importer, see its [guide](../tools/importer/README.md) |
+| `pnpm --filter @ration/ui-smoke smoke` | browser smoke test against a mocked backend, see its [guide](../tools/ui-smoke/README.md) |
 
 Scripts use `node --import tsx file.ts` rather than the `tsx` command, because that also works in locked-down environments that
 forbid local sockets.
@@ -32,8 +32,8 @@ The first three need no accounts. The last row is the [first-run checklist](gett
 
 ## Changing things
 
-**Add or change a nutrient**: edit `packages/core/src/nutrients.ts`, run `pnpm --filter @cal/core test`, then `pnpm seed:generate`
-and the edge map generator above, then `pnpm --filter @cal/db-tests test`. Commit the generated files together with the change.
+**Add or change a nutrient**: edit `packages/core/src/nutrients.ts`, run `pnpm --filter @ration/core test`, then `pnpm seed:generate`
+and the edge map generator above, then `pnpm --filter @ration/db-tests test`. Commit the generated files together with the change.
 Computed nutrients (net carbs, omega-3/6) are never stored.
 
 **Change the schema**: add a new migration file in `supabase/migrations` (name it with a timestamp later than the existing ones;

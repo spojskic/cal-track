@@ -1,4 +1,4 @@
-import { pickDefaultVisionModel, type ModelInfo } from '@cal/ai';
+import { pickDefaultVisionModel, type ModelInfo } from '@ration/ai';
 
 export interface ModelSelection {
   /** The model to use now (null when the catalogue is empty). */

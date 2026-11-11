@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { deriveNutrients, parseNumber, scaleNutrients } from '@cal/core';
+import { deriveNutrients, parseNumber, scaleNutrients } from '@ration/core';
 
 import { useContentWidth } from '@/components/desktop/shell-context';
 import { CompletenessLabel } from '@/components/food/completeness';

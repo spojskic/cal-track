@@ -1,4 +1,4 @@
-# @cal/importer
+# @ration/importer
 
 Imports **generic** food data (no branded, no Open Food Facts bulk) into the
 Supabase tables `public.foods` and `public.food_portions`:
@@ -18,7 +18,7 @@ so Foundation can only be imported from JSON.
 UK CoFID (Excel) is **not implemented yet** (`cofid` command is a marked TODO stub).
 
 Everything is nutrients **per 100 g**, stored as jsonb keyed by the catalog codes of
-`@cal/core` (`ENERGY_KCAL`, `PROTEIN_G`, ...), in catalog units. A nutrient the
+`@ration/core` (`ENERGY_KCAL`, `PROTEIN_G`, ...), in catalog units. A nutrient the
 source does not report is **absent** from the jsonb (unknown is not zero).
 
 ## Prerequisites
@@ -54,30 +54,30 @@ cd /path/to/ration
 source ~/.nvm/nvm.sh && nvm use 22
 
 # 1. fetch the USDA JSON archives into tools/importer/.cache (git-ignored)
-pnpm --filter @cal/importer run import -- download foundation   # ~0.7 MB (9 MB JSON)
-pnpm --filter @cal/importer run import -- download sr_legacy    # ~6 MB
-pnpm --filter @cal/importer run import -- download fndds        # ~4 MB (64 MB JSON)
+pnpm --filter @ration/importer run import -- download foundation   # ~0.7 MB (9 MB JSON)
+pnpm --filter @ration/importer run import -- download sr_legacy    # ~6 MB
+pnpm --filter @ration/importer run import -- download fndds        # ~4 MB (64 MB JSON)
 #    (CSV archives are still available for sr_legacy / fndds with: download <name> --format csv)
 
 # 2. CNF: manual download (see below) into tools/importer/.cache/cnf/
 
 # 3. look before you write: parse + report only, no database connection.
 #    JSON vs CSV is detected from the archive contents; --dataset is optional for JSON.
-pnpm --filter @cal/importer run import -- fdc \
+pnpm --filter @ration/importer run import -- fdc \
   --path tools/importer/.cache/FoodData_Central_foundation_food_json_2026-10-29.zip --dry-run
 
 # 4. smoke test on the real database with a few foods
-pnpm --filter @cal/importer run import -- fdc --path <zip> --limit 20
+pnpm --filter @ration/importer run import -- fdc --path <zip> --limit 20
 
 # 5. the real thing, in this order: foundation, sr_legacy, fndds, cnf
-pnpm --filter @cal/importer run import -- fdc --path <foundation zip>
-pnpm --filter @cal/importer run import -- fdc --path <sr_legacy zip>
-pnpm --filter @cal/importer run import -- fdc --path <fndds zip>
-pnpm --filter @cal/importer run import -- cnf --path tools/importer/.cache/cnf
+pnpm --filter @ration/importer run import -- fdc --path <foundation zip>
+pnpm --filter @ration/importer run import -- fdc --path <sr_legacy zip>
+pnpm --filter @ration/importer run import -- fdc --path <fndds zip>
+pnpm --filter @ration/importer run import -- cnf --path tools/importer/.cache/cnf
 
 # or all four from the cache directory in one go (add --download to fetch missing USDA zips)
-pnpm --filter @cal/importer run import -- all --dry-run
-pnpm --filter @cal/importer run import -- all
+pnpm --filter @ration/importer run import -- all --dry-run
+pnpm --filter @ration/importer run import -- all
 ```
 
 `--path` accepts a `.zip` (read entry by entry, never extracted), a plain `.json` file or an
@@ -211,8 +211,8 @@ Attribution (show in the app's **About / Data sources** screen):
 ## Development
 
 ```sh
-pnpm --filter @cal/importer test        # vitest, no network, no database
-pnpm --filter @cal/importer typecheck
+pnpm --filter @ration/importer test        # vitest, no network, no database
+pnpm --filter @ration/importer typecheck
 ```
 
 Tests use tiny inline fixtures (`src/fixtures.ts`), a hand-built zip and a fake `pg`

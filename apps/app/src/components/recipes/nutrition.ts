@@ -8,7 +8,7 @@ import {
   type CarbBasis,
   type NutrientCode,
   type NutrientMap,
-} from '@cal/core';
+} from '@ration/core';
 
 const COMPUTED: ReadonlySet<string> = new Set<string>(COMPUTED_NUTRIENT_CODES);
 

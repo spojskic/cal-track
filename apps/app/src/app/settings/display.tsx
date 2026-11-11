@@ -1,4 +1,4 @@
-import { formatFoodMass, formatHeight, formatWeight, type UnitSystem } from '@cal/core';
+import { formatFoodMass, formatHeight, formatWeight, type UnitSystem } from '@ration/core';
 import { Stack } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 

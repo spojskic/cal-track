@@ -4,7 +4,7 @@
 //  - One read per workout at a time: asking again while a read is running returns the same promise.
 //  - Every read runs through the Garmin gate (garmin-gate.ts), so it never overlaps a sync or another read.
 //  - On the web nothing runs (Garmin cannot be read from a browser).
-import { GarminConnectClient, type FetchInit, type FetchLike } from '@cal/garmin';
+import { GarminConnectClient, type FetchInit, type FetchLike } from '@ration/garmin';
 import { Platform } from 'react-native';
 
 import { fetchNewestGarminWorkouts, refreshWorkouts, saveWorkoutDetails } from '@/data/workouts';

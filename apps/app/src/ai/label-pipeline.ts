@@ -1,5 +1,5 @@
-import { runLabelPipeline, type LabelReading } from '@cal/ai';
-import { labelToFoodDraft, type LabelFoodDraft } from '@cal/core';
+import { runLabelPipeline, type LabelReading } from '@ration/ai';
+import { labelToFoodDraft, type LabelFoodDraft } from '@ration/core';
 
 import type { PreparedImage } from './image';
 import type { AiClientHandle } from './use-ai-client';
@@ -7,7 +7,7 @@ import type { AiClientHandle } from './use-ai-client';
 /**
  * Photo of a nutrition label -> the values of the new-food form. One vision request through the user's own OpenRouter
  * key; the conversion to catalog units (kJ -> kcal, salt -> sodium, basis, carbohydrate basis, checks) happens on the
- * device in @cal/core. Nothing is saved: the form shows the draft for review.
+ * device in @ration/core. Nothing is saved: the form shows the draft for review.
  */
 
 export const LABEL_STAGE = 'Reading the nutrition label...';

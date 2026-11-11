@@ -19,6 +19,6 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - name: Build web bundle
-        run: pnpm --filter @cal/app export:web
+        run: pnpm --filter @ration/app export:web
         env:
           EXPO_NO_TELEMETRY: '1'

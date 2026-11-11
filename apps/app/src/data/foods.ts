@@ -14,7 +14,7 @@ import {
   parseNumber,
   type CarbBasis,
   type NutrientMap,
-} from '@cal/core';
+} from '@ration/core';
 
 import { requireUserId } from '@/lib/auth-user';
 import { ONLINE_LOOKUP_ENABLED } from '@/lib/features';
@@ -99,7 +99,7 @@ export interface Food {
 /**
  * A serving size of a food. DB convention (food_portions): `grams` is the mass of `amount` units
  * of `unit` (amount NULL = the label itself is one unit). `gramsPerUnit` is therefore
- * `grams / (amount ?? 1)` and is what the app uses ({@link PortionUnit} of @cal/core).
+ * `grams / (amount ?? 1)` and is what the app uses ({@link PortionUnit} of @ration/core).
  */
 export interface FoodPortion {
   id: string;

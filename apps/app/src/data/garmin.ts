@@ -1,7 +1,7 @@
 // react-query hooks for the Garmin link. The phone reads Garmin itself (src/health/garmin*.ts, packages/garmin); there is no
 // server side. On the web nothing runs: no query is enabled and no Garmin code is called.
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { formatDetailReport } from '@cal/garmin';
+import { formatDetailReport } from '@ration/garmin';
 import { Platform, Share } from 'react-native';
 
 import {

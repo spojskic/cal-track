@@ -69,7 +69,7 @@ function connect(mutate?: (tables: Record<string, Rec[]>) => void) {
   return { backend, fx };
 }
 
-const ai = await load(pathToFileURL(appRequire.resolve('@cal/ai')).href);
+const ai = await load(pathToFileURL(appRequire.resolve('@ration/ai')).href);
 const history = await load('@/ai/coach-history');
 const topics = await load('@/ai/coach-topic');
 const summaryLib = await load('@/ai/coach-summary');

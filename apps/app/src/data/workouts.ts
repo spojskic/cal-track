@@ -4,7 +4,7 @@
 //
 // The list never loads the whole `details` object: it asks for two keys of it (`avg_hr:details->avgHr`, `type_key:details->>typeKey`),
 // so 50 rows stay small in the query cache. The detail screen loads the whole thing.
-import { parseWorkoutDetails, type WorkoutDetails } from '@cal/garmin';
+import { parseWorkoutDetails, type WorkoutDetails } from '@ration/garmin';
 import { useInfiniteQuery, useQuery, type QueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';

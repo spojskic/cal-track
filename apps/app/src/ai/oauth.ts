@@ -6,7 +6,7 @@ import {
   resolveOAuthReturn,
   type OAuthReturn,
   type PendingOAuth,
-} from '@cal/ai';
+} from '@ration/ai';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 

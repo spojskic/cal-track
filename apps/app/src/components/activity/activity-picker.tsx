@@ -1,4 +1,4 @@
-import { EXERCISE_CATEGORIES, searchActivities, type MetActivity } from '@cal/core';
+import { EXERCISE_CATEGORIES, searchActivities, type MetActivity } from '@ration/core';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 

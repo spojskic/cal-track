@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 /**
- * @cal/importer CLI.
+ * @ration/importer CLI.
  *
- *   pnpm --filter @cal/importer import -- <command> [options]
+ *   pnpm --filter @ration/importer import -- <command> [options]
  *
  * Commands: download, fdc, cnf, cofid (TODO), all, help. See README.md.
  */
@@ -19,7 +19,7 @@ import { runJobs, type ImportJob } from './run';
 import { withSource } from './source';
 import type { Logger } from './types';
 
-const HELP = `Usage: pnpm --filter @cal/importer run import -- <command> [options]
+const HELP = `Usage: pnpm --filter @ration/importer run import -- <command> [options]
 
 Commands
   download <foundation|sr_legacy|fndds>   Download an FDC archive into tools/importer/.cache

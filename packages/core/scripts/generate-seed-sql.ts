@@ -1,5 +1,5 @@
 /**
- * Generates idempotent seed SQL from the @cal/core catalogs.
+ * Generates idempotent seed SQL from the @ration/core catalogs.
  *
  *   pnpm exec tsx packages/core/scripts/generate-seed-sql.ts            # all three files to stdout
  *   pnpm exec tsx packages/core/scripts/generate-seed-sql.ts --out supabase/seed

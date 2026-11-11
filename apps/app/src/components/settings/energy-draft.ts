@@ -6,7 +6,7 @@ import {
   type BmrFormula,
   type EnergyMode,
   type EnergySummaryMode,
-} from '@cal/core';
+} from '@ration/core';
 
 import type { Profile, ProfilePatch } from '@/data/profile';
 

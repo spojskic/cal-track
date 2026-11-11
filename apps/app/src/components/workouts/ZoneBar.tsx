@@ -4,7 +4,7 @@ import { AppText } from '@/components/ui';
 import { spacing, useTheme, type ThemeColors } from '@/theme';
 
 import { zoneBar, zoneSummary } from './format';
-import type { WorkoutHrZone } from '@cal/garmin';
+import type { WorkoutHrZone } from '@ration/garmin';
 
 /** Easy to hard: blue, green, yellow, orange, red (the theme's own hues); zones 6 and 7 (some watches) reuse red / violet. */
 function zoneColor(zone: number, colors: ThemeColors): string {

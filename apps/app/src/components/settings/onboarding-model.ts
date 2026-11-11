@@ -5,7 +5,7 @@ import {
   type ResolveTargetsInput,
   type Sex,
   type UnitSystem,
-} from '@cal/core';
+} from '@ration/core';
 
 import type { CompleteOnboardingInput } from '@/data/targets';
 import type { WeightGoal } from '@/data/goals';

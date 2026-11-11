@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { formatWeight, type UnitSystem } from '@cal/core';
+import { formatWeight, type UnitSystem } from '@ration/core';
 
 import { MiniBarChart, type MiniBar } from '@/components/charts/MiniBarChart';
 import { Sparkline } from '@/components/charts/Sparkline';

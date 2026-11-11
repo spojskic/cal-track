@@ -6,7 +6,7 @@ import {
   normalizeEnergySummaryMode,
   type EnergyMode,
   type EnergySummaryMode,
-} from '@cal/core';
+} from '@ration/core';
 
 import { queryClient } from '@/lib/query';
 

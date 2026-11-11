@@ -6,7 +6,7 @@
  * memory use is bounded by the (small) number of generic foods, never by the
  * archive size. Amounts in FDC are per 100 g.
  */
-import { NUTRIENT_BY_CODE } from '@cal/core';
+import { NUTRIENT_BY_CODE } from '@ration/core';
 import { assembleFood } from './build';
 import { field, parseDecimal, readCsvFile, type Row } from './csv';
 import { BY_DIFFERENCE_CARB_IDS, buildFdcRules, normalizeUnit, sanitizeAmount, unitFactor, type RuleSet } from './mapping';

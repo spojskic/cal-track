@@ -1,5 +1,5 @@
 /** Turns one parsed source food into an {@link ImportFood} (or drops it, counting why). */
-import { completeness } from '@cal/core';
+import { completeness } from '@ration/core';
 import { resolveNutrients, type RuleSet } from './mapping';
 import { finalizePortions, type PortionCandidate } from './portions';
 import { EXCLUDED_CATEGORIES, cleanCategory, cleanName, qualityCheck } from './quality';

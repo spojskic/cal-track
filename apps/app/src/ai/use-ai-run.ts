@@ -1,4 +1,4 @@
-import { isAbortError, presentAiError, type AiErrorPresentation } from '@cal/ai';
+import { isAbortError, presentAiError, type AiErrorPresentation } from '@ration/ai';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAiStore } from './ai-store';

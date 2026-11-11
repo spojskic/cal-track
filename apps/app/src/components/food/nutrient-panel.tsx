@@ -11,7 +11,7 @@ import {
   type NutrientMap,
   type Target,
   type Targets,
-} from '@cal/core';
+} from '@ration/core';
 
 import { spacing, useTheme } from '@/theme';
 

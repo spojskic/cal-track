@@ -1,7 +1,7 @@
 // OWNER: AI agent. Creates `ai_estimate` foods for items the food database could not match.
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { completeness as computeCompleteness } from '@cal/core';
-import type { NutrientEstimate } from '@cal/ai';
+import { completeness as computeCompleteness } from '@ration/core';
+import type { NutrientEstimate } from '@ration/ai';
 
 import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';
@@ -11,7 +11,7 @@ import { keys } from './keys';
 
 export interface AiEstimateFoodInput {
   name: string;
-  /** Per-100 g numbers guessed by the AI (validated by @cal/ai `sanitizeNutrientEstimate`). */
+  /** Per-100 g numbers guessed by the AI (validated by @ration/ai `sanitizeNutrientEstimate`). */
   estimate: NutrientEstimate;
 }
 

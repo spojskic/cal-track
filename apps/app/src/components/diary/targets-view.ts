@@ -5,7 +5,7 @@ import {
   type NutrientCode,
   type NutrientMap,
   type Target,
-} from '@cal/core';
+} from '@ration/core';
 
 import { nutrientFraction, nutrientStatus } from '@/components/charts/nutrient-status';
 import type { HighlightRingItem } from '@/components/charts/HighlightRings';

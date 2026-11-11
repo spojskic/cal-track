@@ -1,4 +1,4 @@
-import { computeAiGate, type AiGate, type KeyStatus, type ModelInfo } from '@cal/ai';
+import { computeAiGate, type AiGate, type KeyStatus, type ModelInfo } from '@ration/ai';
 import { useMemo } from 'react';
 
 import { selectSelectedModel, useAiStore } from './ai-store';
@@ -6,7 +6,7 @@ import { selectSelectedModel, useAiStore } from './ai-store';
 /**
  * Single source of truth for "should any AI UI be visible?".
  * Rule: AI is visible ONLY with (1) a key on this device, (2) validated against OpenRouter (GET /key) and
- * (3) a selected model that accepts image input. See computeAiGate in @cal/ai.
+ * (3) a selected model that accepts image input. See computeAiGate in @ration/ai.
  */
 export type AiGateState = AiGate;
 

@@ -1,6 +1,6 @@
 // The desktop (wide window) dashboard: a page header with the quick-add buttons, a KPI strip and a grid of panels. Phones keep the
 // cards of DashboardCards.tsx. Every number is computed in dashboard-view.ts (unit tested); this file only draws it.
-import { formatWeight, type UnitSystem } from '@cal/core';
+import { formatWeight, type UnitSystem } from '@ration/core';
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 

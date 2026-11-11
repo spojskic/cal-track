@@ -1,5 +1,5 @@
 /** Food name hygiene and quality filters. */
-import type { NutrientMap } from '@cal/core';
+import type { NutrientMap } from '@ration/core';
 import type { DropReason } from './types';
 
 /** Longest name kept (search columns are generated from it). */

@@ -1,10 +1,10 @@
-import { toFoodCandidate, type FoodCandidate, type MatchDeps } from '@cal/ai';
+import { toFoodCandidate, type FoodCandidate, type MatchDeps } from '@ration/ai';
 
 import { toFoodSource, type FoodKind, type FoodSummary } from '@/data/foods';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Adapter between @cal/ai `matchItems` and the app's database search (the same `search_foods` RPC the
+ * Adapter between @ration/ai `matchItems` and the app's database search (the same `search_foods` RPC the
  * search screen uses: accent-insensitive, typo tolerant, personal foods first). It remembers the full
  * summary rows (kcal + macros per 100 g) so the review screen can compute live numbers without extra queries.
  */

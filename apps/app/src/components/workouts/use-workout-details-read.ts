@@ -1,4 +1,4 @@
-import { needsGarminDetails } from '@cal/garmin';
+import { needsGarminDetails } from '@ration/garmin';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Platform } from 'react-native';

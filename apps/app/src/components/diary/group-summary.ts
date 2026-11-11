@@ -6,7 +6,7 @@ import {
   sumNutrientsDetailed,
   type NutrientCode,
   type NutrientMap,
-} from '@cal/core';
+} from '@ration/core';
 
 export interface SummaryRow {
   code: NutrientCode;

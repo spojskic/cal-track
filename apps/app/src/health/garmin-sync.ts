@@ -13,7 +13,7 @@ import {
   type GarminSyncSource,
   type GarminTokens,
   type GarminWorkout,
-} from '@cal/garmin';
+} from '@ration/garmin';
 
 import {
   GARMIN_SIGNED_OUT_NOTE,

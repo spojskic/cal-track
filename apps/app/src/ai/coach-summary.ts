@@ -2,7 +2,7 @@
  * Pure builder for the data summary the AI coach is grounded on.
  *
  * No React / React Native / Supabase imports on purpose: it only receives plain rows and returns the
- * `CoachSummary` that `@cal/ai` wraps in a size-capped `<user_data>` block (the model is told that block is
+ * `CoachSummary` that `@ration/ai` wraps in a size-capped `<user_data>` block (the model is told that block is
  * DATA, never instructions). Fetching lives in `data/coach.ts` and wiring in `use-coach-summary.ts`.
  *
  * Decisions:
@@ -35,7 +35,7 @@ import {
   type FindingsInput,
   type FindingsIntakeDay,
   type NutrientTarget,
-} from '@cal/ai';
+} from '@ration/ai';
 
 export const INTAKE_DAYS = 14;
 /** Days of activity listed in the data block. */
@@ -125,7 +125,7 @@ export interface SummaryProfileInput {
   activityLevel?: string | null;
 }
 
-/** Structural copy of `MacroMode` from @cal/core (kept structural so this file has no imports). */
+/** Structural copy of `MacroMode` from @ration/core (kept structural so this file has no imports). */
 export interface SummaryMacroMode {
   mode: string;
   [key: string]: unknown;

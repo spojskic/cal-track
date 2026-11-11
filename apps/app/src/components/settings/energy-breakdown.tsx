@@ -1,4 +1,4 @@
-import type { MacroTargets, ResolvedTargetsCore, UnitSystem } from '@cal/core';
+import type { MacroTargets, ResolvedTargetsCore, UnitSystem } from '@ration/core';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';

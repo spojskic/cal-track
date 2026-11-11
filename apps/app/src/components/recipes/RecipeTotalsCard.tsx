@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { NUTRIENT_BY_CODE, type NutrientCode, type NutrientMap } from '@cal/core';
+import { NUTRIENT_BY_CODE, type NutrientCode, type NutrientMap } from '@ration/core';
 
 import { CompletenessLabel } from '@/components/food/completeness';
 import { formatAmount, formatKcal, trimNumber } from '@/components/food/format';

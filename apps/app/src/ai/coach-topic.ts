@@ -8,7 +8,7 @@
  * into the data block under "The user is asking about this workout:".
  */
 
-import type { CoachWorkoutDetail } from '@cal/ai';
+import type { CoachWorkoutDetail } from '@ration/ai';
 
 import { isUuid } from '@/lib/uuid';
 

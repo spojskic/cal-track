@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { deriveNutrients, parseNumber, scaleNutrients } from '@cal/core';
+import { deriveNutrients, parseNumber, scaleNutrients } from '@ration/core';
 
 import { formatNumber } from '@/components/charts/format';
 import { amountWarning } from '@/components/food/serving';

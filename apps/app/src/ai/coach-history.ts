@@ -4,15 +4,15 @@
  * Source of truth for the history is the database (`fetchCoachMessages`), read right after the new user message was
  * stored; the query cache only decides what the screen shows. The functions here turn stored rows into the
  * `CoachHistoryMessage[]` that `runCoachTurn` receives. Trimming to the model's budget (whole oldest turns first, with
- * a note) is `@cal/ai`'s job (`prepareHistory`); nothing here cuts text.
+ * a note) is `@ration/ai`'s job (`prepareHistory`); nothing here cuts text.
  */
 
-import { DEFAULT_REFUSALS, type CoachHistoryMessage, type GuardCategory } from '@cal/ai';
+import { DEFAULT_REFUSALS, type CoachHistoryMessage, type GuardCategory } from '@ration/ai';
 
 export type RefusalCategory = Exclude<GuardCategory, 'on_topic'>;
 
 /**
- * The refusal category when `content` is one of the fixed refusal texts of @cal/ai, else null.
+ * The refusal category when `content` is one of the fixed refusal texts of @ration/ai, else null.
  * Refusals are stored as ordinary assistant messages (the table has no `kind` column); because the texts are
  * fixed, an exact match identifies them after a reload so they keep rendering as a refusal card.
  */
@@ -42,7 +42,7 @@ export interface HistoryRow {
 
 /**
  * Stored messages (oldest first) to model history. Everything is kept: a user message that never got an answer is NOT
- * dropped (the user wrote it; `@cal/ai` merges it into the next message), and replies are passed whole. Only fixed
+ * dropped (the user wrote it; `@ration/ai` merges it into the next message), and replies are passed whole. Only fixed
  * refusals are shortened to a marker.
  */
 export function toCoachHistory(rows: readonly HistoryRow[]): CoachHistoryMessage[] {

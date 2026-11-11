@@ -10,7 +10,7 @@
  *    flagged fallback (NUTRIENT_ESTIMATE_SYSTEM_PROMPT).
  */
 
-import { LABEL_FIELDS, LABEL_NUTRIENTS, LABEL_NUTRIENT_KEYS } from '@cal/core';
+import { LABEL_FIELDS, LABEL_NUTRIENTS, LABEL_NUTRIENT_KEYS } from '@ration/core';
 
 import { CORE_NUTRIENT_CODES, MICRO_NUTRIENT_CODES } from './schemas';
 

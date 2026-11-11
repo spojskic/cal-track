@@ -1,4 +1,4 @@
-# @cal/garmin
+# @ration/garmin
 
 Pure TypeScript client, mappers and sync walk for **Garmin's own mobile-app interface** (`connectapi.garmin.com`), as used by the
 Ration phone app. **Read-only**, runs on the user's phone with a token the user got by signing in on Garmin's own page.
@@ -42,7 +42,7 @@ Only `fetch`, timers and `AbortController` are used, so it runs on Node 22 and R
 ## Usage
 
 ```ts
-import { GarminConnectClient, formatSyncReport, redeemServiceTicket, runGarminSync, ticketIn, SIGN_IN_URL } from '@cal/garmin';
+import { GarminConnectClient, formatSyncReport, redeemServiceTicket, runGarminSync, ticketIn, SIGN_IN_URL } from '@ration/garmin';
 
 // 1. show SIGN_IN_URL in a web view; stop the navigation that carries a ticket:  const t = ticketIn(request.url)
 // 2. tokens = await redeemServiceTicket(fetch, t)   // once; keep the pair in secure storage
@@ -93,4 +93,4 @@ calories - bmrCalories). The per-activity endpoints are the part no real reply w
 
 ## Tests
 
-`pnpm --filter @cal/garmin test`. Every `fetch` is a fake and the real global `fetch` is stubbed to throw, so the suite can never reach Garmin.
+`pnpm --filter @ration/garmin test`. Every `fetch` is a fake and the real global `fetch` is stubbed to throw, so the suite can never reach Garmin.

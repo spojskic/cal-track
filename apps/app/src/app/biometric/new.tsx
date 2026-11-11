@@ -1,4 +1,4 @@
-import { cmToIn, formatWeight, inToCm, lbToKg, parseNumber } from '@cal/core';
+import { cmToIn, formatWeight, inToCm, lbToKg, parseNumber } from '@ration/core';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 

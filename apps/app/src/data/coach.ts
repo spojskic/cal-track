@@ -3,7 +3,7 @@
 // signed-in user, deleting a thread cascades to its messages, and a scheduled job purges messages older than
 // the retention window for users whose profiles.coach_auto_delete is on.
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { lbToKg } from '@cal/core';
+import { lbToKg } from '@ration/core';
 
 import {
   RECOVERY_BIOMETRIC_TYPES,

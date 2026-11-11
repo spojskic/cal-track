@@ -11,7 +11,7 @@ import {
   type ParsedMeal,
   type ParsedMealItem,
   type RecipeDraft,
-} from '@cal/ai';
+} from '@ration/ai';
 
 import { buildReviewItems, type ReviewItem } from '@/components/ai/review-model';
 

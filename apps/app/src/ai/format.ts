@@ -1,4 +1,4 @@
-import type { ModelInfo } from '@cal/ai';
+import type { ModelInfo } from '@ration/ai';
 
 /** 1_000_000 -> "1M", 128_000 -> "128K", 0 -> "?". */
 export function formatContext(tokens: number): string {

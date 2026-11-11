@@ -1,4 +1,4 @@
-import { energySummaryCaption, type EnergyBreakdown, type EnergySummaryMode } from '@cal/core';
+import { energySummaryCaption, type EnergyBreakdown, type EnergySummaryMode } from '@ration/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 

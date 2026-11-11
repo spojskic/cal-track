@@ -1,4 +1,4 @@
-import { kgToLb, lbToKg, parseNumber, type UnitSystem } from '@cal/core';
+import { kgToLb, lbToKg, parseNumber, type UnitSystem } from '@ration/core';
 
 import { kgToInput, numberToInput, parseWeightInput, weightUnitLabel } from './inputs';
 

@@ -2,7 +2,7 @@ import { Stack, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { deriveNutrients, scaleNutrients, sumNutrients } from '@cal/core';
+import { deriveNutrients, scaleNutrients, sumNutrients } from '@ration/core';
 
 import { useContentWidth } from '@/components/desktop/shell-context';
 import { DayStepper } from '@/components/food/day-stepper';

@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import type { UnitSystem } from '@cal/core';
+import type { UnitSystem } from '@ration/core';
 
 import { AppText } from '@/components/ui';
 import type { BiometricEntry, ExerciseEntry, NoteEntry } from '@/data/activity';

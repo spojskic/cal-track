@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { lbToKg } from '@cal/core';
+import { lbToKg } from '@ration/core';
 
 import { requireUserId } from '@/lib/auth-user';
 import { supabase } from '@/lib/supabase';

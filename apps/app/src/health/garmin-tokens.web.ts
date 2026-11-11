@@ -1,5 +1,5 @@
 // Web: Garmin cannot be read from a browser (CORS), so there is nothing to store. Same API as garmin-tokens.ts.
-import type { GarminTokens } from '@cal/garmin';
+import type { GarminTokens } from '@ration/garmin';
 
 export async function loadGarminTokens(_userId: string): Promise<GarminTokens | null> {
   return null;
