@@ -9,8 +9,7 @@ recipe draft, a health-only coach) run on **your own OpenRouter key, which never
 > against a real Supabase project or on a phone**. Expect to fix a few things on first contact. Use the
 > [getting-started guide](docs/getting-started.md) and its checklist.
 
-<img width="1571" height="971" alt="Screenshot 2026-11-11 at 00 05 18" src="https://github.com/user-attachments/assets/2ca0cd7c-7c09-445d-a05e-3a168c6e57a2" />
-
+<img width="1499" height="921" alt="image" src="https://github.com/user-attachments/assets/792b7dea-1409-440f-a816-f13d4fa26cd7" />
 
 ## What you get
 
