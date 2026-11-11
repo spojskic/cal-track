@@ -23,6 +23,7 @@ import { PALETTES } from '../../../apps/app/src/theme/palettes';
 import { choose, clickButton, clickTab, clickText, closeSheet, fill, findField, scrollToText } from './actions';
 import { truncatedTextScript } from './browser-scripts';
 import { BARCODES, IDS, USER, addDays } from './fixtures';
+import { FRIEND_SCENARIOS } from './scenarios-friends';
 import { INVITE_SCENARIOS } from './scenarios-invites';
 import { THEME_SCENARIOS } from './scenarios-theme';
 import { WORKOUT_SCENARIOS } from './scenarios-workouts';
@@ -2797,6 +2798,9 @@ export const SCENARIOS: Scenario[] = [
 
   // ------------------------------------------------------------------------------------------ invites (More > Admin > Invite people)
   ...INVITE_SCENARIOS,
+
+  // ------------------------------------------------------------------------------------------ friends (More > Friends)
+  ...FRIEND_SCENARIOS,
 
   // ------------------------------------------------------------------------------------------ themes (Settings > Display)
   ...THEME_SCENARIOS,

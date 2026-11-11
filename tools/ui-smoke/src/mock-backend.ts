@@ -8,7 +8,8 @@
  * signup-function.ts). Pure: no sockets, no timers.
  *
  * Fidelity beyond the happy path is deliberate: unknown columns (42703 / PGRST204), invalid uuids (22P02),
- * CHECK / NOT NULL / FK / unique violations, simplified RLS (`user_id = auth.uid()`), "UPDATE requires a WHERE
+ * CHECK / NOT NULL / FK / unique violations, simplified RLS (`user_id = auth.uid()`, plus what friends may read: see
+ * `visible()`), table grants (a client cannot insert into `friendships`), "UPDATE requires a WHERE
  * clause" (Supabase enables pg-safeupdate) and the foods immutability trigger behave like the real database,
  * so queries that cannot work against the real schema fail here too.
  */
@@ -46,6 +47,16 @@ import {
   seedInvites,
 } from './invite-admin';
 import { SignUpFunctionMock } from './signup-function';
+import {
+  FriendsError,
+  friendIdsOf,
+  listFriendships,
+  pageRows,
+  respondFriendRequest,
+  sendFriendRequest,
+  usedFoodIdsOf,
+  type FriendsEnv,
+} from './friends';
 
 export type Row = Record<string, unknown>;
 
@@ -170,6 +181,17 @@ const rls = (table: string, anon: boolean): PgError =>
     ? new PgError(401, '42501', `permission denied for table ${table}`)
     : new PgError(403, '42501', `new row violates row-level security policy for table "${table}"`);
 
+/** RPCs that change data: the successful and failed calls are recorded in `mutations` as table `rpc:<name>`, op 'rpc'. */
+const MUTATING_RPCS: ReadonlySet<string> = new Set([
+  'supersede_food',
+  'delete_all_my_coach_data',
+  'admin_create_invite_code',
+  'admin_create_invite_code_for',
+  'admin_revoke_invite_code',
+  'send_friend_request',
+  'respond_friend_request',
+]);
+
 // ----------------------------------------------------------------------------- implementation
 
 class MockBackendImpl implements MockBackend {
@@ -190,6 +212,8 @@ class MockBackendImpl implements MockBackend {
   private inviteSeq = 0;
   private serials = new Map<string, number>();
   private indexCache = new Map<string, Map<string, Row[]>>();
+  /** public.my_friend_ids() / public.my_used_food() per user. Both are STABLE functions: one answer for the whole statement. */
+  private accessCache = new Map<string, ReadonlySet<string>>();
   private txMs = 0;
 
   constructor(seed: MockSeed) {
@@ -249,7 +273,7 @@ class MockBackendImpl implements MockBackend {
     this.seq += 1;
     this.tick += 1;
     this.txMs = this.nowBase + this.tick;
-    this.indexCache.clear();
+    this.touch();
     let url: URL;
     try {
       url = new URL(req.url);
@@ -361,6 +385,7 @@ class MockBackendImpl implements MockBackend {
 
   private touch(): void {
     this.indexCache.clear();
+    this.accessCache.clear();
   }
 
   private now(): string {
@@ -466,16 +491,48 @@ class MockBackendImpl implements MockBackend {
     return parent ? { def: parentDef, row: parent } : null;
   }
 
+  /** public.my_friend_ids(): the accepted friends of `uid` (cached until the next change, like the STABLE function). */
+  private friendIds(uid: string): ReadonlySet<string> {
+    const key = `friends:${uid}`;
+    let ids = this.accessCache.get(key);
+    if (!ids) {
+      ids = friendIdsOf(this.table('friendships'), uid);
+      this.accessCache.set(key, ids);
+    }
+    return ids;
+  }
+
+  /** The foods `uid` uses (public.my_used_food()): a diary entry, a recipe ingredient, a saved meal item or a favourite. */
+  private usedFoodIds(uid: string): ReadonlySet<string> {
+    const key = `used:${uid}`;
+    let ids = this.accessCache.get(key);
+    if (!ids) {
+      ids = usedFoodIdsOf((name) => this.table(name), uid);
+      this.accessCache.set(key, ids);
+    }
+    return ids;
+  }
+
+  /** What the SELECT policies of the table let the signed-in user read. */
   private visible(def: TableDef, row: Row, ctx: Ctx): boolean {
-    if (ctx.uid === null) return false;
-    switch (def.scope.kind) {
+    const uid = ctx.uid;
+    if (uid === null) return false;
+    const scope = def.scope;
+    switch (scope.kind) {
       case 'reference':
         return true;
       case 'user':
-        return row[def.scope.column] === ctx.uid;
+        // recipes_friend_read: the rows of an accepted friend are readable too (never writable, see `writable`)
+        return row[scope.column] === uid || (scope.friendRead === true && this.friendIds(uid).has(String(row[scope.column])));
+      case 'participant':
+        return scope.columns.some((c) => row[c] === uid);
       case 'owner': {
-        const owner = row[def.scope.column];
-        return owner === null || owner === undefined || owner === ctx.uid;
+        const owner = row[scope.column];
+        if (owner === null || owner === undefined || owner === uid) return true;
+        // foods_read: a friend's custom foods and recipes (the archived ones too: the policy does not look at `archived`) ...
+        if (scope.friendKinds?.includes(String(row.kind)) && this.friendIds(uid).has(String(owner))) return true;
+        // ... and any food the caller uses, so ending a friendship never blanks a diary entry or a recipe
+        return scope.usedRead === true && this.usedFoodIds(uid).has(String(row[def.pk[0] as string]));
       }
       case 'parent': {
         const parent = this.parentOf(def, row);
@@ -484,6 +541,7 @@ class MockBackendImpl implements MockBackend {
     }
   }
 
+  /** What the INSERT / UPDATE / DELETE policies allow: owner-only everywhere, including for what a friend may read. */
   private writable(def: TableDef, row: Row, ctx: Ctx): boolean {
     if (ctx.uid === null || def.virtual) return false;
     switch (def.scope.kind) {
@@ -491,12 +549,32 @@ class MockBackendImpl implements MockBackend {
         return false;
       case 'user':
         return row[def.scope.column] === ctx.uid;
+      case 'participant':
+        // friendships: the delete policy (either side). INSERT and UPDATE are refused earlier, for lack of a grant.
+        return def.scope.columns.some((c) => row[c] === ctx.uid);
       case 'owner':
         return row[def.scope.column] === ctx.uid && (!def.scope.writeKinds || def.scope.writeKinds.includes(String(row.kind)));
       case 'parent': {
         const parent = this.parentOf(def, row);
         return parent !== null && this.writable(parent.def, parent.row, ctx);
       }
+    }
+  }
+
+  /**
+   * `with check (exists (select 1 from public.foods f where f.id = <row>.<col>))` of diary_entries, favorites, recipe_ingredients and
+   * saved_meal_items: the referenced food has to be visible through the foods policy. A friend's food passes, a stranger's is refused
+   * (42501, like every row level security violation). A food that does not exist at all still ends in the foreign key error (23503),
+   * as before. `row` is the row as it will be written; the caller's own uses are read before the write, like the statement snapshot.
+   */
+  private checkFoodRefs(def: TableDef, row: Row, ctx: Ctx): void {
+    if (!def.foodRefCols || ctx.uid === null) return;
+    const foodsDef = SCHEMA.foods as TableDef;
+    for (const col of def.foodRefCols) {
+      const key = keyOf(row, [col]);
+      if (key === null) continue;
+      const food = this.index('foods', ['id']).get(key)?.[0];
+      if (food && !this.visible(foodsDef, food, ctx)) throw rls(def.name, false);
     }
   }
 
@@ -755,6 +833,8 @@ class MockBackendImpl implements MockBackend {
     try {
       if (ctx.uid === null) throw ctx.tokenError ?? new PgError(401, '42501', `permission denied for table ${def.name}`);
       if (def.virtual || def.scope.kind === 'reference') throw new PgError(403, '42501', `permission denied for table ${def.name}`);
+      // No GRANT for this write (friendships: `grant select, delete` only): refused before row level security is looked at.
+      if (def.writeGrants && !def.writeGrants.includes(op)) throw new PgError(403, '42501', `permission denied for table ${def.name}`);
 
       let result: WriteResult;
       if (op === 'insert') result = this.doInsert(def, payload as Row | Row[], params, ctx, prefer);
@@ -831,6 +911,7 @@ class MockBackendImpl implements MockBackend {
     if (opts.ctx && !this.writable(def, row, opts.ctx) && !opts.seed) {
       throw rls(def.name, opts.ctx.uid === null);
     }
+    if (opts.ctx && !opts.seed) this.checkFoodRefs(def, row, opts.ctx);
     // private.guard_profile_admin_flag (BEFORE INSERT): a client cannot create a profile that is a super admin.
     if (def.name === 'profiles' && opts.ctx && !opts.seed && row.is_admin === true) {
       throw new PgError(403, '42501', 'is_admin can only be set by the app owner (SQL editor)');
@@ -923,6 +1004,21 @@ class MockBackendImpl implements MockBackend {
         );
       }
     }
+    // friendships_pair_uk: one row per unordered pair, whoever asked first
+    if (def.pairUnique) {
+      const [a, b] = def.pairUnique.cols;
+      const pair = (r: Row) => [String(r[a]), String(r[b])].sort();
+      const mine = pair(row).join('\u0001');
+      const clash = this.table(def.name).find((r) => r !== self && pair(r).join('\u0001') === mine);
+      if (clash) {
+        throw new PgError(
+          409,
+          '23505',
+          `duplicate key value violates unique constraint "${def.pairUnique.name}"`,
+          `Key (LEAST(${a}, ${b}), GREATEST(${a}, ${b}))=(${pair(row).join(', ')}) already exists.`,
+        );
+      }
+    }
   }
 
   private doInsert(def: TableDef, payload: Row | Row[], params: URLSearchParams, ctx: Ctx, prefer: Prefer): WriteResult {
@@ -957,6 +1053,7 @@ class MockBackendImpl implements MockBackend {
         // merge-duplicates: DO UPDATE SET <columns present in the payload>
         if (!this.writable(def, existing, ctx)) throw rls(def.name, false);
         const provided = bulk ? extraKeys : new Set(Object.keys(item));
+        this.checkFoodRefs(def, { ...existing, ...Object.fromEntries([...provided].map((k) => [k, row[k]])) }, ctx);
         const old = clone(existing);
         for (const k of provided) {
           if (!def.columns[k]?.generated) existing[k] = row[k];
@@ -1050,6 +1147,7 @@ class MockBackendImpl implements MockBackend {
     const targets = this.matching(def, filters, ctx, true);
     const changed: Row[] = [];
     for (const row of targets) {
+      this.checkFoodRefs(def, { ...row, ...coerced }, ctx); // the WITH CHECK sees the new row; "uses" are those before the statement
       const old = clone(row);
       Object.assign(row, coerced);
       this.beforeWrite(def, row, old);
@@ -1162,22 +1260,25 @@ class MockBackendImpl implements MockBackend {
       );
     }
     if (ctx.uid === null) throw ctx.tokenError ?? new PgError(401, '42501', `permission denied for function ${name}`);
+    const uid = ctx.uid;
 
     const wantsObject = (headers.accept ?? '').includes('application/vnd.pgrst.object+json');
     const snapshot = this.snapshot();
-    const mutating =
-      name === 'supersede_food' ||
-      name === 'delete_all_my_coach_data' ||
-      name === 'admin_create_invite_code' ||
-      name === 'admin_create_invite_code_for' ||
-      name === 'admin_revoke_invite_code';
+    const mutating = MUTATING_RPCS.has(name);
     const extraHeaders: Record<string, string> = {};
     try {
       let result: unknown;
       switch (name) {
         case 'search_foods':
           result = searchFoods(
-            { foods: this.table('foods'), usage: this.table('food_usage'), favorites: this.table('favorites'), uid: ctx.uid, nowMs: this.txMs },
+            {
+              foods: this.table('foods'),
+              usage: this.table('food_usage'),
+              favorites: this.table('favorites'),
+              uid,
+              nowMs: this.txMs,
+              friends: this.friendIds(uid),
+            },
             args,
           );
           break;
@@ -1230,6 +1331,35 @@ class MockBackendImpl implements MockBackend {
           this.requireSuperAdmin(ctx, 'revoke invite codes');
           result = revokeInvite(this.table(INVITES_TABLE), this.txMs, args.p_code);
           break;
+        case 'my_friend_ids':
+          // setof uuid: PostgREST answers an array of scalars
+          result = [...this.friendIds(uid)];
+          break;
+        case 'my_used_food': {
+          const foodId = coerceValue('uuid', args.p_food_id);
+          result = typeof foodId === 'string' && this.usedFoodIds(uid).has(foodId);
+          break;
+        }
+        case 'send_friend_request':
+          result = this.friendsRpc(() => sendFriendRequest(this.friendsEnv(uid), args.p_email));
+          break;
+        case 'respond_friend_request':
+          // `if p_accept then ... else delete`: a NULL p_accept declines
+          result = this.friendsRpc(() =>
+            respondFriendRequest(this.friendsEnv(uid), coerceValue('uuid', args.p_id) as string | null, coerceValue('bool', args.p_accept) === true),
+          );
+          break;
+        case 'list_friendships': {
+          // A function that returns a table: PostgREST filters, orders and pages it from the query string.
+          const page = pageRows(listFriendships(this.friendsEnv(uid)), url.searchParams, ['status', 'direction']);
+          for (const u of page.unsupported) this.warnings.push(`rpc list_friendships: the query parameter "${u}" is not emulated`);
+          result = page.rows;
+          if (parsePrefer(headers.prefer).count !== null) {
+            const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0) || 0);
+            extraHeaders['content-range'] = page.rows.length === 0 ? `*/${page.total}` : `${offset}-${offset + page.rows.length - 1}/${page.total}`;
+          }
+          break;
+        }
         default:
           throw new PgError(404, 'PGRST202', `Could not find the function public.${name} in the schema cache`);
       }
@@ -1258,8 +1388,10 @@ class MockBackendImpl implements MockBackend {
     const gtin14 = digits.padStart(14, '0');
     const foodsDef = SCHEMA.foods as TableDef;
     const quality = (s: string): number => ({ fdc_foundation: 1, fdc_sr_legacy: 0.85, cnf: 0.7, cofid: 0.55, fdc_fndds: 0.4, fdc_branded: 0.25, off: 0.1, ai_estimate: 0 }[s] ?? 0.5);
+    // The function itself only looks at global and own foods (`owner_id is null or owner_id = v_uid`); a friend's food or one the
+    // caller merely uses is visible through RLS, but not a candidate here (20261110000109 leaves this function alone).
     const candidates = this.table('foods')
-      .filter((f) => f.gtin14 === gtin14 && f.archived !== true && this.visible(foodsDef, f, ctx))
+      .filter((f) => f.gtin14 === gtin14 && f.archived !== true && (f.owner_id === null || f.owner_id === ctx.uid))
       .sort(
         (a, b) =>
           Number(b.owner_id !== null) - Number(a.owner_id !== null) ||
@@ -1316,6 +1448,36 @@ class MockBackendImpl implements MockBackend {
       if (e instanceof InviteAdminError) throw new PgError(e.status, e.sqlstate, e.message);
       throw e;
     }
+  }
+
+  /** Maps the SQL exceptions of the friend RPCs to the error PostgREST sends. */
+  private friendsRpc<T>(run: () => T): T {
+    try {
+      return run();
+    } catch (e) {
+      if (e instanceof FriendsError) throw new PgError(e.status, e.sqlstate, e.message);
+      throw e;
+    }
+  }
+
+  /** What the SECURITY DEFINER friend functions work on: the rows without RLS or table grants. */
+  private friendsEnv(uid: string): FriendsEnv {
+    return {
+      uid,
+      nowMs: this.txMs,
+      rows: () => this.table('friendships'),
+      users: () => [...this.users.values()],
+      profiles: () => this.table('profiles'),
+      insert: (requesterId, addresseeId) => {
+        const def = SCHEMA.friendships as TableDef;
+        const row = this.buildRow(def, { requester_id: requesterId, addressee_id: addresseeId }, { missingDefault: true, ctx: null, seed: true });
+        this.checkFks(def, row);
+        this.unique(def, row, null);
+        this.table('friendships').push(row);
+        this.touch();
+      },
+      remove: (row) => this.cascade('friendships', [row], []),
+    };
   }
 
   private deleteAllCoachData(ctx: Ctx): number {

@@ -86,7 +86,7 @@ describe('sidebar groups', () => {
       daily: ['Dashboard', 'Diary', 'Foods'],
       training: ['Workouts'],
       coach: ['Coach', 'AI Coach & keys'],
-      profile: ['Profile & targets', 'Personal details', 'Nutrient targets'],
+      profile: ['Profile & targets', 'Personal details', 'Nutrient targets', 'Friends'],
       connections: ['Connected apps & devices'],
       app: ['Display & units', 'About'],
     });

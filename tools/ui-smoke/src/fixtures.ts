@@ -11,6 +11,10 @@
  *  - empty-diary    onboarded, nothing logged (empty states)
  *  - fresh-account  onboarded with body data, but no diary and no library (no favourites, recipes, saved meals,
  *                   custom foods, coach chats): the empty states of the Foods tab
+ *  - admin          the default data, and the profile is the app owner's (is_admin): More > Admin > Invite people
+ *  - friends        the default data plus four more people (Anna, Ben, Dora, Carl; the demo user stays the signed-in one):
+ *                   Anna is a friend (and shares custom foods, a recipe and an AI estimate), Ben's request is waiting for the demo
+ *                   user (incoming), the demo user's request to Dora is waiting for her (outgoing), Carl has no relation
  */
 import {
   COMPUTED_NUTRIENT_CODES,
@@ -30,8 +34,8 @@ import { stableUuid, type MockUser } from './session';
 
 export { FIXED_NOW, TODAY } from './constants';
 
-export type FixtureVariant = 'default' | 'imperial' | 'not-onboarded' | 'empty-diary' | 'fresh-account' | 'admin';
-export const FIXTURE_VARIANTS: readonly FixtureVariant[] = ['default', 'imperial', 'not-onboarded', 'empty-diary', 'fresh-account', 'admin'];
+export type FixtureVariant = 'default' | 'imperial' | 'not-onboarded' | 'empty-diary' | 'fresh-account' | 'admin' | 'friends';
+export const FIXTURE_VARIANTS: readonly FixtureVariant[] = ['default', 'imperial', 'not-onboarded', 'empty-diary', 'fresh-account', 'admin', 'friends'];
 
 // ----------------------------------------------------------------------------- dates
 
@@ -98,10 +102,40 @@ export type MealKey = (typeof MEAL_KEYS)[number];
 const mapIds = <K extends string>(prefix: string, keys: readonly K[]): Record<K, string> =>
   Object.fromEntries(keys.map((k) => [k, stableUuid(`${prefix}:${k}`)])) as Record<K, string>;
 
+/** The other people of the 'friends' variant (see the header). */
+export const FRIEND_KEYS = ['anna', 'ben', 'dora', 'carl'] as const;
+export type FriendKey = (typeof FRIEND_KEYS)[number];
+
+/** Their foods, only seeded in the 'friends' variant. */
+export const FRIEND_FOOD_KEYS = ['annaHummus', 'annaSpice', 'annaSoup', 'annaShake', 'carlSauce', 'benGranola'] as const;
+export type FriendFoodKey = (typeof FRIEND_FOOD_KEYS)[number];
+
+const FRIEND_NAMES: Record<FriendKey, string> = { anna: 'Anna', ben: 'Ben', dora: 'Dora', carl: 'Carl' };
+
+/** Accounts of the 'friends' variant (the demo user stays `USER`, the signed-in one): anna@example.com, ben@example.com, ... */
+export const FRIEND_USERS: Record<FriendKey, MockUser> = Object.fromEntries(
+  FRIEND_KEYS.map((k, i) => [
+    k,
+    { id: stableUuid(`user:friend:${k}`), email: `${k}@example.com`, password: 'ration-friend-1', createdAt: `2026-10-0${i + 2}T09:00:00+00:00` } satisfies MockUser,
+  ]),
+) as Record<FriendKey, MockUser>;
+
 /** Deterministic ids of the fixture entities: use them in scenario paths and assertions. */
 export const IDS = {
   user: USER.id,
-  food: mapIds('food', FOOD_KEYS),
+  /**
+   * 'friends' variant: the user ids of the other people. anna: accepted friend; ben: has asked the demo user (incoming, pending);
+   * dora: the demo user has asked her (outgoing, pending); carl: no relation.
+   */
+  friend: mapIds('user:friend', FRIEND_KEYS),
+  /** 'friends' variant: the ids of the friendships rows: anna accepted, ben incoming pending, dora outgoing pending. */
+  friendship: mapIds('friendship', ['anna', 'ben', 'dora'] as const),
+  /**
+   * Foods. The first 31 exist in every variant (the demo user's library and the global catalogue); annaHummus, annaSpice, annaSoup,
+   * annaShake, carlSauce and benGranola only in 'friends': Anna's hummus, spice mix and lentil soup (recipe) are visible to the demo
+   * user, her protein shake (AI estimate), Carl's pasta sauce (no relation) and Ben's granola (request still pending) are not.
+   */
+  food: { ...mapIds('food', FOOD_KEYS), ...mapIds('food', FRIEND_FOOD_KEYS) },
   mealGroup: mapIds('meal-group', MEAL_KEYS),
   savedMeal: mapIds('saved-meal', ['breakfast', 'lunch'] as const),
   /** Coach threads (default variant): '1' protein question, '2' dinner ideas, '3' untitled. */
@@ -847,6 +881,222 @@ function foodRows(): { foods: Row[]; portions: Row[] } {
   return { foods, portions };
 }
 
+// ----------------------------------------------------------------------------- friends (variant 'friends')
+
+interface FriendFoodSpec {
+  key: FriendFoodKey;
+  owner: FriendKey;
+  name: string;
+  /** source is the same word: custom foods, recipes and AI estimates are the only kinds a user can own. */
+  kind: 'custom' | 'recipe' | 'ai_estimate';
+  nutrients: NutrientMap;
+  createdAt: string;
+  portions?: PortionSpec[];
+}
+
+const FRIEND_FOODS: FriendFoodSpec[] = [
+  {
+    key: 'annaHummus',
+    owner: 'anna',
+    name: 'Anna hummus',
+    kind: 'custom',
+    createdAt: '2026-10-18T17:40:00+00:00',
+    nutrients: {
+      ENERGY_KCAL: 229, PROTEIN_G: 7.4, FAT_G: 17.5, CARBS_G: 12.1, FIBER_G: 5.4, SUGARS_G: 0.8,
+      SATURATED_FAT_G: 2.6, MONOUNSATURATED_FAT_G: 9.4, POLYUNSATURATED_FAT_G: 4.8,
+      SODIUM_MG: 320, POTASSIUM_MG: 262, CALCIUM_MG: 62, IRON_MG: 2.6, MAGNESIUM_MG: 64, PHOSPHORUS_MG: 175, ZINC_MG: 1.9, FOLATE_UG: 82,
+    },
+    portions: [{ label: '2 tbsp', amount: 2, unit: 'tbsp', grams: 30 }],
+  },
+  {
+    key: 'annaSpice',
+    owner: 'anna',
+    name: 'Anna spice mix',
+    kind: 'custom',
+    createdAt: '2026-10-18T17:55:00+00:00',
+    nutrients: {
+      ENERGY_KCAL: 282, PROTEIN_G: 12.5, FAT_G: 9.8, CARBS_G: 48, FIBER_G: 22, SUGARS_G: 4.5, SATURATED_FAT_G: 1.6,
+      SODIUM_MG: 5400, POTASSIUM_MG: 1650, CALCIUM_MG: 480, IRON_MG: 21, MAGNESIUM_MG: 190,
+    },
+    portions: [{ label: '1 tsp', amount: 1, unit: 'tsp', grams: 3 }],
+  },
+  {
+    key: 'annaSoup',
+    owner: 'anna',
+    name: 'Anna lentil soup',
+    kind: 'recipe',
+    createdAt: '2026-10-19T12:10:00+00:00',
+    nutrients: {}, // computed from the ingredients below
+  },
+  {
+    key: 'annaShake',
+    owner: 'anna',
+    name: 'Anna protein shake',
+    kind: 'ai_estimate',
+    createdAt: '2026-10-25T08:30:00+00:00',
+    nutrients: { ENERGY_KCAL: 96, PROTEIN_G: 12, FAT_G: 2.2, CARBS_G: 6.5, SUGARS_G: 4.9, FIBER_G: 0.8, SODIUM_MG: 70, CALCIUM_MG: 120 },
+    portions: [{ label: '1 shake (350 ml)', amount: 1, unit: 'shake (350 ml)', grams: 350 }],
+  },
+  {
+    key: 'carlSauce',
+    owner: 'carl',
+    name: 'Carl pasta sauce',
+    kind: 'custom',
+    createdAt: '2026-10-21T19:15:00+00:00',
+    nutrients: {
+      ENERGY_KCAL: 74, PROTEIN_G: 1.6, FAT_G: 4.1, CARBS_G: 7.9, SUGARS_G: 5.8, FIBER_G: 1.9, SATURATED_FAT_G: 0.6,
+      SODIUM_MG: 410, POTASSIUM_MG: 330, VITAMIN_C_MG: 6,
+    },
+    portions: [{ label: '1/2 cup', amount: 0.5, unit: 'cup', grams: 125 }],
+  },
+  {
+    key: 'benGranola',
+    owner: 'ben',
+    name: 'Ben granola',
+    kind: 'custom',
+    createdAt: '2026-10-23T07:50:00+00:00',
+    nutrients: {
+      ENERGY_KCAL: 452, PROTEIN_G: 9.8, FAT_G: 17, CARBS_G: 64, FIBER_G: 7, SUGARS_G: 18, SATURATED_FAT_G: 2.9,
+      SODIUM_MG: 45, IRON_MG: 3.2, MAGNESIUM_MG: 98,
+    },
+    portions: [{ label: '1/2 cup', amount: 0.5, unit: 'cup', grams: 55 }],
+  },
+];
+
+const FRIEND_FOOD_BY_KEY = new Map(FRIEND_FOODS.map((f) => [f.key, f] as const));
+
+// Anna's lentil soup: boiled lentils (a global food) and her spice mix. Computed with the same core function as the demo recipe, so
+// the stored nutrients are exactly what its ingredients add up to.
+const SOUP_INGREDIENTS: { food: FoodKey | FriendFoodKey; grams: number }[] = [
+  { food: 'lentils', grams: 700 },
+  { food: 'annaSpice', grams: 12 },
+];
+const SOUP_SERVINGS = 4;
+const SOUP_FINAL_WEIGHT_G = 1400;
+
+const nutrientsOfFixtureFood = (key: FoodKey | FriendFoodKey): NutrientMap =>
+  ((FOOD_SPEC_BY_KEY.get(key as FoodKey) ?? FRIEND_FOOD_BY_KEY.get(key as FriendFoodKey)) as { nutrients: NutrientMap }).nutrients;
+
+const soupResult = computeRecipe({
+  ingredients: SOUP_INGREDIENTS.map((i) => ({ per100g: nutrientsOfFixtureFood(i.food), grams: i.grams })),
+  servings: SOUP_SERVINGS,
+  finalWeightG: SOUP_FINAL_WEIGHT_G,
+});
+(FRIEND_FOOD_BY_KEY.get('annaSoup') as FriendFoodSpec).nutrients = cleanRecipeNutrients(soupResult.per100g);
+(FRIEND_FOOD_BY_KEY.get('annaSoup') as FriendFoodSpec).portions = [
+  { label: '1 serving', amount: 1, unit: 'serving', grams: soupResult.servingWeightG },
+  { label: 'Full recipe', amount: 1, unit: 'recipe', grams: SOUP_FINAL_WEIGHT_G },
+  { label: '100 g', amount: 100, unit: 'g', grams: 100 },
+];
+
+/** Adds the people, friendships and foods of the 'friends' variant to the default tables. */
+function addFriendData(tables: Record<string, Row[]>): void {
+  const foods: Row[] = [];
+  const portions: Row[] = [];
+  for (const f of FRIEND_FOODS) {
+    const id = IDS.food[f.key];
+    foods.push({
+      id,
+      source: f.kind,
+      source_id: null,
+      kind: f.kind,
+      owner_id: FRIEND_USERS[f.owner].id,
+      name: f.name,
+      brand: null,
+      gtin14: null,
+      category: null,
+      nutrients: f.nutrients,
+      completeness: r3(completeness(f.nutrients)),
+      carb_basis: 'includes_fiber',
+      density_g_per_ml: null,
+      popularity: 0,
+      version: 1,
+      supersedes: null,
+      archived: false,
+      created_at: f.createdAt,
+      updated_at: f.createdAt,
+    });
+    (f.portions ?? []).forEach((p, i) => {
+      portions.push({
+        id: stableUuid(`portion:friend:${f.key}:${i}`),
+        food_id: id,
+        label: p.label,
+        amount: p.amount,
+        unit: p.unit,
+        grams: r3(p.grams),
+        sort_order: i,
+      });
+    });
+  }
+
+  tables.foods = [...(tables.foods ?? []), ...foods];
+  tables.food_portions = [...(tables.food_portions ?? []), ...portions];
+  tables.recipes = [
+    ...(tables.recipes ?? []),
+    {
+      food_id: IDS.food.annaSoup,
+      user_id: FRIEND_USERS.anna.id,
+      servings: SOUP_SERVINGS,
+      final_weight_g: SOUP_FINAL_WEIGHT_G,
+      notes: 'Simmer for 25 minutes and add a squeeze of lemon at the end.',
+    },
+  ];
+  tables.recipe_ingredients = [
+    ...(tables.recipe_ingredients ?? []),
+    ...SOUP_INGREDIENTS.map((ing, i) => ({
+      id: stableUuid(`recipe-ingredient:friend:annaSoup:${i}`),
+      recipe_food_id: IDS.food.annaSoup,
+      ingredient_food_id: IDS.food[ing.food],
+      grams: ing.grams,
+      sort_order: i,
+    })),
+  ];
+
+  // What handle_new_user would have created for each account (the four default meal groups are left out: nobody signs in as them).
+  tables.profiles = [
+    ...(tables.profiles ?? []),
+    ...FRIEND_KEYS.map((k) => ({
+      user_id: FRIEND_USERS[k].id,
+      display_name: FRIEND_NAMES[k],
+      unit_system: 'metric',
+      timezone: TIMEZONE,
+      onboarded: true,
+      created_at: FRIEND_USERS[k].createdAt,
+      updated_at: FRIEND_USERS[k].createdAt,
+    })),
+  ];
+
+  tables.friendships = [
+    // accepted: Anna asked the demo user nine days ago and the demo user said yes the same evening
+    {
+      id: IDS.friendship.anna,
+      requester_id: IDS.friend.anna,
+      addressee_id: USER.id,
+      status: 'accepted',
+      created_at: localIso(dayOffset(-9), '20:10'),
+      responded_at: localIso(dayOffset(-9), '21:00'),
+    },
+    // incoming: Ben asked the demo user this morning
+    {
+      id: IDS.friendship.ben,
+      requester_id: IDS.friend.ben,
+      addressee_id: USER.id,
+      status: 'pending',
+      created_at: localIso(TODAY, '09:15'),
+      responded_at: null,
+    },
+    // outgoing: the demo user asked Dora two days ago, she has not answered
+    {
+      id: IDS.friendship.dora,
+      requester_id: USER.id,
+      addressee_id: IDS.friend.dora,
+      status: 'pending',
+      created_at: localIso(dayOffset(-2), '18:30'),
+      responded_at: null,
+    },
+  ];
+}
+
 // ----------------------------------------------------------------------------- diary
 
 interface EntrySpec {
@@ -1236,6 +1486,7 @@ export function buildFixtures(variant: FixtureVariant = 'default'): FixtureSet {
     fasts: [],
     integrations: [],
     dri_values: [],
+    friendships: [],
   };
 
   // A brand-new account has no custom foods, recipes or AI estimates (all of them are foods owned by the user).
@@ -1458,7 +1709,15 @@ export function buildFixtures(variant: FixtureVariant = 'default'): FixtureSet {
     ];
   }
 
-  return { variant, seed: { users: [USER], tables }, user: USER, today: TODAY, ids: IDS };
+  if (variant === 'friends') addFriendData(tables);
+
+  return {
+    variant,
+    seed: { users: variant === 'friends' ? [USER, ...FRIEND_KEYS.map((k) => FRIEND_USERS[k])] : [USER], tables },
+    user: USER,
+    today: TODAY,
+    ids: IDS,
+  };
 }
 
 /** The FIXED_NOW string, re-exported with the fixture time zone for scenario code. */

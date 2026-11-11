@@ -50,14 +50,19 @@ export interface FkDef {
 
 /**
  * Simplified row level security.
- * - user:      rows have `column` = auth.uid() (read + write)
- * - owner:     `column` is NULL (global, read only) or auth.uid() (read + write, restricted to `writeKinds`)
- * - parent:    visible when the parent row is visible; writable when the parent row is writable
- * - reference: readable by every signed-in user, never writable by clients
+ * - user:        rows have `column` = auth.uid() (read + write). `friendRead` adds READ access to the rows of the caller's accepted
+ *                friends (public.my_friend_ids(), 20261110000109: recipes); writes stay owner-only
+ * - owner:       `column` is NULL (global, read only) or auth.uid() (read + write, restricted to `writeKinds`). `friendKinds` adds READ
+ *                access to the rows of those kinds that accepted friends own, `usedRead` to the rows the caller uses anywhere
+ *                (public.my_used_food()); both are the foods_read policy of 20261110000109
+ * - participant: rows where one of `columns` is auth.uid() (friendships); what a client may do with them is limited by `writeGrants`
+ * - parent:      visible when the parent row is visible; writable when the parent row is writable
+ * - reference:   readable by every signed-in user, never writable by clients
  */
 export type Scope =
-  | { kind: 'user'; column: string }
-  | { kind: 'owner'; column: string; writeKinds?: readonly string[] }
+  | { kind: 'user'; column: string; friendRead?: boolean }
+  | { kind: 'owner'; column: string; writeKinds?: readonly string[]; friendKinds?: readonly string[]; usedRead?: boolean }
+  | { kind: 'participant'; columns: readonly string[] }
   | { kind: 'parent'; fk: string }
   | { kind: 'reference' };
 
@@ -70,6 +75,21 @@ export interface TableDef {
   scope: Scope;
   /** Computed on read (daily_totals): never writable. */
   virtual?: boolean;
+  /**
+   * The writes the `authenticated` role has a table GRANT for (default: all three). A write without a grant fails with
+   * `permission denied for table ...` (403) before any row level security is looked at, like a read-only reference table.
+   */
+  writeGrants?: readonly ('insert' | 'update' | 'delete')[];
+  /**
+   * Columns that hold a food id which the row policy requires the caller to be able to SEE:
+   * `with check (exists (select 1 from public.foods f where f.id = <col>))` (diary_entries, favorites, recipe_ingredients,
+   * saved_meal_items). The food is looked up through the foods policy, so a friend's food passes and a stranger's does not.
+   */
+  foodRefCols?: readonly string[];
+  /** CHECK constraints over more than one column (the single column ones are on the ColumnDef). */
+  checks?: readonly { name: string; ok: (row: Record<string, unknown>) => boolean }[];
+  /** `create unique index ... (least(a, b), greatest(a, b))`: one row per unordered pair of two columns. */
+  pairUnique?: { name: string; cols: readonly [string, string] };
 }
 
 // ----------------------------------------------------------------------------- column builders
@@ -209,7 +229,8 @@ const defs: TableDef[] = [
     },
     pk: ['id'],
     fks: [userFk('foods', 'owner_id'), fk('foods', ['supersedes'], 'foods', ['id'], 'set null')],
-    scope: { kind: 'owner', column: 'owner_id', writeKinds: ['custom', 'recipe', 'ai_estimate'] },
+    // 20261110000109 foods_read: global, own, a friend's custom foods / recipes, and any food the caller uses. Writes stay owner-only.
+    scope: { kind: 'owner', column: 'owner_id', writeKinds: ['custom', 'recipe', 'ai_estimate'], friendKinds: ['custom', 'recipe'], usedRead: true },
   }),
   table({
     name: 'food_portions',
@@ -339,7 +360,8 @@ const defs: TableDef[] = [
     },
     pk: ['food_id'],
     fks: [fk('recipes', ['food_id'], 'foods', ['id'], 'cascade'), userFk('recipes')],
-    scope: { kind: 'user', column: 'user_id' },
+    // recipes_friend_read (20261110000109): a friend's recipe row is readable; recipes_owner keeps every write to the owner.
+    scope: { kind: 'user', column: 'user_id', friendRead: true },
   }),
   table({
     name: 'recipe_ingredients',
@@ -355,7 +377,9 @@ const defs: TableDef[] = [
       fk('recipe_ingredients', ['recipe_food_id'], 'recipes', ['food_id'], 'cascade'),
       fk('recipe_ingredients', ['ingredient_food_id'], 'foods', ['id'], 'no action'),
     ],
+    // Follows the recipe row: readable for a friend's recipe too (recipe_ingredients_friend_read), writable only for the owner.
     scope: { kind: 'parent', fk: 'recipe_ingredients_recipe_food_id_fkey' },
+    foodRefCols: ['ingredient_food_id'],
   }),
   table({
     name: 'saved_meals',
@@ -383,6 +407,7 @@ const defs: TableDef[] = [
       fk('saved_meal_items', ['food_id'], 'foods', ['id'], 'no action'),
     ],
     scope: { kind: 'parent', fk: 'saved_meal_items_saved_meal_id_fkey' },
+    foodRefCols: ['food_id'],
   }),
   table({
     name: 'favorites',
@@ -394,6 +419,7 @@ const defs: TableDef[] = [
     pk: ['user_id', 'food_id'],
     fks: [userFk('favorites'), fk('favorites', ['food_id'], 'foods', ['id'], 'cascade')],
     scope: { kind: 'user', column: 'user_id' },
+    foodRefCols: ['food_id'],
   }),
   table({
     name: 'food_usage',
@@ -441,6 +467,7 @@ const defs: TableDef[] = [
       },
     ],
     scope: { kind: 'user', column: 'user_id' },
+    foodRefCols: ['food_id'],
   }),
   table({
     name: 'daily_totals',
@@ -611,6 +638,25 @@ const defs: TableDef[] = [
     ],
     scope: { kind: 'user', column: 'user_id' },
   }),
+  // 20261110000109: one row per pair, written only by send_friend_request / respond_friend_request (SECURITY DEFINER). A client may
+  // read its own rows and delete them (cancel a request, decline one, remove a friend); INSERT and UPDATE have no grant.
+  table({
+    name: 'friendships',
+    columns: {
+      id: idCol(),
+      requester_id: userCol(),
+      addressee_id: userCol(),
+      status: text({ notNull: true, default: { value: 'pending' }, oneOf: ['pending', 'accepted'] }),
+      created_at: nowCol(),
+      responded_at: ts(),
+    },
+    pk: ['id'],
+    fks: [userFk('friendships', 'requester_id'), userFk('friendships', 'addressee_id')],
+    scope: { kind: 'participant', columns: ['requester_id', 'addressee_id'] },
+    writeGrants: ['delete'],
+    checks: [{ name: 'friendships_not_self', ok: (row) => row.requester_id !== row.addressee_id }],
+    pairUnique: { name: 'friendships_pair_uk', cols: ['requester_id', 'addressee_id'] },
+  }),
 ];
 
 export const SCHEMA: Readonly<Record<string, TableDef>> = Object.fromEntries(defs.map((d) => [d.name, d]));
@@ -636,6 +682,13 @@ export const CLIENT_RPCS: Readonly<Record<string, { args: readonly string[]; req
   // 20261110000108: codes made for an e-mail address, and the list with the e-mail (the app pages it with PostgREST limit / offset).
   admin_create_invite_code_for: { args: ['p_email', 'p_max_uses', 'p_valid_days'], required: ['p_email'] },
   admin_list_invites: { args: [], required: [] },
+  // 20261110000109: friends. my_friend_ids / my_used_food run inside the row level security policies as the caller and are executable
+  // by `authenticated` too (the migration grants them), so they are callable through the REST API.
+  my_friend_ids: { args: [], required: [] },
+  my_used_food: { args: ['p_food_id'], required: ['p_food_id'] },
+  send_friend_request: { args: ['p_email'], required: ['p_email'] },
+  respond_friend_request: { args: ['p_id', 'p_accept'], required: ['p_id', 'p_accept'] },
+  list_friendships: { args: [], required: [] },
 };
 
 /** Functions that exist but are service_role only: a client call is a bug (permission denied). */

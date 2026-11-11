@@ -198,7 +198,8 @@ export const WORKOUT_SCENARIOS: Scenario[] = [
         if (ctx.backend.mutations.some((m) => m.table === 'exercise_entries')) throw new Error('exercise_entries was written');
       });
       await ctx.check('a browser never asks Garmin for anything', () => {
-        const other = ctx.backend.calls.filter((c) => c.kind === 'function' || c.kind === 'rpc');
+        // The friend request count in the shell asks for list_friendships on every page; that is not Garmin.
+        const other = ctx.backend.calls.filter((c) => (c.kind === 'function' || c.kind === 'rpc') && c.target !== 'list_friendships');
         if (other.length > 0) throw new Error(`unexpected calls: ${other.map((c) => c.target).join(', ')}`);
       });
     },

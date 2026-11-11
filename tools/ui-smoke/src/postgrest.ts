@@ -732,4 +732,9 @@ export function validateRow(def: TableDef, row: Record<string, unknown>): void {
     if (col.nonBlank) check(String(v).trim().length > 0, 'check');
     if (col.pattern) check(col.pattern.test(String(v)), 'format');
   }
+  for (const c of def.checks ?? []) {
+    if (!c.ok(row)) {
+      throw new PgError(400, '23514', `new row for relation "${def.name}" violates check constraint "${c.name}"`, `Failing row contains ${fmtRow(row)}.`);
+    }
+  }
 }

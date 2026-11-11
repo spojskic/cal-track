@@ -7,6 +7,7 @@ import {
   BARCODES,
   FIXTURE_VARIANTS,
   FOOD_KEYS,
+  FRIEND_FOOD_KEYS,
   IDS,
   USER,
   addDays,
@@ -83,7 +84,8 @@ describe('fixture integrity', () => {
       expect(rows('exercise_activities').some((x) => x.code === a.activity_code)).toBe(true);
     }
     expect(FOOD_KEYS.length).toBe(rows('foods').length);
-    expect(new Set(Object.values(IDS.food)).size).toBe(FOOD_KEYS.length);
+    // IDS.food also names the foods of the 'friends' variant (friends-mock.test.ts), which this default seed does not have
+    expect(new Set(Object.values(IDS.food)).size).toBe(FOOD_KEYS.length + FRIEND_FOOD_KEYS.length);
   });
 });
 

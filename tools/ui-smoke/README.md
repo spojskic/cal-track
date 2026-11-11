@@ -125,7 +125,7 @@ Append an object to `SCENARIOS` in `src/scenarios.ts`:
   route: '/water/new',                     // expo-router pattern (checked against apps/app/src/app)
   path: '/water/new',                      // or (fixtures) => `/food/${fixtures.ids.food.egg}`
   auth: 'signed-in',                       // or 'signed-out'
-  fixtures: 'default',                     // 'imperial' | 'not-onboarded' | 'empty-diary' | 'fresh-account'
+  fixtures: 'default',                     // 'imperial' | 'not-onboarded' | 'empty-diary' | 'fresh-account' | 'admin' | 'friends'
   expect: ["Today's total"],               // text that must be visible after load
   expectInputs: [],                        // input VALUES after load: [{ field: 'Food name', value: 'Ćevapi' }]
   allowBackendErrors: [],                  // expected 4xx, e.g. ['/auth/v1/token'] or /23505/

@@ -1,6 +1,7 @@
 /**
  * `search_foods(q, max_results, kinds)` emulation: accent-insensitive prefix + typo-tolerant search with the
- * personalised ranking described in supabase/migrations/20261110000008_search_functions.sql.
+ * personalised ranking described in supabase/migrations/20261110000008_search_functions.sql, as the friends migration
+ * 20261110000109_friends.sql changed it (a friend's custom foods and recipes are searchable and rank below your own).
  * Approximation: Postgres FTS / pg_trgm are replaced by word-prefix matching and a small trigram similarity.
  */
 
@@ -71,6 +72,8 @@ export interface SearchInput {
   favorites: readonly Row[];
   uid: string | null;
   nowMs: number;
+  /** The user ids of the caller's accepted friends (public.my_friend_ids()); default: none. */
+  friends?: ReadonlySet<string>;
 }
 
 export interface SearchArgs {
@@ -112,11 +115,18 @@ export function searchFoods(input: SearchInput, args: SearchArgs): SearchRow[] {
   const usageBy = new Map<string, Row>();
   for (const u of input.usage) if (u.user_id === input.uid) usageBy.set(String(u.food_id), u);
   const favs = new Set(input.favorites.filter((f) => f.user_id === input.uid).map((f) => String(f.food_id)));
+  const friendIds = input.friends ?? new Set<string>();
+  const friendKinds = new Set(['custom', 'recipe']);
 
   const scored: { row: SearchRow; score: number }[] = [];
   for (const food of input.foods) {
     if (food.archived === true) continue;
-    if (food.owner_id !== null && food.owner_id !== input.uid) continue;
+    // private.search_foods_ranked (20261110000109): global, the caller's own, and the custom foods / recipes of accepted friends.
+    // The rule is explicit (the function is SECURITY DEFINER, so RLS does not filter inside it): a food the caller merely USES
+    // (visible through foods_read) is not searchable once the friendship has ended.
+    const own = food.owner_id !== null && food.owner_id === input.uid;
+    const friends = !own && food.owner_id !== null && friendKinds.has(String(food.kind)) && friendIds.has(String(food.owner_id));
+    if (food.owner_id !== null && !own && !friends) continue;
     if (kinds && !kinds.includes(String(food.kind))) continue;
 
     const text = searchTextOf(food);
@@ -129,7 +139,7 @@ export function searchFoods(input: SearchInput, args: SearchArgs): SearchRow[] {
     const nutrients = (food.nutrients ?? {}) as Record<string, unknown>;
     const usage = usageBy.get(String(food.id));
     let score = 0;
-    if (food.owner_id !== null) score += 0.6;
+    if (food.owner_id !== null) score += own ? 0.6 : 0.3;
     if (usage) {
       const days = Math.max(0, (input.nowMs - Date.parse(String(usage.last_used_at))) / 86_400_000);
       score += 0.35 + Math.min(0.25, 0.06 * Math.log(1 + Number(usage.use_count ?? 0))) + 0.1 / (1 + days / 14);

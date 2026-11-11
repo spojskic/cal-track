@@ -232,16 +232,20 @@ describe('scenarios', () => {
 
   it('only reference fixture ids that exist', () => {
     const foodIds = new Set((fixtures.seed.tables.foods ?? []).map((f) => f.id));
+    // A scenario's ids are looked up in the fixtures of ITS variant (a friend's food only exists in the 'friends' one).
+    const NOT_FOUND = ['food detail: unknown id shows "not found"', "food detail: a stranger's food is not found"];
     for (const s of SCENARIOS) {
-      const match = /\/food(?:\/edit)?\/([0-9a-f-]{36})$/.exec(resolvePath(s, fixtures));
-      if (match && s.name !== 'food detail: unknown id shows "not found"') expect(foodIds.has(match[1]), s.name).toBe(true);
+      const own = buildFixtures(s.fixtures ?? 'default');
+      const ids = new Set((own.seed.tables.foods ?? []).map((f) => f.id));
+      const match = /\/food(?:\/edit)?\/([0-9a-f-]{36})$/.exec(resolvePath(s, own));
+      if (match && !NOT_FOUND.includes(s.name) && !s.name.startsWith('friends: a food you logged stays')) expect(ids.has(match[1] as string), s.name).toBe(true);
     }
     expect(foodIds.has(IDS.missing)).toBe(false);
   });
 
   it('cover both auth modes and every fixture variant', () => {
     expect(new Set(SCENARIOS.map((s) => s.auth))).toEqual(new Set(['signed-in', 'signed-out']));
-    expect(new Set(SCENARIOS.map((s) => s.fixtures ?? 'default'))).toEqual(new Set(['default', 'imperial', 'not-onboarded', 'empty-diary', 'fresh-account', 'admin']));
+    expect(new Set(SCENARIOS.map((s) => s.fixtures ?? 'default'))).toEqual(new Set(['default', 'imperial', 'not-onboarded', 'empty-diary', 'fresh-account', 'admin', 'friends']));
     expect(SCENARIOS.length).toBeGreaterThanOrEqual(55);
   });
 
