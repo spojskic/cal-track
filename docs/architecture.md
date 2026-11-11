@@ -267,6 +267,19 @@ either its phone code, untouched, or the desktop body; the desktop body is a sep
   (`private.invite_codes.invited_email`, lower-case, checked); nothing is sent, the column is the groundwork for e-mail invites later.
   The Invite people lists are paged by 20 with PostgREST (`admin_list_invites()` returns a table, so the app adds `status=eq.active`,
   `limit`, `offset` and `Prefer: count=exact`), not by loading every code.
+- **Friends** (migration 109): `public.friendships` has one row per pair (pending, then accepted). Clients can only read and delete their own
+  rows; sending a request and accepting go through SECURITY DEFINER functions (`send_friend_request(email)`, `respond_friend_request`,
+  `list_friendships`) because the address book is `auth.users`. An e-mail without an account gets the same answer as one with an account and
+  creates nothing (the "waiting" list still shows only real accounts: accepted in a small invite-only app). While two people are friends the row level security of `foods` lets each read the
+  other's **custom foods and recipes** (`kind in ('custom','recipe')`, nothing else: no AI estimates, no diary, no profile, no saved
+  meals), and the `recipes` / `recipe_ingredients` of friends are readable; every write stays owner-only. The search function applies the same
+  rule explicitly (friends' foods rank below your own). A food you have already USED (a diary entry, a recipe ingredient, a saved meal item, a
+  favourite) stays visible after the friendship ends (`my_used_food`, SECURITY DEFINER because the policies of those tables read `foods`
+  and a policy that read them back would recurse), so ending a friendship never blanks your diary. The owner of a food a friend has logged
+  cannot delete it (the foreign key holds; the app archives instead), and the same goes for deleting that person's whole account: the
+  foods a friend or former friend still uses have to be re-pointed first. The request limit (20 a day) counts the rows that still exist, so
+  cancelling and asking again gets around it. The "notification" is a count on the More tab and the Friends row,
+  refreshed when the app returns to the foreground and once a minute while it is open (no push: it needs a paid Apple account on iOS).
 - The OpenRouter key never leaves the device. Health data goes only to your own rows.
 - Edge functions require a signed-in user (except `sign-up`, which is gated by an invite code), have per-user, per-client and global rate limits, and use the service key only inside Supabase.
 - Garmin has no server side at all: the phone signs in on Garmin's own page, keeps the token in its secure storage (never in Supabase), reads Garmin itself and saves the result through the normal owner-only tables.

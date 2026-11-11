@@ -16,11 +16,13 @@ import { formatKcal, firstParam, trimNumber } from '@/components/food/format';
 import { MacroSummary } from '@/components/food/macro-summary';
 import { NutrientPanel } from '@/components/food/nutrient-panel';
 import { SourceBadge } from '@/components/food/source-badge';
+import { sharedByDetail } from '@/components/friends/friends-view';
 import { Segmented } from '@/components/forms';
 import { lineKcal } from '@/components/recipes/FoodLines';
 import { goBackOr, open, openFood, replaceWith } from '@/components/recipes/nav';
 import { nutrientNames } from '@/components/recipes/RecipeTotalsCard';
 import { AppText, Button, Card } from '@/components/ui';
+import { useSharedBy } from '@/data/friends';
 import { errorMessage } from '@/data/foods';
 import {
   recipeNutritionOf,
@@ -93,6 +95,7 @@ function RecipeDetailView({
   const width = useContentWidth();
   const wide = width >= WIDE_LAYOUT;
   const userId = useAuth().session?.user.id;
+  const sharedBy = sharedByDetail(useSharedBy(recipe.ownerId));
   const targets = useTargets().data?.nutrients;
 
   const duplicate = useDuplicateRecipe();
@@ -155,6 +158,7 @@ function RecipeDetailView({
       <AppText variant="heading" accessibilityRole="header">
         {recipe.name}
       </AppText>
+      {sharedBy ? <AppText muted>{sharedBy}</AppText> : null}
       <View style={styles.metaRow}>
         <SourceBadge source="recipe" />
         <CompletenessLabel value={recipe.completeness} />

@@ -15,7 +15,7 @@ import { useFoodRowActions } from '@/components/food/use-food-row-actions';
 import { useFoodSearchResults } from '@/components/food/use-food-search-results';
 import { Segmented } from '@/components/forms';
 import { AppText } from '@/components/ui';
-import { useFavorites, useMyFoods, useRecentFoods, type FoodSummary } from '@/data/foods';
+import { useFavorites, useMyAndFriendFoods, useRecentFoods, type FoodSummary } from '@/data/foods';
 import { useSelectedDate } from '@/state/selected-date';
 import { MAX_CONTENT_WIDTH, spacing, useTheme } from '@/theme';
 
@@ -47,7 +47,7 @@ export default function SearchScreen() {
   const search = useFoodSearchResults(query, { enabled: tab === 'all' });
   const recent = useRecentFoods({ enabled: tab === 'all' || tab === 'recent' });
   const favorites = useFavorites();
-  const mine = useMyFoods({ enabled: tab === 'mine' });
+  const mine = useMyAndFriendFoods({ enabled: tab === 'mine', recipes: true });
   const actions = useFoodRowActions({ mealGroupId: meal.mealGroupId, mealGroupName: meal.mealGroupName, pickMode });
 
   // The "..." menu in the header: switch to another way of adding (barcode, exercise, note, AI helpers ...).

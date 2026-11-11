@@ -22,7 +22,9 @@ import { supabase } from '@/lib/supabase';
 import { isUuid } from '@/lib/uuid';
 
 import { useAddDiaryEntry } from './diary-write';
+import { useFriendships } from './friends';
 import { keys } from './keys';
+import { useUserId } from './profile';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,6 +75,8 @@ export interface FoodSummary {
   fat100g: number | null;
   /** 0..1 fraction of catalog nutrients with a known value. */
   completeness: number | null;
+  /** Who made a custom food or recipe (a friend's food shows "from Anna"); null for database foods. Not known for every list. */
+  ownerId?: string | null;
 }
 
 export type RecentFood = FoodSummary & { lastUsedAt: string; useCount: number };
@@ -169,6 +173,7 @@ function summaryFromFoodRow(row: Row): FoodSummary {
     carbs100g: n.CARBS_G ?? null,
     fat100g: n.FAT_G ?? null,
     completeness: toNumber(row.completeness) ?? computeCompleteness(n),
+    ownerId: row.owner_id ? String(row.owner_id) : null,
   };
 }
 
@@ -450,7 +455,7 @@ export async function fetchFoodIdentity(foodId: string): Promise<{ name: string;
 // Queries
 // ---------------------------------------------------------------------------
 
-const SUMMARY_COLUMNS = 'id,source,kind,name,brand,nutrients,completeness';
+const SUMMARY_COLUMNS = 'id,source,kind,name,brand,nutrients,completeness,owner_id';
 const FOOD_COLUMNS =
   'id,source,source_id,kind,owner_id,name,brand,gtin14,category,nutrients,completeness,carb_basis,density_g_per_ml,version,archived';
 
@@ -468,9 +473,22 @@ export function useFoodSearch(query: string, kinds?: FoodKind[]): UseQueryResult
       if (kindList) args.kinds = kindList;
       const { data, error } = await supabase.rpc('search_foods', args);
       if (error) throw error;
-      return ((data ?? []) as Row[]).map(summaryFromSearchRow);
+      return withOwners(((data ?? []) as Row[]).map(summaryFromSearchRow));
     },
   });
+}
+
+/**
+ * The search function does not say who owns a custom food or recipe, and since friends' foods are found too the row has to say
+ * "from Anna". One small lookup for the custom foods and recipes among the results; if it fails the rows are shown without the name.
+ */
+async function withOwners(rows: FoodSummary[]): Promise<FoodSummary[]> {
+  const ids = rows.filter((r) => r.kind === 'custom' || r.kind === 'recipe').map((r) => r.id);
+  if (ids.length === 0) return rows;
+  const { data, error } = await supabase.from('foods').select('id,owner_id').in('id', ids);
+  if (error) return rows;
+  const owners = new Map(((data ?? []) as Row[]).map((r) => [String(r.id), r.owner_id ? String(r.owner_id) : null] as const));
+  return rows.map((r) => (owners.has(r.id) ? { ...r, ownerId: owners.get(r.id) ?? null } : r));
 }
 
 /** One food with its portions, computed completeness and (for archived foods) its successor. */
@@ -584,16 +602,17 @@ export function useToggleFavorite() {
   });
 }
 
-/** Foods the user created or saved (custom, AI estimates, recipes), A-Z. */
+/** Foods the user created or saved (custom, AI estimates, recipes), A-Z. Friends' foods are not in this list (see useFriendFoods). */
 export function useMyFoods(options: ListOptions = {}): UseQueryResult<FoodSummary[]> {
+  const userId = useUserId();
   return useQuery({
-    queryKey: keys.myFoods,
-    enabled: options.enabled ?? true,
+    queryKey: [...keys.myFoods, userId ?? 'anon'],
+    enabled: Boolean(userId) && (options.enabled ?? true),
     queryFn: async (): Promise<FoodSummary[]> => {
       const { data, error } = await supabase
         .from('foods')
         .select(SUMMARY_COLUMNS)
-        .not('owner_id', 'is', null)
+        .eq('owner_id', userId as string)
         .eq('archived', false)
         .in('kind', ['custom', 'ai_estimate', 'recipe'])
         .order('name', { ascending: true })
@@ -602,6 +621,46 @@ export function useMyFoods(options: ListOptions = {}): UseQueryResult<FoodSummar
       return ((data ?? []) as Row[]).map(summaryFromFoodRow);
     },
   });
+}
+
+/** Custom foods and recipes the accepted friends made, A-Z. Nothing is asked when there are no friends. */
+export function useFriendFoods(friendIds: readonly string[], options: ListOptions = {}): UseQueryResult<FoodSummary[]> {
+  const ids = [...friendIds].sort();
+  return useQuery({
+    queryKey: ['friend_foods', ids],
+    enabled: ids.length > 0 && (options.enabled ?? true),
+    queryFn: async (): Promise<FoodSummary[]> => {
+      const { data, error } = await supabase
+        .from('foods')
+        .select(SUMMARY_COLUMNS)
+        .in('owner_id', ids)
+        .eq('archived', false)
+        .in('kind', ['custom', 'recipe'])
+        .order('name', { ascending: true })
+        .limit(500);
+      if (error) throw error;
+      return ((data ?? []) as Row[]).map(summaryFromFoodRow);
+    },
+  });
+}
+
+/**
+ * What a "My foods" list shows: the user's own foods first, then the custom foods of the friends. Recipes (own and friends') are left out
+ * unless `recipes` is set: the Foods tab has a Recipes list of its own, the Add food screen has not.
+ */
+export function useMyAndFriendFoods(options: ListOptions & { recipes?: boolean } = {}) {
+  const mine = useMyFoods(options);
+  const { friendIds } = useFriendships({ enabled: options.enabled ?? true });
+  const friends = useFriendFoods(friendIds, options);
+  const withRecipes = options.recipes === true;
+  const own = (mine.data ?? []).filter((food) => withRecipes || food.kind !== 'recipe');
+  const shared = (friends.data ?? []).filter((food) => withRecipes || food.kind === 'custom');
+  return {
+    data: mine.data ? [...own, ...shared] : undefined,
+    isLoading: mine.isLoading,
+    error: mine.error ?? friends.error,
+    refetch: () => Promise.all([mine.refetch(), friends.refetch()]),
+  };
 }
 
 // ---------------------------------------------------------------------------

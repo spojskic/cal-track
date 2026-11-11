@@ -28,11 +28,11 @@ import { AppText, Button } from '@/components/ui';
 import {
   errorMessage,
   useFavorites,
-  useMyFoods,
+  useMyAndFriendFoods,
   useRecentFoods,
   type FoodSummary,
 } from '@/data/foods';
-import { useRecipes, type RecipeSummary } from '@/data/recipes';
+import { useMyAndFriendRecipes, type RecipeSummary } from '@/data/recipes';
 import { useSavedMeals, type SavedMeal } from '@/data/saved-meals';
 import { useSelectedDate } from '@/state/selected-date';
 import { MAX_CONTENT_WIDTH, WIDE_BREAKPOINT, spacing, useTheme } from '@/theme';
@@ -84,8 +84,9 @@ export default function FoodsScreen() {
   // The favourites also give the stars on the search results.
   const favorites = useFavorites({ enabled: tab === 'favorites' || searching });
   const recent = useRecentFoods({ enabled: tab === 'recent' });
-  const mine = useMyFoods({ enabled: tab === 'mine' });
-  const recipes = useRecipes({ enabled: tab === 'recipes' });
+  // "My foods" and "Recipes" list your own first and then the ones your friends made ("from Anna").
+  const mine = useMyAndFriendFoods({ enabled: tab === 'mine' });
+  const recipes = useMyAndFriendRecipes({ enabled: tab === 'recipes' });
   const meals = useSavedMeals({ enabled: tab === 'meals' });
 
   const active =
@@ -105,10 +106,8 @@ export default function FoodsScreen() {
   } else if (tab === 'recent') {
     items = (recent.data ?? []).map((food) => ({ type: 'food', key: `r-${food.id}`, food }));
   } else if (tab === 'mine') {
-    // Recipes have their own tab; "My foods" lists custom foods and AI estimates.
-    items = (mine.data ?? [])
-      .filter((food) => food.kind !== 'recipe')
-      .map((food) => ({ type: 'food', key: `m-${food.id}`, food }));
+    // Recipes have their own tab; "My foods" lists custom foods and AI estimates, then the custom foods of friends.
+    items = (mine.data ?? []).map((food) => ({ type: 'food', key: `m-${food.id}`, food }));
   } else if (tab === 'recipes') {
     items = (recipes.data ?? []).map((recipe) => ({ type: 'recipe', key: `c-${recipe.id}`, recipe }));
   } else {

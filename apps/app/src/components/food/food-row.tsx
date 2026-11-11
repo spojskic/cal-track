@@ -1,6 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { sharedByLabel } from '@/components/friends/friends-view';
 import { Glyph } from '@/components/Glyph';
+import { useSharedBy } from '@/data/friends';
 import type { FoodKind, FoodSource } from '@/data/foods';
 import { spacing, useTheme } from '@/theme';
 
@@ -22,6 +24,8 @@ export interface FoodRowData {
   carbs100g: number | null;
   fat100g: number | null;
   completeness: number | null;
+  /** Who made it: a friend's custom food or recipe says "from Anna". Optional: database foods and online results have none. */
+  ownerId?: string | null;
 }
 
 export type QuickAddState = 'idle' | 'pending' | 'done';
@@ -47,11 +51,12 @@ export function FoodRow({
   const { colors, shape } = useTheme();
   const summary = macroLine(food);
   const source = foodSourceLabel(food.source, food.kind);
+  const from = sharedByLabel(useSharedBy(food.ownerId));
   return (
     <View style={[styles.row, { borderBottomColor: colors.border }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${food.name}${food.brand ? `, ${food.brand}` : ''}. ${summary.replace(/\|/g, ',')} per 100 grams. Source: ${source.full}. Open details`}
+        accessibilityLabel={`${food.name}${food.brand ? `, ${food.brand}` : ''}${from ? `, ${from}` : ''}. ${summary.replace(/\|/g, ',')} per 100 grams. Source: ${source.full}. Open details`}
         onPress={onPress}
         style={({ pressed }) => [styles.main, pressed && { opacity: 0.7 }]}>
         <View style={styles.text}>
@@ -68,6 +73,7 @@ export function FoodRow({
           <View style={styles.detailRow}>
             <CompletenessDot value={food.completeness} size={8} />
             <AppText variant="small" muted numberOfLines={1} style={styles.detail}>
+              {from ? `${from} \u00B7 ` : ''}
               {food.brand ? `${food.brand} \u00B7 ` : ''}
               {formatKcal(food.kcal100g)} kcal per 100 g
             </AppText>

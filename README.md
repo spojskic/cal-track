@@ -24,6 +24,7 @@ recipe draft, a health-only coach) run on **your own OpenRouter key, which never
   Solarized and more), light or dark or following your device, with Boxy (the default: sharp, small radii) or Rounded
   corners. Saved on the device.
 - **Private by design**: invite-only accounts, per-user row-level security, no ads, AI key stored only on the device.
+- **Friends**: send a request to an e-mail address; friends see each other's custom foods and recipes (read-only), nothing else.
 
 Details: [docs/features.md](docs/features.md).
 

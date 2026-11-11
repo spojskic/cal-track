@@ -20,6 +20,7 @@ import {
   type PageInfo,
 } from '@/components/settings/invite-view';
 import { Badge, Chip, Divider, Note } from '@/components/settings/rows';
+import { PillButton } from '@/components/pill-button';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { useCreateInviteCode, useInvitePage, useIsSuperAdmin, useRevokeInviteCode } from '@/data/invites';
 import { copyText } from '@/lib/copy-text';
@@ -273,11 +274,11 @@ function PageControls({
   if (info.pageCount <= 1) return null;
   return (
     <View style={styles.pager}>
-      <RowAction label="Previous" accessibilityLabel={`Previous page of ${what}`} disabled={!info.hasPrev || busy} onPress={onPrev} />
+      <PillButton label="Previous" accessibilityLabel={`Previous page of ${what}`} disabled={!info.hasPrev || busy} onPress={onPrev} />
       <AppText variant="small" muted style={styles.pagerLabel} accessibilityLiveRegion="polite">
         {info.label}
       </AppText>
-      <RowAction label="Next" accessibilityLabel={`Next page of ${what}`} disabled={!info.hasNext || busy} onPress={onNext} />
+      <PillButton label="Next" accessibilityLabel={`Next page of ${what}`} disabled={!info.hasNext || busy} onPress={onNext} />
     </View>
   );
 }
@@ -340,43 +341,13 @@ function CodeRow({
       </View>
       {code.status === 'active' ? (
         <View style={styles.actions}>
-          {onCopy ? <RowAction label={copied ? 'Copied' : 'Copy'} accessibilityLabel={`Copy code ${code.code}`} onPress={onCopy} /> : null}
-          {onRevoke ? <RowAction label="Revoke" accessibilityLabel={`Revoke code ${code.code}`} danger onPress={onRevoke} /> : null}
+          {onCopy ? <PillButton label={copied ? 'Copied' : 'Copy'} accessibilityLabel={`Copy code ${code.code}`} onPress={onCopy} /> : null}
+          {onRevoke ? <PillButton label="Revoke" accessibilityLabel={`Revoke code ${code.code}`} tone="danger" onPress={onRevoke} /> : null}
         </View>
       ) : (
         <Badge label={inviteStatusLabel(code.status)} />
       )}
     </View>
-  );
-}
-
-function RowAction({
-  label,
-  accessibilityLabel,
-  danger,
-  disabled,
-  onPress,
-}: {
-  label: string;
-  accessibilityLabel: string;
-  danger?: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  const { colors, radius } = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled: Boolean(disabled) }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.action,
-        { backgroundColor: colors.surfaceAlt, borderColor: colors.border, borderRadius: radius.pill, opacity: disabled ? 0.4 : pressed ? 0.7 : 1 },
-      ]}>
-      <AppText variant="small" style={[styles.actionLabel, { color: danger ? colors.danger : colors.text }]}>{label}</AppText>
-    </Pressable>
   );
 }
 
@@ -392,8 +363,6 @@ const styles = StyleSheet.create({
   code: { fontSize: 16, fontWeight: '700', letterSpacing: 1 },
   bigCode: { fontSize: 26, fontWeight: '700', letterSpacing: 2 },
   actions: { flexDirection: 'row', gap: spacing.sm },
-  action: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderWidth: 1, minHeight: 32, justifyContent: 'center' },
-  actionLabel: { fontWeight: '700' },
   buttons: { flexDirection: 'row', gap: spacing.sm },
   pager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, paddingTop: spacing.sm },
   pagerLabel: { flex: 1, textAlign: 'center' },

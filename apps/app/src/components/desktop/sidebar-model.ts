@@ -72,9 +72,17 @@ const ALSO_ACTIVE_ON: Readonly<Record<string, readonly string[]>> = {
  * Profile, Connections, App, and Admin for the super admin) with their rows as the More screen lists them: the Coach row only when the
  * AI gate is open, the AI row with its On / Off badge.
  */
-export function buildSidebarGroups({ aiEnabled, isAdmin = false }: { aiEnabled: boolean; isAdmin?: boolean }): SidebarGroup[] {
+export function buildSidebarGroups({
+  aiEnabled,
+  isAdmin = false,
+  friendRequests = 0,
+}: {
+  aiEnabled: boolean;
+  isAdmin?: boolean;
+  friendRequests?: number;
+}): SidebarGroup[] {
   const groups: SidebarGroup[] = [{ id: 'daily', label: 'Daily', rows: TAB_ROWS.map((row) => ({ ...row })) }];
-  for (const section of buildMoreSections({ aiEnabled, isAdmin })) {
+  for (const section of buildMoreSections({ aiEnabled, isAdmin, friendRequests })) {
     // The account section is the footer of the sidebar (the signed-in email and Sign out), not a list of rows.
     if (section.id === 'account') continue;
     groups.push({

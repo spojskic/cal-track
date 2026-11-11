@@ -4,6 +4,8 @@
 // checks it.
 import type { SymbolViewProps } from 'expo-symbols';
 
+import { friendRequestsBadge } from '../friends/friends-view';
+
 /** A symbol for every platform: SF Symbols on iOS, Material Symbols on Android and the web build (same style as components/app-nav.tsx). */
 export type MoreSymbol = Required<Extract<SymbolViewProps['name'], object>>;
 
@@ -32,9 +34,18 @@ export interface MoreSection {
 
 /**
  * `isAdmin`: the signed-in user is the super admin (profiles.is_admin). Only then is the Admin section listed; the database refuses the
- * admin RPCs for everybody else anyway.
+ * admin RPCs for everybody else anyway. `friendRequests`: how many friend requests wait for an answer; the Friends row shows it.
  */
-export function buildMoreSections({ aiEnabled, isAdmin = false }: { aiEnabled: boolean; isAdmin?: boolean }): MoreSection[] {
+export function buildMoreSections({
+  aiEnabled,
+  isAdmin = false,
+  friendRequests = 0,
+}: {
+  aiEnabled: boolean;
+  isAdmin?: boolean;
+  friendRequests?: number;
+}): MoreSection[] {
+  const requests = friendRequestsBadge(friendRequests);
   const coachRows: MoreRow[] = [];
   if (aiEnabled) {
     coachRows.push({
@@ -112,6 +123,14 @@ export function buildMoreSections({ aiEnabled, isAdmin = false }: { aiEnabled: b
           description: 'Vitamins, minerals and other daily targets',
           href: '/settings/nutrients',
           symbol: { ios: 'leaf', android: 'eco', web: 'eco' },
+        },
+        {
+          id: 'friends',
+          label: 'Friends',
+          description: 'Share your custom foods and recipes with friends',
+          href: '/friends',
+          symbol: { ios: 'person.2', android: 'group', web: 'group' },
+          ...(requests !== undefined ? { badge: requests } : {}),
         },
       ],
     },

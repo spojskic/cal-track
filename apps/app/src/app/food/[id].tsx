@@ -18,6 +18,7 @@ import { hapticSuccess } from '@/components/food/feedback';
 import { firstParam, formatDayLabel, formatKcal } from '@/components/food/format';
 import { MacroSummary } from '@/components/food/macro-summary';
 import { MealGroupChips, useMealGroupChoice } from '@/components/food/meal-group-chips';
+import { sharedByDetail } from '@/components/friends/friends-view';
 import { NutrientPanel } from '@/components/food/nutrient-panel';
 import { buildServingOptions, useServing } from '@/components/food/serving';
 import { ServingPicker } from '@/components/food/serving-picker';
@@ -25,6 +26,7 @@ import { SourceBadge, sourceAttribution } from '@/components/food/source-badge';
 import { Toast } from '@/components/food/toast';
 import { AppText, Button, Card } from '@/components/ui';
 import { useAddDiaryEntry } from '@/data/diary-write';
+import { useSharedBy } from '@/data/friends';
 import {
   errorMessage,
   useFavorites,
@@ -126,6 +128,7 @@ function FoodDetailView({
   const unitSystem = useUnitSystem();
   const targets = useTargets().data?.nutrients;
   const userId = useAuth().session?.user.id;
+  const sharedBy = sharedByDetail(useSharedBy(food.ownerId));
   const date = useSelectedDate((s) => s.date);
 
   const options = buildServingOptions(portions, food.densityGPerMl, unitSystem === 'imperial');
@@ -193,6 +196,7 @@ function FoodDetailView({
         <View style={{ flex: 1, gap: 2 }}>
           <AppText variant="heading" accessibilityRole="header">{food.name}</AppText>
           {food.brand ? <AppText muted>{food.brand}</AppText> : null}
+          {sharedBy ? <AppText muted>{sharedBy}</AppText> : null}
         </View>
         <Pressable
           accessibilityRole="button"

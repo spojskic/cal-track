@@ -5,7 +5,9 @@ import { CompletenessDot } from '@/components/food/completeness';
 import { formatKcal, trimNumber } from '@/components/food/format';
 import { SourceLabel } from '@/components/food/source-badge';
 import { SAVED_MEAL_LABEL, foodSourceLabel } from '@/components/food/source-label';
+import { sharedByLabel } from '@/components/friends/friends-view';
 import { AppText } from '@/components/ui';
+import { useSharedBy } from '@/data/friends';
 import type { RecipeSummary } from '@/data/recipes';
 import type { SavedMeal } from '@/data/saved-meals';
 import { spacing, useTheme } from '@/theme';
@@ -41,13 +43,14 @@ export function RecipeRow({ recipe, onPress }: { recipe: RecipeSummary; onPress:
       ? 'Calories unknown'
       : `${formatKcal(recipe.kcalPerServing)} kcal per serving`;
   const servings = `${trimNumber(recipe.servings, 2)} ${recipe.servings === 1 ? 'serving' : 'servings'}`;
+  const from = sharedByLabel(useSharedBy(recipe.ownerId));
   const macros =
     recipe.proteinPerServing !== null || recipe.carbsPerServing !== null || recipe.fatPerServing !== null
       ? `  |  P ${gramsText(recipe.proteinPerServing)}  |  C ${gramsText(recipe.carbsPerServing)}  |  F ${gramsText(recipe.fatPerServing)}`
       : '';
   return (
     <RowShell
-      label={`${recipe.name}. ${perServing}. ${servings}. Open recipe`}
+      label={`${recipe.name}${from ? `, ${from}` : ''}. ${perServing}. ${servings}. Open recipe`}
       onPress={onPress}>
       <View style={styles.main}>
         <AppText style={styles.name} numberOfLines={2}>
@@ -56,6 +59,7 @@ export function RecipeRow({ recipe, onPress }: { recipe: RecipeSummary; onPress:
         <View style={styles.meta}>
           <CompletenessDot value={recipe.completeness} size={8} />
           <AppText variant="small" muted numberOfLines={1} style={styles.shrink}>
+            {from ? `${from} \u00B7 ` : ''}
             {perServing}
             {` \u00B7 ${servings}`}
             {recipe.servingWeightG ? ` \u00B7 ${gramsText(recipe.servingWeightG)} each` : ''}

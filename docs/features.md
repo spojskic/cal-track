@@ -96,7 +96,7 @@ button and the More tab.
 - **Sidebar**, top to bottom: the **Ration** mark; the **Add to diary** button (opens the add sheet); then small labelled groups, each
   with a chevron that collapses it (the groups you close stay closed the next time you open the app on this device):
   **Daily** (Dashboard, Diary, Foods), **Training** (Workouts), **Coach** (Coach when AI is on; AI Coach & keys, or AI (optional),
-  with a small *On* / *Off* at the right), **Profile** (Profile & targets, Personal details, Nutrient targets), **Connections** (Connected
+  with a small *On* / *Off* at the right), **Profile** (Profile & targets, Personal details, Nutrient targets, Friends), **Connections** (Connected
   apps & devices) and **App** (Display & units, About), plus **Admin** (Invite people) for the super admin only. These are the rows of the
   phone's More tab; there is no *More* item. The row of
   the page you are on is highlighted (for a workout's page that is Workouts; for a food's page, Foods).
@@ -146,7 +146,7 @@ and a one-line description, and a chevron):
 |---|---|
 | **Training** | Workouts |
 | **Coach** | Coach (only with a working AI key), AI Coach & keys / AI (optional), with a small *On* / *Off* at the right |
-| **Profile** | Profile & targets, Personal details, Nutrient targets |
+| **Profile** | Profile & targets, Personal details, Nutrient targets, Friends (with the number of requests waiting) |
 | **Connections** | Connected apps & devices |
 | **App** | Display & units (colour theme, light or dark mode, rounded or boxy corners, units), About |
 | **Admin** | Invite people (only for the super admin, see below) |
@@ -156,6 +156,26 @@ On a phone the groups follow one another in that order. A desktop window (900 px
 (Training, Coach, Profile, Connections, App, and Admin for the super admin) are in the sidebar and the account sits at its bottom (see [Desktop navigation](#desktop-navigation-the-sidebar-and-the-status-bar)),
 so an old link to `/more` just opens the dashboard. The paths in this documentation (for example **More > Profile & targets**) name the
 row, not the group; on a desktop it is the row of that name in the sidebar.
+
+## Friends (More > Friends)
+
+Simple on purpose: friends share their **custom foods and recipes**, and nothing else.
+
+- **Add a friend**: type the e-mail address of somebody who uses Ration and tap *Send request*. The screen says "If ... uses Ration, they
+  will see it": an address without an account gets the same answer (the request just never appears for anybody; it is not listed under
+  *Waiting for an answer*). Asking somebody who already asked you makes you friends at once. At most 20 requests a day.
+- **Requests**: the person you asked sees a count on the **More** tab of the phone (a red number), on the **Friends** row (*2 requests*) and in
+  the desktop sidebar; open Friends and tap **Accept** or **Decline** (a decline just removes the request). There is no push message: the
+  count appears when the app is opened or comes back to the foreground, and once a minute while it is open.
+- **Waiting for an answer** lists your own requests with **Cancel**. **Friends** lists everybody with the day you became friends and **Remove**
+  (it asks first). Either side can end a friendship.
+- **What is shared**: while you are friends each of you sees the other's custom foods and recipes. They are in **Foods > My foods** and
+  **Foods > Recipes** after your own (marked "from Anna"), in the search results and on the Add food screen, and you can log them, favourite
+  them, save them in a meal or use them as an ingredient. They are read-only: only the owner can change or delete them. Your diary, weight,
+  targets, saved meals, AI estimates and profile are never shared.
+- **Ending a friendship** hides the foods you did not use. Anything you already used stays: a food you logged, favourited, saved in a meal or
+  put in one of your recipes remains visible to you, so your diary never shows holes. A friend's recipe you logged shows its nutrition but
+  not its ingredient list any more.
 
 ## Invite people (More > Admin, super admin only)
 

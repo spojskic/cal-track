@@ -7,6 +7,7 @@ import { useDesktopShell } from '@/components/desktop/shell-context';
 import { buildMoreSections, type MoreSection } from '@/components/settings/more-sections';
 import { Divider, LIST_CARD_PADDING, LIST_DIVIDER_INSET, NavRow } from '@/components/settings/rows';
 import { AppText, Button, Card, Screen } from '@/components/ui';
+import { useFriendRequestCount } from '@/data/friends';
 import { useIsSuperAdmin } from '@/data/invites';
 import { useAuth } from '@/lib/auth';
 import { spacing } from '@/theme';
@@ -31,7 +32,8 @@ function MoreContent() {
   const { session, signOut } = useAuth();
   const ai = useAiGate();
   const { isAdmin } = useIsSuperAdmin();
-  const sections = useMemo(() => buildMoreSections({ aiEnabled: ai.enabled, isAdmin }), [ai.enabled, isAdmin]);
+  const friendRequests = useFriendRequestCount();
+  const sections = useMemo(() => buildMoreSections({ aiEnabled: ai.enabled, isAdmin, friendRequests }), [ai.enabled, isAdmin, friendRequests]);
 
   return (
     <Screen title="More">

@@ -16,7 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DASHBOARD_ROW, DIARY_ROW, FOODS_ROW } from '@/components/desktop/sidebar-model';
 import { useDesktopShell } from '@/components/desktop/shell-context';
+import { tabBadgeText } from '@/components/friends/friends-view';
 import { Glyph } from '@/components/Glyph';
+import { useFriendRequestCount } from '@/data/friends';
 import { spacing, useTheme } from '@/theme';
 
 interface NavItem {
@@ -61,6 +63,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const desktop = useDesktopShell();
   const { colors, shape } = useTheme();
   const insets = useSafeAreaInsets();
+  // The notification: a count on the More tab while friend requests wait for an answer (they are on More > Friends).
+  const friendRequests = useFriendRequestCount();
   const left = ITEMS.slice(0, 2);
   const right = ITEMS.slice(2);
 
@@ -110,7 +114,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
               </Pressable>
               {right.map((item) => (
                 <TabTrigger key={item.name} name={item.name} href={item.href} asChild>
-                  <BottomButton item={item} />
+                  <BottomButton item={item} {...(item.name === 'more' ? { badge: tabBadgeText(friendRequests), badgeLabel: friendRequestsLabel(friendRequests) } : {})} />
                 </TabTrigger>
               ))}
             </View>
@@ -127,16 +131,35 @@ function HiddenTrigger(): null {
   return null;
 }
 
-function BottomButton({ item, isFocused, ...rest }: TabTriggerSlotProps & { item: NavItem }) {
-  const { colors } = useTheme();
+/** "2 friend requests" for a screen reader; the label of the tab itself stays "More". */
+function friendRequestsLabel(count: number): string | undefined {
+  return count > 0 ? `${count} friend ${count === 1 ? 'request' : 'requests'}` : undefined;
+}
+
+function BottomButton({
+  item,
+  isFocused,
+  badge,
+  badgeLabel,
+  ...rest
+}: TabTriggerSlotProps & { item: NavItem; badge?: string | undefined; badgeLabel?: string | undefined }) {
+  const { colors, radius } = useTheme();
   const color = isFocused ? colors.primary : colors.onSidebarMuted;
   return (
     <Pressable
       {...(rest as PressableProps)}
       accessibilityRole="link"
       accessibilityLabel={item.label}
+      {...(badgeLabel ? { accessibilityValue: { text: badgeLabel } } : {})}
       style={styles.bottomButton}>
-      <SymbolView name={item.symbol} size={22} tintColor={color} />
+      <View>
+        <SymbolView name={item.symbol} size={22} tintColor={color} />
+        {badge ? (
+          <View accessible={false} style={[styles.badge, { backgroundColor: colors.danger, borderRadius: radius.pill }]}>
+            <Text style={[styles.badgeText, { color: colors.onDanger }]}>{badge}</Text>
+          </View>
+        ) : null}
+      </View>
       <Text style={[styles.bottomLabel, { color }]}>{item.label}</Text>
     </Pressable>
   );
@@ -153,6 +176,8 @@ const styles = StyleSheet.create({
   bottomBar: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', paddingTop: spacing.sm },
   bottomButton: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: spacing.xs },
   bottomLabel: { fontSize: 11, fontWeight: '600' },
+  badge: { position: 'absolute', top: -4, right: -10, minWidth: 16, height: 16, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { fontSize: 10, fontWeight: '800' },
   fabWrap: { flex: 1, alignItems: 'center', marginTop: -22 },
   fab: {
     width: FAB_SIZE,

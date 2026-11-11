@@ -11,6 +11,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useAiBootstrap } from '@/ai/use-ai-bootstrap';
 import { useAiGate } from '@/ai/use-ai-gate';
 import { Glyph } from '@/components/Glyph';
+import { useFriendRequestCount } from '@/data/friends';
 import { useIsSuperAdmin } from '@/data/invites';
 import { useAuth } from '@/lib/auth';
 import { useSelectedDate } from '@/state/selected-date';
@@ -42,7 +43,8 @@ export function Sidebar() {
   useAiBootstrap();
   const ai = useAiGate();
   const { isAdmin } = useIsSuperAdmin();
-  const groups = useMemo(() => buildSidebarGroups({ aiEnabled: ai.enabled, isAdmin }), [ai.enabled, isAdmin]);
+  const friendRequests = useFriendRequestCount();
+  const groups = useMemo(() => buildSidebarGroups({ aiEnabled: ai.enabled, isAdmin, friendRequests }), [ai.enabled, isAdmin, friendRequests]);
   const activeRowId = resolveActiveRowId(groups, pathname);
 
   return (

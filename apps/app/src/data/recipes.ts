@@ -30,7 +30,9 @@ import {
   type FoodPortion,
   type FoodSource,
 } from './foods';
+import { useFriendships } from './friends';
 import { keys } from './keys';
+import { useUserId } from './profile';
 import { savedMealKeys } from './saved-meals';
 
 type Row = any;
@@ -138,6 +140,8 @@ export interface RecipeSummary {
   carbsPerServing: number | null;
   fatPerServing: number | null;
   completeness: number | null;
+  /** Who made it (a friend's recipe says "from Anna"). */
+  ownerId?: string | null;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -340,53 +344,97 @@ export function recipeNutritionOf(recipe: RecipeDetail): RecipeNutrition | null 
   return computeRecipeNutrition(ingredients, recipe.servings, recipe.finalWeightG);
 }
 
-/** The user's current (non-archived) recipes, A-Z. */
+const RECIPE_LIST_COLUMNS =
+  'id,name,owner_id,nutrients,completeness,recipes!food_id(servings,final_weight_g,recipe_ingredients(grams))';
+
+/** The rows of the recipe lists as summaries. A recipe whose `recipes` row is not readable (RLS) is left out. */
+function recipeSummariesFrom(rows: Row[]): RecipeSummary[] {
+  const out: RecipeSummary[] = [];
+  for (const row of rows) {
+    const recipe = one<Row>(row.recipes);
+    if (!recipe) continue;
+    const nutrients = cleanNutrients(row.nutrients);
+    const servings = toNumber(recipe.servings) ?? 1;
+    const finalWeightG = toNumber(recipe.final_weight_g);
+    const raw = (Array.isArray(recipe.recipe_ingredients) ? (recipe.recipe_ingredients as Row[]) : []).reduce(
+      (sum, r) => sum + (toNumber(r.grams) ?? 0),
+      0,
+    );
+    const weight = finalWeightG && finalWeightG > 0 ? finalWeightG : raw;
+    const servingWeightG = servings > 0 && weight > 0 ? weight / servings : null;
+    const perServing = (v: number | undefined): number | null =>
+      v === undefined || servingWeightG === null ? null : (v * servingWeightG) / 100;
+    out.push({
+      id: String(row.id),
+      name: String(row.name),
+      servings,
+      finalWeightG,
+      servingWeightG,
+      kcal100g: nutrients.ENERGY_KCAL ?? null,
+      kcalPerServing: perServing(nutrients.ENERGY_KCAL),
+      proteinPerServing: perServing(nutrients.PROTEIN_G),
+      carbsPerServing: perServing(nutrients.CARBS_G),
+      fatPerServing: perServing(nutrients.FAT_G),
+      completeness: toNumber(row.completeness),
+      ownerId: row.owner_id ? String(row.owner_id) : null,
+    });
+  }
+  return out;
+}
+
+/** The user's own current (non-archived) recipes, A-Z. Friends' recipes are in useFriendRecipes. */
 export function useRecipes(options: { enabled?: boolean } = {}): UseQueryResult<RecipeSummary[]> {
+  const userId = useUserId();
   return useQuery({
-    queryKey: recipeKeys.list,
-    enabled: options.enabled ?? true,
+    queryKey: [...recipeKeys.list, userId ?? 'anon'],
+    enabled: Boolean(userId) && (options.enabled ?? true),
     queryFn: async (): Promise<RecipeSummary[]> => {
       const { data, error } = await supabase
         .from('foods')
-        .select('id,name,nutrients,completeness,recipes!food_id(servings,final_weight_g,recipe_ingredients(grams))')
+        .select(RECIPE_LIST_COLUMNS)
         .eq('kind', 'recipe')
         .eq('archived', false)
-        .not('owner_id', 'is', null)
+        .eq('owner_id', userId as string)
         .order('name', { ascending: true })
         .limit(500);
       if (error) throw error;
-      const out: RecipeSummary[] = [];
-      for (const row of (data ?? []) as Row[]) {
-        const recipe = one<Row>(row.recipes);
-        if (!recipe) continue;
-        const nutrients = cleanNutrients(row.nutrients);
-        const servings = toNumber(recipe.servings) ?? 1;
-        const finalWeightG = toNumber(recipe.final_weight_g);
-        const raw = (Array.isArray(recipe.recipe_ingredients) ? (recipe.recipe_ingredients as Row[]) : []).reduce(
-          (sum, r) => sum + (toNumber(r.grams) ?? 0),
-          0,
-        );
-        const weight = finalWeightG && finalWeightG > 0 ? finalWeightG : raw;
-        const servingWeightG = servings > 0 && weight > 0 ? weight / servings : null;
-        const perServing = (v: number | undefined): number | null =>
-          v === undefined || servingWeightG === null ? null : (v * servingWeightG) / 100;
-        out.push({
-          id: String(row.id),
-          name: String(row.name),
-          servings,
-          finalWeightG,
-          servingWeightG,
-          kcal100g: nutrients.ENERGY_KCAL ?? null,
-          kcalPerServing: perServing(nutrients.ENERGY_KCAL),
-          proteinPerServing: perServing(nutrients.PROTEIN_G),
-          carbsPerServing: perServing(nutrients.CARBS_G),
-          fatPerServing: perServing(nutrients.FAT_G),
-          completeness: toNumber(row.completeness),
-        });
-      }
-      return out;
+      return recipeSummariesFrom((data ?? []) as Row[]);
     },
   });
+}
+
+/** The current recipes the accepted friends made, A-Z. Nothing is asked when there are no friends. */
+export function useFriendRecipes(friendIds: readonly string[], options: { enabled?: boolean } = {}): UseQueryResult<RecipeSummary[]> {
+  const ids = [...friendIds].sort();
+  return useQuery({
+    queryKey: [...recipeKeys.all, 'friends', ids],
+    enabled: ids.length > 0 && (options.enabled ?? true),
+    queryFn: async (): Promise<RecipeSummary[]> => {
+      const { data, error } = await supabase
+        .from('foods')
+        .select(RECIPE_LIST_COLUMNS)
+        .eq('kind', 'recipe')
+        .eq('archived', false)
+        .in('owner_id', ids)
+        .order('name', { ascending: true })
+        .limit(500);
+      if (error) throw error;
+      return recipeSummariesFrom((data ?? []) as Row[]);
+    },
+  });
+}
+
+/** What the Recipes list shows: the user's own recipes first, then the friends' recipes. */
+export function useMyAndFriendRecipes(options: { enabled?: boolean } = {}) {
+  const mine = useRecipes(options);
+  const { friendIds } = useFriendships({ enabled: options.enabled ?? true });
+  const friends = useFriendRecipes(friendIds, options);
+  return {
+    data: mine.data ? [...mine.data, ...(friends.data ?? [])] : undefined,
+    isLoading: mine.isLoading,
+    error: mine.error ?? friends.error,
+    refetch: () => Promise.all([mine.refetch(), friends.refetch()]),
+  };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
