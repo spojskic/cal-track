@@ -55,7 +55,7 @@ export default function DashboardScreen() {
     hasEntries: day.hasEntries,
     targets,
     netCarbs,
-    exerciseBurnedKcal: energy.exerciseBurnedKcal,
+    budgetExtraKcal: energy.exerciseBurnedKcal,
   });
 
   // Entries added elsewhere (search, copy, quick add) invalidate the day; also refresh the aggregates on focus.

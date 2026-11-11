@@ -10,6 +10,7 @@ import {
   bmrHarrisBenedictRevised,
   bmrKatchMcArdle,
   bmrMifflin,
+  budgetExtraKcal,
   computeBmr,
   computeEnergyTarget,
   computeExpenditure,
@@ -23,6 +24,7 @@ import {
   normalizeEnergySummaryMode,
   exerciseKcalGrossMet,
   exerciseKcalNetMet,
+  foodForNetKcal,
   leanMass,
   maxSafeLossRateKgPerWeek,
   resolveBmrFormula,
@@ -690,6 +692,8 @@ describe('weight goal', () => {
       floor: 1500,
       flooredBy: 0,
       belowBmr: false,
+      tefPct: 0,
+      tefAllowance: 0,
     });
   });
 
@@ -844,5 +848,132 @@ describe('activity level "none" (the watch is the only source of activity)', () 
     expect(energyRemaining({ targetKcal: targetNone, aboveBaselineKcal: withWatchNone.aboveBaseline, expenditureKcal: withWatchNone.total, consumedKcal: 0 }).target).toBe(
       withWatchNone.total - deficit,
     );
+  });
+});
+
+describe('budgetExtraKcal: what burning above the baseline adds to the budget', () => {
+  it('is everything burned above the baseline when the floor did not raise the target', () => {
+    expect(budgetExtraKcal(0, 0)).toBe(0);
+    expect(budgetExtraKcal(482.5625, 0)).toBe(482.5625);
+  });
+
+  it('the first kcal only fill the gap to the minimum target; the rest widens the budget', () => {
+    expect(budgetExtraKcal(100, 215)).toBe(0);
+    expect(budgetExtraKcal(215, 215)).toBe(0);
+    expect(budgetExtraKcal(934, 215)).toBe(719);
+  });
+
+  it('the budget is max(plan + burned, floor): the floor is a minimum, not a bonus on top of the activity', () => {
+    // BMR 1835, no baseline, -550/day: plan 1285, floor 1500 (male), raised by 215
+    const t = computeEnergyTarget({ bmr: 1835, baselineActivityKcal: 0, rateKgPerWeek: -0.5, sex: 'male' });
+    expect(t.target).toBe(1500);
+    expect(t.flooredBy).toBe(215);
+    for (const burned of [0, 100, 215, 400, 934, 2000]) {
+      expect(t.target + budgetExtraKcal(burned, t.flooredBy)).toBe(Math.max(t.maintenance + t.delta + burned, t.floor));
+    }
+  });
+
+  it('never negative and tolerant of bad input', () => {
+    expect(budgetExtraKcal(-50, 0)).toBe(0);
+    expect(budgetExtraKcal(50, -20)).toBe(50);
+    expect(budgetExtraKcal(Number.NaN, 10)).toBe(0);
+  });
+});
+
+describe('the thermic effect of food (TEF) inside the target', () => {
+  const TEF = 0.1;
+
+  it('without TEF nothing changes: tefPct 0, no allowance', () => {
+    const t = computeEnergyTarget({ bmr: 1835, baselineActivityKcal: 0, rateKgPerWeek: -0.5, sex: 'male', tefPct: 0 });
+    expect(t).toMatchObject({ target: 1500, flooredBy: 215, tefPct: 0, tefAllowance: 0 });
+  });
+
+  it('allows for the digestion of the food: plan = (maintenance + delta) / (1 - tefPct)', () => {
+    // maintenance 2136, delta -275 -> 1861 of net energy; the food that covers it is 1861 / 0.9
+    const t = computeEnergyTarget({ bmr: 1780, baselineActivityKcal: 356, rateKgPerWeek: -0.25, sex: 'male', tefPct: TEF });
+    expect(t.target).toBeCloseTo(1861 / 0.9, 9);
+    expect(t.tefAllowance).toBeCloseTo(1861 / 0.9 - 1861, 9);
+    expect(t.tefPct).toBe(TEF);
+    expect(t.flooredBy).toBe(0);
+    expect(t.maintenance).toBe(2136);
+    expect(t.delta).toBe(-275);
+  });
+
+  it('the floor still applies to the grossed-up plan (BMR 1835, -550/day: plan 1285 / 0.9 = 1427.8, floor 1500)', () => {
+    const t = computeEnergyTarget({ bmr: 1835, baselineActivityKcal: 0, rateKgPerWeek: -0.5, sex: 'male', tefPct: TEF });
+    expect(t.target).toBe(1500);
+    expect(t.tefAllowance).toBeCloseTo(1285 / 0.9 - 1285, 9);
+    expect(t.flooredBy).toBeCloseTo(1500 - 1285 / 0.9, 9);
+    expect(t.belowBmr).toBe(true);
+  });
+
+  it('ignores a nonsense share (negative, NaN, above 50%)', () => {
+    expect(computeEnergyTarget({ bmr: 2000, baselineActivityKcal: 0, rateKgPerWeek: 0, sex: 'male', tefPct: -1 }).target).toBe(2000);
+    expect(computeEnergyTarget({ bmr: 2000, baselineActivityKcal: 0, rateKgPerWeek: 0, sex: 'male', tefPct: Number.NaN }).target).toBe(2000);
+    expect(computeEnergyTarget({ bmr: 2000, baselineActivityKcal: 0, rateKgPerWeek: 0, sex: 'male', tefPct: 0.9 }).target).toBe(4000);
+  });
+
+  it('foodForNetKcal: kcal / (1 - share), unchanged without a share', () => {
+    expect(foodForNetKcal(900, 0.1)).toBeCloseTo(1000, 9);
+    expect(foodForNetKcal(900, 0)).toBe(900);
+    expect(foodForNetKcal(900, undefined)).toBe(900);
+    expect(foodForNetKcal(900, null)).toBe(900);
+  });
+
+  it("budgetExtraKcal grows each burned kcal by 1 / (1 - share) before the floor's gap is taken off", () => {
+    expect(budgetExtraKcal(430, 0, TEF)).toBeCloseTo(430 / 0.9, 9);
+    expect(budgetExtraKcal(430, 100, TEF)).toBeCloseTo(430 / 0.9 - 100, 9);
+    expect(budgetExtraKcal(50, 100, TEF)).toBe(0);
+    // the old two-argument call is TEF off
+    expect(budgetExtraKcal(430, 100)).toBe(330);
+  });
+
+  it("the user's day: target 1500, burned 430 above baseline, budget 1906; eating it leaves the 550 chosen", () => {
+    const t = computeEnergyTarget({ bmr: 1835, baselineActivityKcal: 0, rateKgPerWeek: -0.5, sex: 'male', tefPct: TEF });
+    const budget = t.target + budgetExtraKcal(430, t.flooredBy, t.tefPct);
+    expect(budget).toBeCloseTo((1835 + 430 - 550) / 0.9, 9);
+    expect(Math.round(budget)).toBe(1906);
+    const day = computeExpenditure({
+      mode: 'static',
+      bmr: 1835,
+      baselineActivityKcal: 0,
+      manualExerciseKcal: 430,
+      exerciseMinutes: 0,
+      deviceWorkoutKcal: 0,
+      intakeKcal: budget,
+      tefEnabled: true,
+    });
+    expect(day.aboveBaseline).toBe(430);
+    expect(day.total - budget).toBeCloseTo(550, 9);
+  });
+
+  it('property: eating the budget leaves exactly the chosen deficit / surplus whenever the floor does not apply', () => {
+    for (const sex of ['male', 'female'] as const) {
+      for (const bmr of [1300, 1650, 1835, 2300]) {
+        for (const level of ['none', 'sedentary', 'moderate'] as const) {
+          for (const rate of [-1, -0.5, -0.25, 0, 0.25, 0.5]) {
+            for (const burned of [0, 150, 430, 1200]) {
+              const baseline = baselineActivityKcal(bmr, level);
+              const t = computeEnergyTarget({ bmr, baselineActivityKcal: baseline, rateKgPerWeek: rate, sex, tefPct: TEF });
+              const budget = t.target + budgetExtraKcal(burned, t.flooredBy, t.tefPct);
+              const plan = (bmr + baseline + dailyDeltaFromRate(rate) + burned) / 0.9;
+              expect(budget).toBeCloseTo(Math.max(plan, t.floor), 9);
+              if (plan <= t.floor) continue;
+              const day = computeExpenditure({
+                mode: 'static',
+                bmr,
+                baselineActivityKcal: baseline,
+                manualExerciseKcal: burned,
+                exerciseMinutes: 0,
+                deviceWorkoutKcal: 0,
+                intakeKcal: budget,
+                tefEnabled: true,
+              });
+              expect(day.total - budget).toBeCloseTo(-dailyDeltaFromRate(rate), 9);
+            }
+          }
+        }
+      }
+    }
   });
 });

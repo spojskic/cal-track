@@ -14,13 +14,17 @@ style. It ends with a live breakdown of your numbers.
   without watch data).
   BMR formulas: Mifflin-St Jeor (default), Katch-McArdle and Cunningham (need body fat), Harris-Benedict, or a number you type.
   Goals show a warning above a safe rate (about 1% of body weight per week) and a calorie floor (1,500 men / 1,200 women).
+  The floor is a minimum for the day, not a bonus: when your plan is below it (for example BMR 1,835, no baseline, losing 0.5 kg per
+  week = 1,285) the target is 1,500, and what you burn above your baseline first fills that 215 kcal gap before it widens the day's
+  budget. The energy bars show what you ate against that budget (the target plus what burning added), so they move through the day.
 - **Macros**: ratios (e.g. 30/40/30), fixed grams, protein per kg, or a keto mode with fixed net carbs. Net carbs are optional
   and respect each food's label convention (US labels include fibre in carbs, EU labels do not).
 - **Nutrient targets**: vitamins, minerals, fibre and more, chosen by age, sex and pregnancy/lactation from published intake
   tables (RDA/AI, with upper limits). Every value can be overridden or reset in **More > Nutrient targets**.
   The tables were written from memory and have not been cross-checked against the official sources yet.
 - **Thermic effect of food** (10% of intake) can be switched on or off. It counts in the Expenditure circle and in the Balance
-  view, but is never added to your Target budget.
+  view, and your energy target allows for it (the plan is divided by 0.9), so eating the target leaves exactly the deficit
+  you chose instead of a larger one.
 - **Energy mode** (Profile & targets): *Static* (baseline activity only, ignores your watch), *Device-adjusted*
   (your watch activity replaces the baseline during the day and workouts are added) and *Device total* (your
   watch's active + resting calories only). The baseline is your starting allowance for the day: tracker activity replaces it

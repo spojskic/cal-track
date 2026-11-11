@@ -2,6 +2,7 @@
 // Pure (type-only imports of the components), so the rules can be tested without a renderer.
 import {
   energySummaryCaption,
+  foodForNetKcal,
   type EnergyBreakdown,
   type EnergyMode,
   type EnergySummaryMode,
@@ -73,11 +74,30 @@ export function energyModeSummary(mode: EnergyMode): string {
   }
 }
 
+/**
+ * How the budget is made: the target plus what burning above the baseline adds (less what the minimum target already covers).
+ * With TEF on, every burned kcal allows `1 / (1 - tefPct)` kcal of food because eating burns `tefPct` of the food too.
+ */
+export function budgetExplanation(target: number, burnedAboveBaseline: number, budgetExtra: number, tefPct = 0): string {
+  const budget = formatInt(target + budgetExtra);
+  const allowed = foodForNetKcal(burnedAboveBaseline, tefPct);
+  const covered = Math.max(0, allowed - budgetExtra);
+  const tefNote =
+    tefPct > 0
+      ? ` Eating burns about ${formatInt(tefPct * 100)}% of the food while it is digested (thermic effect of food), so each kcal you burn allows about ${(1 / (1 - tefPct)).toFixed(2)} kcal of food.`
+      : '';
+  if (covered < 0.5) {
+    return `Energy target ${formatInt(target)} kcal + ${formatInt(budgetExtra)} kcal for the ${formatInt(burnedAboveBaseline)} kcal you burned above your baseline = ${budget} kcal budget.${tefNote}`;
+  }
+  const allows = tefPct > 0 ? `, which allows ${formatInt(allowed)} kcal of food` : '';
+  return `Energy target ${formatInt(target)} kcal + ${formatInt(budgetExtra)} kcal = ${budget} kcal budget. You burned ${formatInt(burnedAboveBaseline)} kcal above your baseline${allows}, but ${formatInt(covered)} kcal of that only fills the gap up to your minimum target (your plan alone would be lower), so it does not widen the budget.${tefNote}`;
+}
+
 /** Props of <EnergySummary> from a day's energy, except the macro split. */
 export function energySummaryProps(
   energy: Pick<
     DayEnergy,
-    'consumedKcal' | 'expenditureKcal' | 'targetKcal' | 'exerciseBurnedKcal' | 'remainingKcal' | 'summaryMode' | 'breakdown' | 'deviceEnergy' | 'mode'
+    'consumedKcal' | 'expenditureKcal' | 'targetKcal' | 'exerciseBurnedKcal' | 'tefPct' | 'remainingKcal' | 'summaryMode' | 'breakdown' | 'deviceEnergy' | 'mode'
   >,
   onToggleSummaryMode?: () => void,
 ): EnergySummaryProps {
@@ -86,6 +106,7 @@ export function energySummaryProps(
     expenditure: energy.expenditureKcal,
     target: energy.targetKcal,
     aboveBaseline: energy.exerciseBurnedKcal,
+    tefPct: energy.tefPct,
     remaining: energy.remainingKcal,
     summaryMode: energy.summaryMode,
     onToggleSummaryMode,

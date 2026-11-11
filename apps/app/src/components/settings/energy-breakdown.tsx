@@ -41,6 +41,13 @@ export function EnergyBreakdownTable({
         hint={describeRate(result.rateKgPerWeek, unitSystem)}
         value={formatSigned(energy.delta)}
       />
+      {energy.tefAllowance >= 0.5 ? (
+        <KeyValueRow
+          label="Thermic Effect of Food"
+          hint={`Eating burns about ${formatInt(energy.tefPct * 100)}% of the food while it is digested; the target covers that`}
+          value={formatSigned(energy.tefAllowance)}
+        />
+      ) : null}
       {energy.flooredBy > 0 ? (
         <KeyValueRow
           label="Raised to minimum"
@@ -54,6 +61,12 @@ export function EnergyBreakdownTable({
       <AppText variant="small" muted style={{ marginTop: spacing.xs }}>
         Expenditure above baseline = adjusted baseline + tracker activity + exercise - baseline. It starts at 0 each
         day and is added to this target as you burn more than your baseline, so the target itself stays put.
+        {energy.tefPct > 0
+          ? ` With the thermic effect of food on, each kcal you burn above baseline allows about ${(1 / (1 - energy.tefPct)).toFixed(2)} kcal of food, because eating burns part of it.`
+          : ''}
+        {energy.flooredBy > 0
+          ? ` Your plan alone is ${formatKcal(energy.target - energy.flooredBy)}, below the minimum, so the first ${formatKcal(energy.flooredBy)} you burn above baseline only fill the gap up to the minimum; after that every extra kcal widens the day's budget.`
+          : ''}
       </AppText>
     </View>
   );

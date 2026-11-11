@@ -5,6 +5,7 @@ import {
   baselineActivityKcal,
   computeBmr,
   computeEnergyTarget,
+  DEFAULT_TEF_PCT,
   maxSafeLossRateKgPerWeek,
   resolveBmrFormula,
   type EnergyTarget,
@@ -250,6 +251,11 @@ export interface ResolveTargetsInput {
   netCarbs?: boolean;
   pregnant?: boolean;
   lactating?: boolean;
+  /**
+   * The thermic effect of food (`profiles.tef_enabled`) is on: the energy target then allows for the energy burned digesting the food
+   * (`DEFAULT_TEF_PCT` of it). Default false (TEF not in the target); the app passes the profile's setting.
+   */
+  tefEnabled?: boolean;
   /** User overrides (from `nutrient_targets`), applied last. */
   overrides?: Partial<Record<NutrientCode, TargetOverride | null>>;
   /** Local date `YYYY-MM-DD` the targets are for (used for age). */
@@ -294,7 +300,7 @@ function validBodyFat(v: number | null | undefined): number | null {
  *
  * - age = completed years on `onDate`
  * - `bmr = computeBmr(...)`, `baselineActivity = bmr * activity fraction`
- * - energy target = `computeEnergyTarget` (goal rate, sex-based floor)
+ * - energy target = `computeEnergyTarget` (goal rate, sex-based floor, TEF when `tefEnabled`)
  * - macros = the requested mode, or {@link DEFAULT_MACRO_MODE} (with `macroError`) if it is
  *   invalid or does not fit the energy target
  * - nutrients = `selectTargets` + macro-driven targets + `applyOverrides`
@@ -325,6 +331,7 @@ export function resolveTargets(input: ResolveTargetsInput): ResolvedTargetsCore 
     baselineActivityKcal: baseline,
     rateKgPerWeek: rate,
     sex: input.sex,
+    tefPct: input.tefEnabled ? DEFAULT_TEF_PCT : 0,
   });
 
   const maxLoss = maxSafeLossRateKgPerWeek(input.weightKg);

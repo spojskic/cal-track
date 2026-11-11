@@ -1,12 +1,12 @@
-import type { EnergyBreakdown } from '@ration/core';
+import { foodForNetKcal, type EnergyBreakdown } from '@ration/core';
 import { StyleSheet, View } from 'react-native';
 
-import { formatInt, formatKcal } from '@/components/settings/format';
+import { formatKcal } from '@/components/settings/format';
 import { Divider, KeyValueRow } from '@/components/settings/rows';
 import { AppText } from '@/components/ui';
 import { spacing } from '@/theme';
 
-import { energyBreakdownRows, energyModeSummary } from './energy-view';
+import { budgetExplanation, energyBreakdownRows, energyModeSummary } from './energy-view';
 import { Sheet } from './Sheet';
 
 /**
@@ -19,6 +19,8 @@ export function EnergyBreakdownSheet({
   breakdown,
   hasDevice,
   target,
+  budgetExtra,
+  tefPct,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -26,6 +28,10 @@ export function EnergyBreakdownSheet({
   hasDevice: boolean;
   /** Plan target (kcal) the day's budget starts from. */
   target?: number;
+  /** What burning above the baseline adds to the budget (less than `breakdown.aboveBaseline` when the minimum target already covers part of it). */
+  budgetExtra?: number;
+  /** The TEF share the target allows for; the budget text says that each burned kcal then allows more food. */
+  tefPct?: number;
 }) {
   const rows = energyBreakdownRows(breakdown, { hasDevice });
   return (
@@ -39,7 +45,7 @@ export function EnergyBreakdownSheet({
       </View>
       {target !== undefined ? (
         <AppText variant="small" muted>
-          {`Energy target ${formatInt(target)} kcal + ${formatInt(breakdown.aboveBaseline)} kcal burned above your baseline = ${formatInt(target + breakdown.aboveBaseline)} kcal budget (thermic effect of food is not added to the budget).`}
+          {budgetExplanation(target, breakdown.aboveBaseline, budgetExtra ?? foodForNetKcal(breakdown.aboveBaseline, tefPct), tefPct)}
         </AppText>
       ) : null}
       <AppText variant="small" muted>

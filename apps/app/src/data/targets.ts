@@ -98,6 +98,7 @@ function compose({ profile, body, goal, macroMode, overrides, today }: Inputs): 
       rateKgPerWeek: goal?.rate_kg_per_week ?? 0,
       macroMode: macroMode ?? null,
       netCarbs: profile.net_carbs,
+      tefEnabled: profile.tef_enabled,
       pregnant: profile.pregnant,
       lactating: profile.lactating,
       overrides: overrides ?? {},

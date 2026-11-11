@@ -19,7 +19,6 @@ interface MacroRow {
   unit: string;
   value: number | undefined;
   target: number | undefined;
-  netValue?: number;
   color: string;
   overIsBad: boolean;
   decimals: number;
@@ -80,9 +79,9 @@ describe('macroBarRows', () => {
     expect(r).toMatchObject({ valueText: '120 g', pctText: '', fill: 0, tone: 'muted', now: undefined, accessibilityLabel: 'Protein: 120 g' });
   });
 
-  it('exercise shows the net value and drives the bar', () => {
-    const [r] = macroBarRows([row({ key: 'energy', label: 'Energy', unit: 'kcal', value: 2000, netValue: 1500, target: 2000, decimals: 0, overIsBad: true })], COLORS);
-    expect(r?.valueText).toBe('2,000 (1,500 net) / 2,000 kcal');
+  it('the energy bar is driven by the amount eaten and the target it is given', () => {
+    const [r] = macroBarRows([row({ key: 'energy', label: 'Energy', unit: 'kcal', value: 1500, target: 2000, decimals: 0, overIsBad: true })], COLORS);
+    expect(r?.valueText).toBe('1,500 / 2,000 kcal');
     expect(r?.pctText).toBe('75%');
   });
 

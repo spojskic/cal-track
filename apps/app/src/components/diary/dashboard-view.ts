@@ -22,7 +22,6 @@ export function macroBarRows(rows: readonly MacroRow[], colors: OverColors): Bar
     const p = macroProgress({
       value: row.value,
       target: row.target,
-      netValue: row.netValue,
       unit: row.unit,
       decimals: row.decimals,
       overIsBad: row.overIsBad,
@@ -101,7 +100,6 @@ export function macroKpi(row: MacroRow, colors: OverColors): KpiData {
   const p = macroProgress({
     value: row.value,
     target: row.target,
-    netValue: row.netValue,
     unit: row.unit,
     decimals: row.decimals,
     overIsBad: row.overIsBad,

@@ -57,6 +57,22 @@ describe('resolveTargets - energy', () => {
     expect(resolveTargets({ ...male, rateKgPerWeek: -0.25 }).energy.belowBmr).toBe(false);
   });
 
+  it('leaves the thermic effect of food out of the target by default and allows for it with tefEnabled', () => {
+    const goal = { ...male, rateKgPerWeek: -0.5 };
+    const off = resolveTargets(goal);
+    const on = resolveTargets({ ...goal, tefEnabled: true });
+    expect(off.energy.tefPct).toBe(0);
+    expect(off.energy.target).toBeCloseTo(2100 - 550, 6);
+    expect(on.energy.tefPct).toBe(0.1);
+    // the food that covers 1550 net kcal is 1550 / 0.9; the macros follow the target
+    expect(on.energy.target).toBeCloseTo(1550 / 0.9, 6);
+    expect(on.energy.tefAllowance).toBeCloseTo(1550 / 0.9 - 1550, 6);
+    expect(on.macros.protein.kcal + on.macros.carbs.kcal + on.macros.fat.kcal).toBeGreaterThan(
+      off.macros.protein.kcal + off.macros.carbs.kcal + off.macros.fat.kcal,
+    );
+    expect(resolveTargets({ ...goal, tefEnabled: false }).energy.target).toBeCloseTo(off.energy.target, 9);
+  });
+
   it('applies the energy floor and flags below-BMR and unsafe loss rates', () => {
     const r = resolveTargets({ ...female, rateKgPerWeek: -1 });
     // BMR 1259 + 20% = 1510.8, minus 1100 = 410.8, floored to 1200

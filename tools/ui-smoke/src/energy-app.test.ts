@@ -77,14 +77,14 @@ const suite = lib ? describe : describe.skip;
 // ----------------------------------------------------------------------------------------------------- test data
 
 /** Cronometer's example person: BMR 1394, baseline 279, maintain-weight target 1673. */
-const targets = (over: { target?: number; bmr?: number; baseline?: number } = {}): any => {
+const targets = (over: { target?: number; bmr?: number; baseline?: number; flooredBy?: number; tefPct?: number } = {}): any => {
   const bmr = over.bmr ?? 1394;
   const baseline = over.baseline ?? 279;
   const target = over.target ?? bmr + baseline;
   return {
     bmr,
     baselineActivityKcal: baseline,
-    energy: { target, maintenance: bmr + baseline, delta: target - bmr - baseline, floor: 1200, flooredBy: 0, belowBmr: false },
+    energy: { target, maintenance: bmr + baseline, delta: target - bmr - baseline, floor: 1200, flooredBy: over.flooredBy ?? 0, belowBmr: false, tefPct: over.tefPct ?? 0, tefAllowance: 0 },
   };
 };
 
@@ -121,6 +121,64 @@ const deviceRow = (source: string, active: number | null, resting: number | null
 const base = { tefEnabled: false, consumedKcal: 0, exercise: [] as any[], deviceRows: [] as any[] };
 
 suite('data/energy.ts computeDayEnergy: Burned = BMR + adjusted baseline + tracker activity + exercise (+ TEF)', () => {
+  it('a target raised to the minimum: the first kcal burned above the baseline only fill the gap, the rest widens the budget', async () => {
+    const { computeDayEnergy } = await load('@/data/energy');
+    // BMR 1835, no baseline, losing 0.5 kg/week: the plan is 1285, raised to the minimum 1500 (flooredBy 215)
+    const floored = targets({ bmr: 1835, baseline: 0, target: 1500, flooredBy: 215 });
+    const none = computeDayEnergy({ ...base, mode: 'static', targets: floored, consumedKcal: 1000 });
+    expect(none.exerciseBurnedKcal).toBe(0);
+    expect(none.remaining.target).toBe(1500 - 1000);
+    // 100 kcal burned: inside the gap, the budget stays at the minimum
+    const small = computeDayEnergy({ ...base, mode: 'static', targets: floored, exercise: [manual(100, null)], consumedKcal: 1000 });
+    expect(small.breakdown.aboveBaseline).toBe(100);
+    expect(small.exerciseBurnedKcal).toBe(0);
+    expect(small.remaining.target).toBe(500);
+    // 934 kcal burned: 215 fill the gap, 719 widen the budget -> 2,219 = BMR 1835 + 934 - 550, exactly what the plan allows
+    const big = computeDayEnergy({ ...base, mode: 'static', targets: floored, exercise: [manual(934, null)], consumedKcal: 528 });
+    expect(big.breakdown.aboveBaseline).toBe(934);
+    expect(big.exerciseBurnedKcal).toBe(719);
+    expect(big.remaining.target).toBe(1500 + 719 - 528);
+    expect(1500 + big.exerciseBurnedKcal).toBe(1835 + 934 - 550);
+    // Balance does not use the plan at all
+    expect(big.remaining.balance).toBe(1835 + 934 - 528);
+  });
+
+  it('with the thermic effect of food in the target the budget is what lets the chosen deficit through: eating it leaves 550', async () => {
+    const { computeDayEnergy } = await load('@/data/energy');
+    // BMR 1835, no baseline, -550/day: the plan 1285 / 0.9 = 1427.8 is raised to the minimum 1500 (flooredBy 72.2); TEF 10%
+    const tef = targets({ bmr: 1835, baseline: 0, target: 1500, flooredBy: 1500 - 1285 / 0.9, tefPct: 0.1 });
+    const run = (consumedKcal: number) =>
+      computeDayEnergy({ ...base, tefEnabled: true, mode: 'static', targets: tef, exercise: [manual(430, null)], consumedKcal });
+    const ate = run(1940);
+    expect(ate.breakdown.aboveBaseline).toBe(430);
+    expect(ate.breakdown.tef).toBeCloseTo(194, 9);
+    expect(ate.breakdown.total).toBeCloseTo(2459, 9);
+    // 430 burned allows 430 / 0.9 = 477.8 kcal of food, 72.2 of it fills the gap to the minimum, 405.6 widens the budget
+    expect(ate.exerciseBurnedKcal).toBeCloseTo(430 / 0.9 - (1500 - 1285 / 0.9), 9);
+    expect(1500 + ate.exerciseBurnedKcal).toBeCloseTo((1835 + 430 - 550) / 0.9, 9);
+    expect(ate.remaining.target).toBeCloseTo(1905.56 - 1940, 2);
+    expect(ate.remaining.balance).toBeCloseTo(519, 9);
+    // eating the budget exactly leaves the 550 chosen, on the Balance view too
+    const onBudget = run((1835 + 430 - 550) / 0.9);
+    expect(onBudget.remaining.target).toBeCloseTo(0, 9);
+    expect(onBudget.remaining.balance).toBeCloseTo(550, 9);
+  });
+
+  it('TEF off: the target stays as it was and nothing of TEF is in the budget', async () => {
+    const { computeDayEnergy } = await load('@/data/energy');
+    const off = targets({ bmr: 1835, baseline: 0, target: 1500, flooredBy: 215, tefPct: 0 });
+    const r = computeDayEnergy({ ...base, tefEnabled: false, mode: 'static', targets: off, exercise: [manual(430, null)], consumedKcal: 1715 });
+    expect(r.exerciseBurnedKcal).toBe(215);
+    expect(r.remaining.target).toBe(0);
+    expect(r.remaining.balance).toBe(550);
+  });
+
+  it('a target that was not raised by the floor is widened by everything burned above the baseline (as before)', async () => {
+    const { computeDayEnergy } = await load('@/data/energy');
+    const r = computeDayEnergy({ ...base, mode: 'static', targets: targets({ bmr: 1835, baseline: 0, target: 1900, flooredBy: 0 }), exercise: [manual(300, null)] });
+    expect(r.exerciseBurnedKcal).toBe(300);
+  });
+
   it("Cronometer's example without a device: a 60 min / 500 kcal ride -> adjusted baseline 261.5625, Burned 2155.5625, above baseline 482.5625", async () => {
     const { computeDayEnergy } = await load('@/data/energy');
     const r = computeDayEnergy({ ...base, mode: 'static', targets: targets(), exercise: [manual(500, 60)] });
@@ -452,5 +510,35 @@ suite('data/energy-mode.ts', () => {
     expect(core.nextEnergySummaryMode('target')).toBe('balance');
     expect(core.nextEnergySummaryMode('balance')).toBe('target');
     expect(core.normalizeEnergySummaryMode(undefined)).toBe('target');
+  });
+});
+
+suite('energy-view.ts budgetExplanation: how the budget is made', () => {
+  it('without TEF: the target plus what was burned above the baseline', async () => {
+    const { budgetExplanation } = await load('@/components/diary/energy-view');
+    expect(budgetExplanation(1887, 478, 478)).toBe(
+      'Energy target 1,887 kcal + 478 kcal for the 478 kcal you burned above your baseline = 2,365 kcal budget.',
+    );
+  });
+
+  it('with the minimum target: says how much of the burn only fills the gap', async () => {
+    const { budgetExplanation } = await load('@/components/diary/energy-view');
+    expect(budgetExplanation(1500, 934, 719)).toBe(
+      'Energy target 1,500 kcal + 719 kcal = 2,219 kcal budget. You burned 934 kcal above your baseline, but 215 kcal of that only fills the gap up to your minimum target (your plan alone would be lower), so it does not widen the budget.',
+    );
+  });
+
+  it('with TEF: each burned kcal allows 1.11 kcal of food, and the gap is counted in food', async () => {
+    const { budgetExplanation } = await load('@/components/diary/energy-view');
+    const extra = 430 / 0.9 - (1500 - 1285 / 0.9);
+    const text = budgetExplanation(1500, 430, extra, 0.1);
+    expect(text).toContain('Energy target 1,500 kcal + 406 kcal = 1,906 kcal budget.');
+    expect(text).toContain('You burned 430 kcal above your baseline, which allows 478 kcal of food, but 72 kcal of that only fills the gap');
+    expect(text).toContain('about 10% of the food');
+    expect(text).toContain('allows about 1.11 kcal of food');
+    // no gap: the plain sentence plus the TEF note
+    expect(budgetExplanation(2067, 450, 500, 0.1)).toBe(
+      'Energy target 2,067 kcal + 500 kcal for the 450 kcal you burned above your baseline = 2,567 kcal budget. Eating burns about 10% of the food while it is digested (thermic effect of food), so each kcal you burn allows about 1.11 kcal of food.',
+    );
   });
 });

@@ -125,7 +125,7 @@ export default function DiaryScreen() {
         hasEntries: day.hasEntries,
         targets,
         netCarbs,
-        exerciseBurnedKcal: energy.exerciseBurnedKcal,
+        budgetExtraKcal: energy.exerciseBurnedKcal,
       }),
     [colors, day.totals, day.hasEntries, targets, netCarbs, energy.exerciseBurnedKcal],
   );

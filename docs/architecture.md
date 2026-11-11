@@ -71,8 +71,30 @@ All in `packages/core`, tested with golden values.
    The third circle of the energy summary has two views, switched by tapping its label (stored in
    `profiles.energy_summary_mode`): *Target* shows `(energy target + energy burned above the baseline) - consumed`
    (Remaining or Over), with `above baseline = max(0, adjusted baseline + tracker activity + exercise - baseline)`, e.g.
-   `1673 + 482.5625` in the example above; TEF is not added to the budget. *Balance* shows `Burned (incl. TEF) - consumed`
+   `1673 + 482.5625` in the example above (with TEF on that burn is scaled up, see below). *Balance* shows `Burned (incl. TEF) - consumed`
    (Deficit or Surplus) and ignores the weight goal. The macro targets always use the energy target.
+
+   **The floor is a minimum, not a bonus.** When the plan (`bmr + baseline + goal delta`) is below the minimum (1,500 men / 1,200
+   women) the target is raised to it (`flooredBy`). Burned energy then only widens the budget once it has filled that gap:
+   `budget = max(plan + above baseline, floor)`, in code `target + budgetExtraKcal(aboveBaseline, flooredBy, tefPct)`. Example (BMR 1835, no
+   baseline, losing 0.5 kg/week = -550): plan 1285, target 1500, `flooredBy` 215; burning 934 above the baseline gives a budget of
+   `1500 + 719 = 2219 = 1835 + 934 - 550`, exactly what the plan allows (adding all 934 would have given 2434, a smaller deficit than
+   chosen). The energy bars of the diary and the dashboard compare what was eaten with this budget (`DayEnergy.exerciseBurnedKcal` is
+   the widening), not the plain target; they used to compare eaten minus burned with the plain target, which showed 0% for a day
+   with a big workout and a normal breakfast.
+
+   **The target allows for the thermic effect of food.** With TEF on (`profiles.tef_enabled`, 10% of intake) the food you eat burns
+   `tefPct` of itself, and the Expenditure and Balance views count that. The weight goal (-550 kcal/day for 0.5 kg/week) is a
+   deficit against the burn WITH that TEF, so the plan is divided by `1 - tefPct`: `target = max((bmr + baseline + delta) / (1 - tefPct), floor)`
+   (`computeEnergyTarget({ tefPct })`, `tefAllowance` is the part TEF adds) and every kcal burned above the baseline allows
+   `1 / (1 - tefPct)` kcal of food (`budgetExtraKcal(aboveBaseline, flooredBy, tefPct)`). Eating exactly the budget then leaves the
+   chosen deficit on the Balance view too. Without the division the target was 190 kcal too strict (target 1715 against an
+   expenditure of 2459 and a 550 plan: 2459 - 550 = 1909, not 1715), and eating the target showed a deficit of 720 instead of 550.
+   Example (BMR 1835, no baseline, -0.5 kg/week, TEF on): plan `1285 / 0.9 = 1427.8`, raised to the minimum 1500 (`flooredBy` 72.2);
+   430 kcal burned above baseline gives a budget of `1500 + (430 / 0.9 - 72.2) = 1905.6 = (1835 + 430 - 550) / 0.9`, and eating it gives
+   an expenditure of `1835 + 430 + 190.6 = 2455.6`, a deficit of exactly 550. `resolveTargets({ tefEnabled })` passes the flag
+   (default off in the pure resolver; the app passes the profile's setting). The macro targets follow the energy target, so they are
+   about 11% higher with TEF on.
 3. **Per-entry nutrients** = food per-100 g amounts x grams / 100, then derived values (net carbs, omega-3/6, an energy
    fallback) honouring the food's carb convention. Day totals sum entries; unknown stays unknown.
 4. **Nutrient targets** come from intake tables by age, sex and pregnancy/lactation, plus macro-driven targets, plus your overrides.

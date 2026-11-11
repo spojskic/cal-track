@@ -84,6 +84,7 @@ function TargetsEditor({ targets, goal }: { targets: ResolvedTargets; goal: Weig
           rateKgPerWeek,
           macroMode: macroParsed.mode,
           netCarbs: energy.netCarbs,
+          tefEnabled: energy.tef,
           pregnant: profile.pregnant,
           lactating: profile.lactating,
           onDate: todayISO(),
@@ -269,7 +270,7 @@ function TargetsEditor({ targets, goal }: { targets: ResolvedTargets; goal: Weig
         <Divider />
         <SwitchRow
           label="Thermic effect of food (TEF)"
-          description="Counts about 10% of the calories you eat as energy spent digesting food in your daily energy balance. It does not change your energy target."
+          description="Counts about 10% of the calories you eat as energy spent digesting food in your daily energy balance. Your energy target allows for it, so eating the target gives the weight loss or gain you chose."
           value={energy.tef}
           onChange={(tef) => setEnergyEdit({ ...energy, tef })}
         />

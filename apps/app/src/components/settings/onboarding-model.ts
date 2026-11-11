@@ -175,6 +175,8 @@ export function toResolveInput(
     rateKgPerWeek: parsed.goal.errors.rate ? 0 : parsed.goal.rateKgPerWeek,
     macroMode: parsed.macroMode,
     netCarbs: form.netCarbs,
+    // The profile row is created with the thermic effect of food on (the column default).
+    tefEnabled: true,
     pregnant: form.sex === 'female' && form.pregnant,
     lactating: form.sex === 'female' && form.lactating,
     onDate: today,

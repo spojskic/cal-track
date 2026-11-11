@@ -102,7 +102,6 @@ function MacroRowBar({ row }: { row: MacroRow }) {
   const p = macroProgress({
     value: row.value,
     target: row.target,
-    netValue: row.netValue,
     unit: row.unit,
     decimals: row.decimals,
     overIsBad: row.overIsBad,

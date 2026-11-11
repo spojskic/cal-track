@@ -202,6 +202,20 @@ export function tefKcal(intakeKcal: number, enabled: boolean, pct: number = DEFA
   return Math.max(0, intakeKcal) * pct;
 }
 
+/** A TEF share as a usable fraction: finite, never negative, and below 50% (so `1 / (1 - share)` stays sane). */
+function tefShare(pct: number | null | undefined): number {
+  return isNum(pct) ? Math.min(Math.max(pct, 0), 0.5) : 0;
+}
+
+/**
+ * How much food covers `kcal` of energy once the digestion of that food is counted: `kcal / (1 - pct)`. Eating `x` kcal burns
+ * `pct * x` while digesting, so the net cost of `x` kcal of food is `x * (1 - pct)`; a budget of `kcal` net therefore allows
+ * `kcal / (1 - pct)` of food. With `pct = 0` (TEF off) it is `kcal` itself.
+ */
+export function foodForNetKcal(kcal: number, pct: number | null | undefined): number {
+  return kcal / (1 - tefShare(pct));
+}
+
 // ------------------------------------------------------ expenditure modes
 
 /**
@@ -537,6 +551,21 @@ export function energyFloor(sex: Sex): number {
   return sex === 'male' ? 1500 : 1200;
 }
 
+/**
+ * The part of the energy burned above the baseline that widens the day's budget, in kcal of FOOD.
+ *
+ * The floor can raise the target above the plan (`flooredByKcal`: the plan alone would have been lower). That top-up is already
+ * budget the plan did not give, so the first `flooredByKcal` of extra budget only fills it; only what is left widens the budget.
+ * Without it every burned kcal would be added on top of the floor, a smaller deficit than the one chosen:
+ * `budget = max(plan + aboveBaseline, floor)` instead of `max(plan, floor) + aboveBaseline`.
+ *
+ * With TEF on (`tefPct`) every kcal eaten burns `tefPct` of itself, so each kcal burned above the baseline allows
+ * `1 / (1 - tefPct)` kcal of food ({@link foodForNetKcal}); the same factor is inside the plan target of {@link computeEnergyTarget}.
+ */
+export function budgetExtraKcal(aboveBaselineKcal: number, flooredByKcal: number, tefPct: number | null | undefined = 0): number {
+  return Math.max(0, foodForNetKcal(nonNeg(aboveBaselineKcal), tefPct) - nonNeg(flooredByKcal));
+}
+
 /** Inputs for {@link computeEnergyTarget}. */
 export interface EnergyTargetInput {
   bmr: number;
@@ -546,6 +575,11 @@ export interface EnergyTargetInput {
   sex: Sex;
   /** Overrides the default sex-based floor. */
   floorKcal?: number;
+  /**
+   * Share of the food eaten that the body burns digesting it (0.1 = 10%), or 0 / undefined when TEF is off. The target then
+   * allows for it: eating the target burns `tefPct * target` more, so the goal deficit is measured against the burn WITH that TEF.
+   */
+  tefPct?: number;
 }
 
 /** Result of {@link computeEnergyTarget}. */
@@ -561,29 +595,41 @@ export interface EnergyTarget {
   flooredBy: number;
   /** True when the final target is below BMR. */
   belowBmr: boolean;
+  /** The TEF share the target allows for (0 when TEF is off). */
+  tefPct: number;
+  /** kcal added to the plan so that the food eaten covers its own digestion: `(maintenance + delta) / (1 - tefPct) - (maintenance + delta)`. */
+  tefAllowance: number;
 }
 
 /**
  * Daily calorie target for a weight goal:
- * `target = max(maintenance + delta, floor)` where
+ * `target = max((maintenance + delta) / (1 - tefPct), floor)` where
  * `maintenance = bmr + baselineActivity` and `delta = rate * 7700 / 7`.
  *
- * The target deliberately excludes TEF (it would depend on intake, which
- * depends on the target) and exercise (that is shown as extra budget).
+ * Without TEF (`tefPct` 0) that is `max(maintenance + delta, floor)`. With TEF the plan is divided by `1 - tefPct`: the food in
+ * the target burns `tefPct` of itself, so only `1 - tefPct` of it counts against the burn. Eating exactly the target then leaves
+ * the chosen deficit (or surplus) when the energy balance counts TEF, instead of a deficit larger by the TEF (e.g. 550 + 190).
+ *
+ * Exercise is not part of the target; it widens the day's budget ({@link budgetExtraKcal}).
  */
 export function computeEnergyTarget(input: EnergyTargetInput): EnergyTarget {
   const maintenance = input.bmr + input.baselineActivityKcal;
   const delta = dailyDeltaFromRate(input.rateKgPerWeek);
   const floor = input.floorKcal ?? energyFloor(input.sex);
+  const tefPct = tefShare(input.tefPct);
   const raw = maintenance + delta;
-  const target = Math.max(raw, floor);
+  const tefAllowance = raw > 0 ? foodForNetKcal(raw, tefPct) - raw : 0;
+  const plan = raw + tefAllowance;
+  const target = Math.max(plan, floor);
   return {
     target,
     maintenance,
     delta,
     floor,
-    flooredBy: target > raw ? target - raw : 0,
+    flooredBy: target > plan ? target - plan : 0,
     belowBmr: target < input.bmr,
+    tefPct,
+    tefAllowance,
   };
 }
 

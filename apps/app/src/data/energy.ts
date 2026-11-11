@@ -1,10 +1,11 @@
-// Day energy: consumed vs expenditure vs target, the way Cronometer does it. Built from the resolved targets, the
+// Day energy: consumed vs expenditure vs target. Built from the resolved targets, the
 // profile's energy mode, logged exercise, device energy rows and the thermic effect of food, using the core model:
 //   Burned = BMR + adjusted baseline + tracker activity + exercise (+ TEF)
-//   Target view : remaining = (target + energy burned above the baseline) - consumed
+//   Target view : remaining = (target + what burning above the baseline adds to the budget) - consumed
 //   Balance view: remaining = Burned - consumed
 import { useMemo } from 'react';
 import {
+  budgetExtraKcal,
   computeExpenditure,
   dedupeExercises,
   energyRemaining,
@@ -30,20 +31,23 @@ export interface DayEnergy {
   mode: EnergyMode;
   /** Energy eaten that day. */
   consumedKcal: number;
-  /** Plan target (maintenance + goal delta, floor applied). Excludes exercise and TEF. Undefined until targets resolve. */
+  /** Plan target (maintenance + goal delta, with the digestion of the food allowed for when TEF is on, floor applied). Excludes exercise. Undefined until targets resolve. */
   targetKcal: number | undefined;
   /** Expenditure split per component; undefined until targets resolve. */
   breakdown: EnergyBreakdown | undefined;
   /** `breakdown.total` (BMR + adjusted baseline + tracker activity + exercise + TEF). */
   expenditureKcal: number | undefined;
   /**
-   * Energy burned ABOVE the baseline (`breakdown.aboveBaseline`: adjusted baseline + tracker activity + exercise -
-   * baseline), TEF excluded. This is what widens the day's budget in the Target view.
+   * What widens the day's budget in the Target view, in kcal of food: the energy burned ABOVE the baseline (`breakdown.aboveBaseline`:
+   * adjusted baseline + tracker activity + exercise - baseline, TEF excluded) divided by `1 - TEF share`, less the part that only fills
+   * the gap up to the minimum target when the floor raised the plan (see `budgetExtraKcal` in @ration/core).
    */
   exerciseBurnedKcal: number;
   /** targetKcal + exerciseBurnedKcal. */
   budgetKcal: number | undefined;
-  /** consumed - exerciseBurned (what Cronometer shows as "net"). */
+  /** The TEF share the target allows for (0 when TEF is off or before targets resolve); the budget text explains it. */
+  tefPct: number;
+  /** consumed - exerciseBurned (kept for callers that want a net figure; the energy bars compare consumed with the budget). */
   netKcal: number;
   /** The view of the third circle (profile.energy_summary_mode). */
   summaryMode: EnergySummaryMode;
@@ -162,13 +166,14 @@ export function computeDayEnergy(input: Inputs) {
     intakeKcal: consumedKcal,
     tefEnabled,
   });
+  const widening = budgetExtraKcal(breakdown.aboveBaseline, targets.energy.flooredBy, targets.energy.tefPct);
   return {
     breakdown,
     targetKcal: targets.energy.target,
-    exerciseBurnedKcal: breakdown.aboveBaseline,
+    exerciseBurnedKcal: widening,
     remaining: energyRemaining({
       targetKcal: targets.energy.target,
-      aboveBaselineKcal: breakdown.aboveBaseline,
+      aboveBaselineKcal: widening,
       expenditureKcal: breakdown.total,
       consumedKcal,
     }),
@@ -227,6 +232,7 @@ export function useDayEnergyFrom(date: string, day: DayNutrients): DayEnergy {
     expenditureKcal: computed.breakdown?.total,
     exerciseBurnedKcal: computed.exerciseBurnedKcal,
     budgetKcal,
+    tefPct: targets?.energy.tefPct ?? 0,
     netKcal: consumedKcal - computed.exerciseBurnedKcal,
     summaryMode,
     remainingKcal: computed.remaining?.[summaryMode],

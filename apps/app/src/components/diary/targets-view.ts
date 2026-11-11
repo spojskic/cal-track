@@ -24,23 +24,27 @@ export interface MacroRow {
   unit: string;
   value: number | undefined;
   target: number | undefined;
-  /** Energy after exercise; only on the energy row when exercise burned something. */
-  netValue?: number;
   color: string;
   overIsBad: boolean;
   decimals: number;
 }
 
-/** Energy / protein / (net) carbs / fat rows for the macro bars. */
+/**
+ * Energy / protein / (net) carbs / fat rows for the macro bars. The energy row compares what was eaten with the day's budget: the
+ * energy target plus what burning above the baseline adds to it (`budgetExtraKcal`), the same budget the energy summary's third
+ * circle uses. It used to compare the eaten energy minus the burned energy with the plain target, which showed an empty bar and
+ * 0% for a day with a hard workout and a normal breakfast.
+ */
 export function buildMacroRows(args: {
   colors: ThemeColors;
   totals: NutrientMap;
   hasEntries: boolean;
   targets: ResolvedTargets | undefined;
   netCarbs: boolean;
-  exerciseBurnedKcal: number;
+  /** What burning above the baseline adds to the energy target today (`DayEnergy.exerciseBurnedKcal`). */
+  budgetExtraKcal: number;
 }): MacroRow[] {
-  const { colors, totals, hasEntries, targets, netCarbs, exerciseBurnedKcal } = args;
+  const { colors, totals, hasEntries, targets, netCarbs, budgetExtraKcal } = args;
   const energy = amountOf(totals, 'ENERGY_KCAL', hasEntries);
   const carbsCode: NutrientCode = netCarbs ? 'NET_CARBS_G' : 'CARBS_G';
   return [
@@ -49,8 +53,7 @@ export function buildMacroRows(args: {
       label: 'Energy',
       unit: 'kcal',
       value: energy,
-      target: targets?.energy.target,
-      netValue: energy !== undefined && exerciseBurnedKcal > 0 ? energy - exerciseBurnedKcal : undefined,
+      target: targets ? targets.energy.target + Math.max(0, budgetExtraKcal) : undefined,
       color: colors.energy,
       overIsBad: true,
       decimals: 0,

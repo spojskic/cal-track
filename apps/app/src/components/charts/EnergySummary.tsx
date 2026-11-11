@@ -17,8 +17,10 @@ export interface EnergySummaryProps {
   expenditure?: number;
   /** Plan target without exercise (kcal). */
   target?: number;
-  /** Energy burned above the baseline (kcal): widens today's budget in the Target view. */
+  /** What the energy burned above the baseline adds to today's budget (kcal of food) in the Target view. */
   aboveBaseline?: number;
+  /** The TEF share the target allows for (0.1 = 10%), for the budget explanation. */
+  tefPct?: number;
   /**
    * The third circle's value for `summaryMode`: Target = (target + aboveBaseline) - consumed (negative = Over),
    * Balance = expenditure - consumed (negative = Surplus). Derived from the other props when omitted.
@@ -49,6 +51,7 @@ export function EnergySummary({
   expenditure,
   target,
   aboveBaseline = 0,
+  tefPct = 0,
   remaining,
   summaryMode = 'target',
   onToggleSummaryMode,
@@ -182,7 +185,7 @@ export function EnergySummary({
       ) : target !== undefined ? (
         <AppText variant="small" muted style={styles.center}>
           Target {formatNumber(target)} kcal
-          {aboveBaseline >= 0.5 ? ` + ${formatNumber(aboveBaseline)} above baseline = ${formatNumber(budget)} kcal` : ''}
+          {aboveBaseline >= 0.5 ? ` + ${formatNumber(aboveBaseline)} for activity = ${formatNumber(budget)} kcal` : ''}
         </AppText>
       ) : null}
 
@@ -193,6 +196,8 @@ export function EnergySummary({
           breakdown={breakdown}
           hasDevice={hasDevice}
           target={target}
+          budgetExtra={aboveBaseline}
+          tefPct={tefPct}
         />
       ) : null}
 
