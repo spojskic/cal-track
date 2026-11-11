@@ -487,6 +487,8 @@ const MINI_TRACK_HEIGHT = 4;
 const BAR_HEIGHT = 8;
 /** Width of one character of a 12 px tabular figure, rounded up a little. */
 const VALUE_CHAR_WIDTH = 6.9;
+/** Width of one character of the bold 12 px percentage, with room to spare. */
+const PCT_CHAR_WIDTH = 9;
 
 /** Rows of label | bar | value | percentage, with the value and percentage columns as wide as their widest text so the bars line up. */
 export function BarList({ rows, labelWidth = 76 }: { rows: BarRow[]; labelWidth?: number }) {
@@ -495,10 +497,11 @@ export function BarList({ rows, labelWidth = 76 }: { rows: BarRow[]; labelWidth?
     rows.map((r) => r.valueText),
     VALUE_CHAR_WIDTH,
   );
+  // A bold 12 px "126%" is about 34 px wide in the system font, and wider in some fonts: the column is generous (and never below 44).
   const pctWidth = textColumnWidth(
     rows.map((r) => r.pctText),
-    VALUE_CHAR_WIDTH + 0.6,
-    32,
+    PCT_CHAR_WIDTH,
+    44,
   );
   return (
     <View style={styles.barList}>

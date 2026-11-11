@@ -106,17 +106,22 @@ export function DateControls({
 
 const SIDE = 76; // room reserved on BOTH sides: the two 36 px buttons on the right, nothing on the left
 
+// The date block has ONE width whatever it says ("Fri, Nov 6", "Wed, Nov 11" + "Yesterday"), so the arrows on both sides stay where
+// they are and clicking an arrow again does not need the pointer to move. Wide enough for the longest label.
+const PHONE_DATE_WIDTH = 132;
+const DESKTOP_DATE_WIDTH = 188;
+
 const styles = StyleSheet.create({
   // The date block is centred in the bar by the bar itself; the action buttons are laid over the right-hand margin.
   // (Two flexible side columns of unequal content did not stay equal on a phone and pushed the date off-centre.)
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingHorizontal: SIDE },
   right: { position: 'absolute', right: 0, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center' },
   center: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
-  date: { alignItems: 'center', paddingHorizontal: spacing.xs, minHeight: 36, justifyContent: 'center', flexShrink: 1 },
+  date: { width: PHONE_DATE_WIDTH, alignItems: 'center', paddingHorizontal: spacing.xs, minHeight: 36, justifyContent: 'center', flexShrink: 1 },
   dateText: { fontSize: 16, fontWeight: '700' },
   relative: { fontSize: 11, fontWeight: '600', lineHeight: 13 },
   controls: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  controlsDate: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.sm, minHeight: 30 },
+  controlsDate: { width: DESKTOP_DATE_WIDTH, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: spacing.sm, minHeight: 30 },
   controlsDateText: { fontSize: 13.5, fontWeight: '600' },
   controlsRelative: { fontSize: 12, fontWeight: '600' },
   controlsDivider: { width: 1, height: 18, marginHorizontal: spacing.sm },

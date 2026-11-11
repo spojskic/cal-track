@@ -818,9 +818,28 @@ export const SCENARIOS: Scenario[] = [
         const truncated = await page.evaluate(truncatedTextScript('[role="tab"]'));
         if (Array.isArray(truncated) && truncated.length > 0) throw new Error(`truncated tab labels: ${truncated.join(', ')}`);
       });
+      const arrows = async () => {
+        const prev = await page.getByRole('button', { name: 'Previous day', exact: true }).first().boundingBox({ timeout: 6000 });
+        const next = await page.getByRole('button', { name: 'Next day', exact: true }).first().boundingBox({ timeout: 6000 });
+        if (!prev || !next) throw new Error('the day arrows are not visible');
+        return { prevX: prev.x, nextX: next.x };
+      };
+      const before = await arrows().catch(() => null);
       await stepThen(ctx, 'previous day', () => clickButton(page, 'Previous day', { exact: true }), async () => {
         await ctx.expectText('Salmon, Atlantic, farmed, raw');
         await ctx.snapshot('yesterday');
+      });
+      // "Today", "Yesterday" and an older date have labels of different lengths: the arrows must not move with them, or the pointer
+      // has to follow them to click the same arrow twice.
+      await ctx.check('the day arrows stay where they are while the date changes (Today, Yesterday, older days)', async () => {
+        if (!before) throw new Error('the day arrows were not visible at the start');
+        for (const step of ['Previous day', 'Previous day', 'Next day', 'Next day', 'Next day']) {
+          await clickButton(page, step, { exact: true });
+          const now = await arrows();
+          if (Math.abs(now.prevX - before.prevX) > 0.5 || Math.abs(now.nextX - before.nextX) > 0.5) {
+            throw new Error(`the arrows moved after "${step}": previous ${before.prevX} -> ${now.prevX}, next ${before.nextX} -> ${now.nextX}`);
+          }
+        }
       });
     },
   },
