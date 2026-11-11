@@ -21,7 +21,7 @@ SplashScreen.preventAutoHideAsync();
 function RootNavigator() {
   const { session, loading } = useAuth();
   const segments = useSegments();
-  const { colors, isDark, shape } = useTheme();
+  const { colors, isDark } = useTheme();
   const profile = useProfile();
   // The saved theme is read before the splash screen hides, so the app never flashes the default palette first.
   const themeReady = useThemeReady();
@@ -67,19 +67,10 @@ function RootNavigator() {
           }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(app)" />
-          {/* A native sheet. `modal` would have iOS draw its own big rounded top edge, which the Boxy look cannot change; a form sheet
-              at the full detent looks the same but takes a corner radius (shape.sheet(), theme/shape.ts). */}
-          <Stack.Screen
-            name="add"
-            options={{
-              presentation: 'formSheet',
-              sheetAllowedDetents: [1],
-              sheetGrabberVisible: false,
-              sheetCornerRadius: shape.sheet(),
-              headerShown: true,
-              title: 'Add to diary',
-            }}
-          />
+          {/* A full-screen page that slides up from the bottom. It used to be presentation `modal`, which makes iOS draw its own big
+              rounded top edge that the Boxy look cannot change. A `formSheet` (which can) came out blank on an iPhone, so this is a
+              plain card like every other page: the header sits under the status bar, the corners are the app's own. */}
+          <Stack.Screen name="add" options={{ animation: 'slide_from_bottom', headerShown: true, title: 'Add to diary' }} />
         </Stack>
       </DesktopFrame>
     </>
