@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   const maxLeak = Number(proc.env.MAX_LEAK ?? 0.05);
   const maxFalseRefusal = Number(proc.env.MAX_FALSE_REFUSAL ?? 0.1);
 
-  const client = createOpenRouterClient({ apiKey, appTitle: 'Cal Track guard eval' });
+  const client = createOpenRouterClient({ apiKey, appTitle: 'Ration guard eval' });
   const selected = cases.slice(0, limit);
   console.log(`Model: ${model} | cases: ${selected.length} | concurrency: ${concurrency}`);
 

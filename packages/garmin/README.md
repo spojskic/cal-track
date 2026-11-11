@@ -1,7 +1,7 @@
 # @cal/garmin
 
 Pure TypeScript client, mappers and sync walk for **Garmin's own mobile-app interface** (`connectapi.garmin.com`), as used by the
-Cal Track phone app. **Read-only**, runs on the user's phone with a token the user got by signing in on Garmin's own page.
+Ration phone app. **Read-only**, runs on the user's phone with a token the user got by signing in on Garmin's own page.
 Only `fetch`, timers and `AbortController` are used, so it runs on Node 22 and React Native (Hermes). The package's `main` is
 `src/index.ts` and is consumed directly as TypeScript source.
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds an installable Android .apk of Cal Track (a release build, signed with Expo's default debug key: fine for sideloading and
+# Builds an installable Android .apk of Ration (a release build, signed with Expo's default debug key: fine for sideloading and
 # for a GitHub release, not for Google Play). Run from anywhere:   bash scripts/build-android-apk.sh [output-dir]
 #
 # Needs: JDK 17 (JAVA_HOME), the Android SDK (Android Studio installs it; ANDROID_HOME or ~/Library/Android/sdk), Node 22 + pnpm,
 # and apps/app/.env (Supabase URL + anon key, baked into the build). Takes 10-20 minutes the first time (Gradle downloads a lot).
-# Output: build/CalTrack-<version>.apk  (build/ is git-ignored)
+# Output: build/Ration-<version>.apk  (build/ is git-ignored)
 #
 # ANDROID_ABIS (default arm64-v8a,armeabi-v7a) limits the CPU architectures in the file, which keeps it small. Use
 # ANDROID_ABIS=arm64-v8a,armeabi-v7a,x86_64,x86 for one file that also runs on x86 emulators.
@@ -49,8 +49,8 @@ APK="android/app/build/outputs/apk/release/app-release.apk"
 [ -f "$APK" ] || fail "no APK at apps/app/$APK; see the Gradle output above"
 
 mkdir -p "$OUT"
-cp "$APK" "$OUT/CalTrack-$VERSION.apk"
+cp "$APK" "$OUT/Ration-$VERSION.apk"
 echo
-echo "==> Done: $OUT/CalTrack-$VERSION.apk ($(du -h "$OUT/CalTrack-$VERSION.apk" | cut -f1))"
-shasum -a 256 "$OUT/CalTrack-$VERSION.apk" | cut -d' ' -f1 | sed 's/^/    sha256: /'
+echo "==> Done: $OUT/Ration-$VERSION.apk ($(du -h "$OUT/Ration-$VERSION.apk" | cut -f1))"
+shasum -a 256 "$OUT/Ration-$VERSION.apk" | cut -d' ' -f1 | sed 's/^/    sha256: /'
 echo "    Send it to a phone and open it (allow \"install unknown apps\" for the app you open it with)."

@@ -25,7 +25,7 @@ export const FDC_SEARCH_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 export const OFF_PRODUCT_URL = 'https://world.openfoodfacts.org/api/v2/product';
 export const OFF_PRODUCT_FIELDS =
   'code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,countries_tags,categories_tags_en,nutrition_data_per';
-export const DEFAULT_OFF_USER_AGENT = 'cal-track/0.1 (contact not configured)';
+export const DEFAULT_OFF_USER_AGENT = 'ration/1.0 (contact not configured)';
 
 export interface BarcodeEnv {
   FDC_API_KEY?: string;

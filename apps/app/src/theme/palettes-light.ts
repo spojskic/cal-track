@@ -276,8 +276,8 @@ export const LIGHT_PALETTES: readonly PaletteDef[] = [
     ),
   },
   {
-    id: 'cal-track-day',
-    name: 'Cal Track Day',
+    id: 'ration-day',
+    name: 'Ration Day',
     appearance: 'light',
     colors: lightColors,
   },

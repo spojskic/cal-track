@@ -3,7 +3,7 @@
 //
 // How it works (docs/features.md): the phone signs in on Garmin's own page inside a web view, keeps the token Garmin issues in
 // its secure storage, reads the user's data from Garmin itself with the same undocumented interface Garmin's own mobile app
-// uses (packages/garmin), and saves it to the user's Cal Track account like the Apple Health / Health Connect sync does.
+// uses (packages/garmin), and saves it to the user's Ration account like the Apple Health / Health Connect sync does.
 // Nothing is ever written to Garmin and no Garmin token ever leaves the phone.
 import { addDays, localDateOfIso, maxDate, minDate } from './dates';
 import type { DateRange, LocalDate } from './types';
@@ -13,10 +13,10 @@ import type { DateRange, LocalDate } from './types';
 // ---------------------------------------------------------------------------------------------------------------------
 
 export const GARMIN_WEB_NOTE =
-  'Garmin sync runs in the iPhone and Android app. Browsers cannot read Garmin directly, so open Cal Track on your phone to connect.';
+  'Garmin sync runs in the iPhone and Android app. Browsers cannot read Garmin directly, so open Ration on your phone to connect.';
 
 export const GARMIN_HOW_IT_WORKS =
-  "You sign in on Garmin's own page. Cal Track never sees your password, only the token Garmin issues, which is kept in this phone's secure storage. Your phone reads your data from Garmin and saves it to your Cal Track account. Nothing is written to Garmin.";
+  "You sign in on Garmin's own page. Ration never sees your password, only the token Garmin issues, which is kept in this phone's secure storage. Your phone reads your data from Garmin and saves it to your Ration account. Nothing is written to Garmin.";
 
 export const GARMIN_UNOFFICIAL_NOTE =
   "This uses the same private interface as Garmin's own mobile app. It is not an official Garmin integration, so it can stop working when Garmin changes it.";
@@ -184,8 +184,8 @@ export function describeStop(stop: { kind: string; message: string }, until: num
   switch (stop.kind) {
     case 'rate_limited':
       return until !== null
-        ? `Garmin asked the app to slow down. Cal Track will try again after ${formatClock(until)}.`
-        : 'Garmin asked the app to slow down. Cal Track will try again later.';
+        ? `Garmin asked the app to slow down. Ration will try again after ${formatClock(until)}.`
+        : 'Garmin asked the app to slow down. Ration will try again later.';
     case 'session_dead':
       return GARMIN_SIGNED_OUT_NOTE;
     case 'network':

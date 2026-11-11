@@ -38,7 +38,7 @@ const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 const nativeFetch: FetchLike = (url: string, init: FetchInit) => fetch(url, init as RequestInit);
 
 export function appInfo(): string {
-  return `Cal Track ${Constants.expoConfig?.version ?? '?'} (${Platform.OS})`;
+  return `Ration ${Constants.expoConfig?.version ?? '?'} (${Platform.OS})`;
 }
 
 /** Everything that can display Garmin data or the Garmin card (the Workouts list and detail included). */

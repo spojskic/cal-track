@@ -259,7 +259,7 @@ describe('runScenario with a fake browser', () => {
     // run the init scripts like Chrome would on the app origin: the session lands in localStorage, Date is shifted
     const sandbox = ctx.runInitScripts(APP_ORIGIN);
     const stored = JSON.parse(ctx.storage.get(STORAGE_KEY)!);
-    expect(stored.user.email).toBe('demo@caltrack.test');
+    expect(stored.user.email).toBe('demo@ration.test');
     expect(stored.expires_at * 1000).toBeGreaterThan(FIXED_NOW_MS + 5 * 365 * 86_400_000);
     expect(Math.abs((vm.runInContext('Date.now()', sandbox) as number) - FIXED_NOW_MS)).toBeLessThan(2000);
     expect(run.result.screenshots).toEqual(['phone/007-demo-scenario-one.png']);

@@ -65,7 +65,7 @@ function GarminNativeCard() {
     <View style={{ gap: spacing.sm }}>
       <AppText variant="body">Sign out of Garmin?</AppText>
       <AppText variant="small" muted>
-        Cal Track removes the Garmin token from this phone and stops reading Garmin. Choose whether the Garmin data already imported stays in your diary. To end the session on Garmin&apos;s side too, remove it in your Garmin account settings.
+        Ration removes the Garmin token from this phone and stops reading Garmin. Choose whether the Garmin data already imported stays in your diary. To end the session on Garmin&apos;s side too, remove it in your Garmin account settings.
       </AppText>
       <Button label="Sign out, keep imported data" variant="secondary" onPress={() => onSignOut(false)} loading={signOut.isPending} disabled={busy} />
       <Button label="Sign out and delete Garmin data" variant="primary" onPress={() => onSignOut(true)} disabled={busy} />

@@ -13,9 +13,16 @@ export const PALETTES: readonly PaletteDef[] = [...LIGHT_PALETTES, ...DARK_PALET
 export const DEFAULT_LIGHT_ID = 'kanagawa-lotus';
 export const DEFAULT_DARK_ID = 'kanagawa-wave';
 
+/** Palette ids from before the app was renamed: a saved choice keeps working after the update. */
+const LEGACY_PALETTE_IDS: Readonly<Record<string, string>> = {
+  'cal-track-day': 'ration-day',
+  'cal-track-night': 'ration-night',
+};
+
 /** The palette with this id, or undefined (an id saved by a newer or older version). */
 export function getPalette(id: unknown): PaletteDef | undefined {
-  return typeof id === 'string' ? PALETTES.find((p) => p.id === id) : undefined;
+  const current = typeof id === 'string' ? (LEGACY_PALETTE_IDS[id] ?? id) : id;
+  return typeof current === 'string' ? PALETTES.find((p) => p.id === current) : undefined;
 }
 
 const byId = (id: string): PaletteDef => {
@@ -46,7 +53,7 @@ export interface ThemePrefs {
 export const DEFAULT_THEME_PREFS: ThemePrefs = { mode: 'system', light: DEFAULT_LIGHT_ID, dark: DEFAULT_DARK_ID, corners: DEFAULT_CORNERS };
 
 /** AsyncStorage / localStorage key. The version is part of the key: change the shape, bump it. */
-export const THEME_STORAGE_KEY = 'cal-track.theme.v1';
+export const THEME_STORAGE_KEY = 'ration.theme.v1';
 
 /**
  * Makes any value (parsed JSON, `null`, a stale object) a valid choice: an unknown mode becomes `system`, an unknown id, or

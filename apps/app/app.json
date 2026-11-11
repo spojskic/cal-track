@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "Cal Track",
-    "slug": "cal-track",
+    "name": "Ration",
+    "slug": "ration",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "caltrack",
+    "scheme": "ration",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#1F1F28",
     "ios": {
-      "bundleIdentifier": "com.spojskic.caltrack",
+      "bundleIdentifier": "com.spojskic.ration",
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.spojskic.caltrack",
+      "package": "com.spojskic.ration",
       "adaptiveIcon": {
         "backgroundColor": "#1F1F28",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -61,7 +61,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Cal Track uses the camera to scan barcodes and to photograph meals and nutrition labels.",
+          "cameraPermission": "Ration uses the camera to scan barcodes and to photograph meals and nutrition labels.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -69,16 +69,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Cal Track lets you pick meal or nutrition label photos to log food.",
-          "cameraPermission": "Cal Track uses the camera to scan barcodes and to photograph meals and nutrition labels.",
+          "photosPermission": "Ration lets you pick meal or nutrition label photos to log food.",
+          "cameraPermission": "Ration uses the camera to scan barcodes and to photograph meals and nutrition labels.",
           "microphonePermission": false
         }
       ],
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Cal Track reads your activity, weight, sleep and heart data from Apple Health to adjust your calorie budget and chart your trends. It is stored only in your own Cal Track account.",
-          "NSHealthUpdateUsageDescription": "Cal Track does not write to Apple Health today. If you turn on write-back in the future, it saves the food and water you log.",
+          "NSHealthShareUsageDescription": "Ration reads your activity, weight, sleep and heart data from Apple Health to adjust your calorie budget and chart your trends. It is stored only in your own Ration account.",
+          "NSHealthUpdateUsageDescription": "Ration does not write to Apple Health today. If you turn on write-back in the future, it saves the food and water you log.",
           "background": false,
           "_comment_background": "FREE Apple ID personal teams may not be able to sign the HealthKit background-delivery entitlement, so it is OFF. To turn it on later (paid developer account): set \"background\" to true, run `npx expo prebuild --clean`, and rebuild; the plugin then adds com.apple.developer.healthkit.background-delivery. The app does not need it today: the sync runs on start, on foreground and via expo-background-task."
         }

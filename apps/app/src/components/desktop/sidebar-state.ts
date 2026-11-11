@@ -6,7 +6,7 @@ export const SIDEBAR_SECTION_IDS = ['daily', 'training', 'coach', 'profile', 'co
 export type SidebarSectionId = (typeof SIDEBAR_SECTION_IDS)[number];
 
 /** localStorage / AsyncStorage key. The version is part of the key: change the shape, bump it. */
-export const SIDEBAR_STORAGE_KEY = 'cal-track.sidebar.v1';
+export const SIDEBAR_STORAGE_KEY = 'ration.sidebar.v1';
 
 /**
  * What the user chose: for each group they touched, whether it is collapsed. A group that is missing has its default (the rows are

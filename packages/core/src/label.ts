@@ -301,7 +301,7 @@ export function labelToFoodDraft(reading: LabelReading, options: LabelDraftOptio
     if (value === null) {
       notes.push(
         printed.unit === 'iu'
-          ? `${info.name} is printed in IU, which cannot be converted to the unit Cal Track stores without knowing the form of the vitamin. It was left out.`
+          ? `${info.name} is printed in IU, which cannot be converted to the unit Ration stores without knowing the form of the vitamin. It was left out.`
           : `${info.name} has an unexpected unit (${printed.unit}) and was left out.`,
       );
       continue;
@@ -364,7 +364,7 @@ export function labelToFoodDraft(reading: LabelReading, options: LabelDraftOptio
   if (reading.basis === 'per_100ml') {
     density = ASSUMED_DENSITY_G_PER_ML;
     notes.push(
-      'The values are per 100 ml. Cal Track keeps nutrition per 100 g, so 1 g per ml was assumed (density 1). Change the density if you know it.',
+      'The values are per 100 ml. Ration keeps nutrition per 100 g, so 1 g per ml was assumed (density 1). Change the density if you know it.',
     );
   } else if (servingUnit === 'ml') {
     density = ASSUMED_DENSITY_G_PER_ML;
@@ -379,7 +379,7 @@ export function labelToFoodDraft(reading: LabelReading, options: LabelDraftOptio
     servings.push({ name: hasServingText ? servingName : 'serving', grams: null });
     unclearFields.add('serving');
     notes.push(
-      'The serving size could not be read. The values are per serving, so enter the serving size in grams under Serving size; Cal Track needs it to work out the values per 100 g.',
+      'The serving size could not be read. The values are per serving, so enter the serving size in grams under Serving size; Ration needs it to work out the values per 100 g.',
     );
   }
   if (reading.unclearFields.includes('servingSize')) unclearFields.add('serving');

@@ -1,6 +1,6 @@
 # supabase/
 
-Postgres schema, RLS, search RPCs and config for cal-track. Everything runs on the
+Postgres schema, RLS, search RPCs and config for ration. Everything runs on the
 Supabase **free** tier (500 MB), so the schema is deliberately lean: no per-nutrient
 rows (`foods.nutrients` is one `jsonb` per 100 g) and diary entries store only
 `food_id + grams`.

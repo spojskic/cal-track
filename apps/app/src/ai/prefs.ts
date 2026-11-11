@@ -1,12 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ModelInfo } from '@cal/ai';
 
+import { migrateAsyncKey } from '@/lib/migrate-key';
+
 /**
  * Non-secret AI preferences and the model catalogue cache. The API key is NEVER stored here
  * (it lives in `keyStore`: Keychain/Keystore on native, encrypted IndexedDB on web).
  */
-const PREFS_KEY = 'cal-track.ai.prefs.v1';
-const MODELS_KEY = 'cal-track.ai.models.v1';
+const PREFS_KEY = 'ration.ai.prefs.v1';
+const MODELS_KEY = 'ration.ai.models.v1';
+/** Keys from before the app was renamed, moved on first read. */
+const LEGACY_PREFS_KEY = 'cal-track.ai.prefs.v1';
+const LEGACY_MODELS_KEY = 'cal-track.ai.models.v1';
 
 export interface AiPrefs {
   selectedModelId: string | null;
@@ -18,6 +23,7 @@ export const DEFAULT_PREFS: AiPrefs = { selectedModelId: null, rememberOnDevice:
 
 export async function loadPrefs(): Promise<AiPrefs> {
   try {
+    await migrateAsyncKey(LEGACY_PREFS_KEY, PREFS_KEY);
     const raw = await AsyncStorage.getItem(PREFS_KEY);
     if (!raw) return DEFAULT_PREFS;
     const parsed = JSON.parse(raw) as Partial<AiPrefs>;
@@ -45,6 +51,7 @@ export interface ModelsCache {
 
 export async function loadModelsCache(): Promise<ModelsCache | null> {
   try {
+    await migrateAsyncKey(LEGACY_MODELS_KEY, MODELS_KEY);
     const raw = await AsyncStorage.getItem(MODELS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ModelsCache>;

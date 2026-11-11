@@ -88,14 +88,14 @@ describe('createPkcePair', () => {
 describe('buildAuthUrl', () => {
   it('builds the documented URL', () => {
     const url = buildAuthUrl({
-      callbackUrl: 'caltrack://auth/callback?x=1',
+      callbackUrl: 'ration://auth/callback?x=1',
       challenge: RFC_CHALLENGE,
       state: 'st ate',
-      keyLabel: 'Cal Track (iPhone)',
+      keyLabel: 'Ration (iPhone)',
     });
     expect(url).toBe(
-      'https://openrouter.ai/auth?callback_url=caltrack%3A%2F%2Fauth%2Fcallback%3Fx%3D1' +
-        `&code_challenge=${RFC_CHALLENGE}&code_challenge_method=S256&state=st%20ate&key_label=Cal%20Track%20(iPhone)`,
+      'https://openrouter.ai/auth?callback_url=ration%3A%2F%2Fauth%2Fcallback%3Fx%3D1' +
+        `&code_challenge=${RFC_CHALLENGE}&code_challenge_method=S256&state=st%20ate&key_label=Ration%20(iPhone)`,
     );
   });
 
@@ -107,7 +107,7 @@ describe('buildAuthUrl', () => {
 
 describe('parseAuthCallback', () => {
   it('extracts the code and checks state', () => {
-    expect(parseAuthCallback('caltrack://auth/callback?code=abc123&state=xyz', 'xyz')).toEqual({
+    expect(parseAuthCallback('ration://auth/callback?code=abc123&state=xyz', 'xyz')).toEqual({
       ok: true,
       code: 'abc123',
       state: 'xyz',

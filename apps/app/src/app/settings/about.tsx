@@ -52,7 +52,7 @@ function buildLabel(): string {
 
 export default function AboutScreen() {
   const version = Constants.expoConfig?.version ?? 'unknown';
-  const name = Constants.expoConfig?.name ?? 'Cal Track';
+  const name = Constants.expoConfig?.name ?? 'Ration';
 
   return (
     <Screen>

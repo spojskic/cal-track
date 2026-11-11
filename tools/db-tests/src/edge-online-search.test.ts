@@ -72,7 +72,7 @@ function setup(
   const consumeRateLimit = vi.fn(async () => waits.shift() ?? 0);
   const deps: OnlineSearchDeps = {
     fetch: net.fn,
-    env: { FDC_API_KEY: 'fdc-key', OFF_USER_AGENT: 'cal-track-test/1.0' },
+    env: { FDC_API_KEY: 'fdc-key', OFF_USER_AGENT: 'ration-test/1.0' },
     userId: USER,
     consumeRateLimit,
     log: vi.fn(),
@@ -158,7 +158,7 @@ describe('onlineSearch', () => {
           'code,product_name,brands,nutriments,serving_size,serving_quantity,quantity,countries_tags,categories_tags_en,nutrition_data_per',
       });
       expect((offCall.init!.headers as Record<string, string>)['User-Agent']).toBe(
-        'cal-track-test/1.0',
+        'ration-test/1.0',
       );
     });
 

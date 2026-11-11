@@ -335,8 +335,8 @@ export const DARK_PALETTES: readonly PaletteDef[] = [
     ),
   },
   {
-    id: 'cal-track-night',
-    name: 'Cal Track Night',
+    id: 'ration-night',
+    name: 'Ration Night',
     appearance: 'dark',
     colors: darkColors,
   },

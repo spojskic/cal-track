@@ -259,7 +259,7 @@ export async function runGarminSync(options: GarminSyncOptions): Promise<GarminS
       await onBatch(batch);
     } catch (err) {
       throw new RunStopped(
-        { kind: 'storage', endpoint: 'writer', message: 'Saving the Garmin data to your Cal Track account failed.' },
+        { kind: 'storage', endpoint: 'writer', message: 'Saving the Garmin data to your Ration account failed.' },
         err,
       );
     }

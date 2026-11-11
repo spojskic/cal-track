@@ -65,7 +65,7 @@ export const DATA_TYPE_INFO: Record<HealthDataType, { label: string; description
 };
 
 export const GARMIN_NOTE =
-  'Garmin Connect can also sync into Apple Health / Health Connect, and Cal Track picks that up. The Garmin card below reads Garmin directly instead; if both are on, the Garmin numbers are used for the day.';
+  'Garmin Connect can also sync into Apple Health / Health Connect, and Ration picks that up. The Garmin card below reads Garmin directly instead; if both are on, the Garmin numbers are used for the day.';
 
 export const WEB_NOTE = 'Health sync runs in the iOS/Android app; your data appears here after syncing.';
 

@@ -31,16 +31,16 @@ async function report(source: GarminSyncSource = client) {
       return () => (t += 500);
     })(),
   });
-  return { outcome, text: formatSyncReport(outcome.report, { generatedAtMs: Date.UTC(2026, 10, 10, 12), app: 'Cal Track 0.1.0 (ios)' }, outcome.counts) };
+  return { outcome, text: formatSyncReport(outcome.report, { generatedAtMs: Date.UTC(2026, 10, 10, 12), app: 'Ration 0.1.0 (ios)' }, outcome.counts) };
 }
 
 describe('formatSyncReport', () => {
   it('lists the endpoints, outcomes and fields without a single value, id or name', async () => {
     const { text } = await report();
     for (const s of SENTINELS) expect(text, s).not.toContain(s);
-    expect(text).toContain('Cal Track - Garmin sync report');
+    expect(text).toContain('Ration - Garmin sync report');
     expect(text).toContain('Generated: 2026-11-10T12:00:00.000Z');
-    expect(text).toContain('App: Cal Track 0.1.0 (ios)');
+    expect(text).toContain('App: Ration 0.1.0 (ios)');
     expect(text).toContain('Range: 2026-11-08 to 2026-11-10 (3 days)');
     expect(text).toContain('all GET, nothing is written to Garmin');
   });

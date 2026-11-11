@@ -10,7 +10,7 @@
 //   first granted access (see plan.ts for how the range is clamped).
 //
 // TODO(write-back): once nutrition is written to Health Connect, exclude records whose dataOrigin is this app's package
-// (com.spojskic.caltrack, and the earlier com.caltrack.app) from every read below.
+// (com.spojskic.ration, plus the ids used before the rename) from every read below.
 import { Linking } from 'react-native';
 
 import { addDays, eachDay, localDateAt, rangeBounds, toLocalDate } from './dates';
@@ -44,7 +44,11 @@ import type { RecordResult, RecordType } from 'react-native-health-connect';
 
 type HC = typeof import('react-native-health-connect');
 
-const OWN_PACKAGES: ReadonlySet<string> = new Set(['com.spojskic.caltrack', 'com.caltrack.app']);
+const OWN_PACKAGES: ReadonlySet<string> = new Set([
+  'com.spojskic.ration',
+  'com.spojskic.caltrack', // the app's package before the rename
+  'com.caltrack.app',
+]);
 const HISTORY_LIMIT_DAYS = 30;
 const PAGE_SIZE = 500;
 const DAY_CONCURRENCY = 3;
@@ -184,7 +188,7 @@ export const healthConnectProvider: HealthProvider = {
       return {
         available: false,
         reason: 'native_module_missing',
-        message: 'Health Connect needs a development build of Cal Track (it does not work in Expo Go).',
+        message: 'Health Connect needs a development build of Ration (it does not work in Expo Go).',
       };
     }
     try {
@@ -207,7 +211,7 @@ export const healthConnectProvider: HealthProvider = {
       return {
         available: false,
         reason: 'native_module_missing',
-        message: 'Health Connect needs a development build of Cal Track (it does not work in Expo Go).',
+        message: 'Health Connect needs a development build of Ration (it does not work in Expo Go).',
       };
     }
   },

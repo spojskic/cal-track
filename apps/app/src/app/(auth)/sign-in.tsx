@@ -101,7 +101,7 @@ export default function SignInScreen() {
     : Boolean(email && password);
 
   return (
-    <Screen title="Cal Track" safeTop>
+    <Screen title="Ration" safeTop>
       <Card>
         <AppText variant="heading">{signingUp ? 'Create account' : 'Sign in'}</AppText>
         <AppText muted variant="small">

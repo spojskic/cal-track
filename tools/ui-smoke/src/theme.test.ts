@@ -105,7 +105,7 @@ describe('palette registry', () => {
       'tokyo-night-day',
       'one-light',
       'paper',
-      'cal-track-day',
+      'ration-day',
     ]);
     expect(DARK_PALETTES.map((p) => p.id)).toEqual([
       'kanagawa-wave',
@@ -119,7 +119,7 @@ describe('palette registry', () => {
       'one-dark',
       'github-dark',
       'solarized-dark',
-      'cal-track-night',
+      'ration-night',
     ]);
     expect(getPalette('kanagawa-wave')?.name).toBe('Kanagawa Wave');
     expect(getPalette('kanagawa-lotus')?.name).toBe('Kanagawa Lotus');
@@ -137,11 +137,11 @@ describe('palette registry', () => {
     expect(DEFAULT_DARK.colors.background).toBe('#1F1F28'); // sumiInk3, also the native splash colour in app.json
   });
 
-  it('keeps the original look as Cal Track Day / Night, and lightColors / darkColors are those palettes', () => {
-    expect(getPalette('cal-track-day')?.colors).toBe(lightColors);
-    expect(getPalette('cal-track-night')?.colors).toBe(darkColors);
-    expect(getPalette('cal-track-day')?.name).toBe('Cal Track Day');
-    expect(getPalette('cal-track-night')?.name).toBe('Cal Track Night');
+  it('keeps the original look as Ration Day / Night, and lightColors / darkColors are those palettes', () => {
+    expect(getPalette('ration-day')?.colors).toBe(lightColors);
+    expect(getPalette('ration-night')?.colors).toBe(darkColors);
+    expect(getPalette('ration-day')?.name).toBe('Ration Day');
+    expect(getPalette('ration-night')?.name).toBe('Ration Night');
     // the navy page, the orange primary and the macro colours are still the ones of the first version
     expect(darkColors.background).toBe('#12141F');
     expect(darkColors.primary).toBe('#EF7B54');
@@ -291,7 +291,7 @@ describe('resolvePalette: which palette is on screen', () => {
 
 describe('saved theme choice', () => {
   it('is saved under a versioned key', () => {
-    expect(THEME_STORAGE_KEY).toBe('cal-track.theme.v1');
+    expect(THEME_STORAGE_KEY).toBe('ration.theme.v1');
   });
 
   it('sanitises: bad mode -> system, unknown ids -> defaults, wrong types ignored', () => {
@@ -345,7 +345,7 @@ describe('saved theme choice', () => {
     expect(serializeThemePrefs({ ...DEFAULT_THEME_PREFS, corners: 'boxy' })).toBe(
       '{"mode":"system","light":"kanagawa-lotus","dark":"kanagawa-wave","corners":"boxy"}',
     );
-    expect(THEME_STORAGE_KEY).toBe('cal-track.theme.v1'); // no version bump: the new field is optional on read
+    expect(THEME_STORAGE_KEY).toBe('ration.theme.v1'); // no version bump: the new field is optional on read
   });
 
   it('corners never change which palette is on screen', () => {
@@ -403,7 +403,7 @@ describe('smoke harness: theme seeding and page checks (src/theme-seed.ts)', () 
       for (const scheme of ['light', 'dark'] as const) expect(resolvePalette(prefs, scheme).id, id).toBe(id);
     }
     expect(KNOWN_PALETTE_IDS).toEqual(PALETTES.map((p) => p.id));
-    expect(THEME_STORAGE_KEY_FOR_SMOKE).toBe('cal-track.theme.v1');
+    expect(THEME_STORAGE_KEY_FOR_SMOKE).toBe('ration.theme.v1');
   });
 
   it('--corners and --theme decide what is seeded: neither seeds nothing, either one alone seeds a valid choice', () => {

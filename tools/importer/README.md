@@ -50,7 +50,7 @@ be started with **`run import`**. Relative `--path`/`--cache-dir` values are res
 against the directory you started pnpm in (the repo root).
 
 ```sh
-cd /path/to/cal-track
+cd /path/to/ration
 source ~/.nvm/nvm.sh && nvm use 22
 
 # 1. fetch the USDA JSON archives into tools/importer/.cache (git-ignored)

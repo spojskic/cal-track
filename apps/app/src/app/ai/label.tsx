@@ -58,7 +58,7 @@ export default function ScanLabelScreen() {
         setPickError(
           perm.canAskAgain
             ? 'Camera permission is needed to take a photo. You can also choose a photo from your library.'
-            : 'Camera access is turned off for Cal Track. Enable it in your phone settings, or choose a photo from your library.',
+            : 'Camera access is turned off for Ration. Enable it in your phone settings, or choose a photo from your library.',
         );
         return;
       }
@@ -77,7 +77,7 @@ export default function ScanLabelScreen() {
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
       if (!res.canceled && res.assets[0]) setUri(res.assets[0].uri);
     } catch {
-      setPickError('Could not open your photos. Check that Cal Track may access them in your phone settings.');
+      setPickError('Could not open your photos. Check that Ration may access them in your phone settings.');
     }
   }
 
@@ -165,7 +165,7 @@ export default function ScanLabelScreen() {
           </Card>
 
           <Notice>
-            {`Privacy: the photo is resized on your device and sent only to OpenRouter and the model provider you chose${modelName ? ` (${modelName})` : ''}. It is not uploaded to Cal Track.`}
+            {`Privacy: the photo is resized on your device and sent only to OpenRouter and the model provider you chose${modelName ? ` (${modelName})` : ''}. It is not uploaded to Ration.`}
           </Notice>
           <Button label="AI settings and model" variant="ghost" onPress={openAiSettings} />
         </>

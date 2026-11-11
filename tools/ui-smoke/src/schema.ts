@@ -1,5 +1,5 @@
 /**
- * Schema metadata of the Cal Track Postgres database as the mock backend needs it, derived BY HAND from
+ * Schema metadata of the Ration Postgres database as the mock backend needs it, derived BY HAND from
  * supabase/migrations/*.sql: columns (type, nullability, defaults, check constraints), primary / unique keys,
  * foreign keys (used for PostgREST resource embedding and referential integrity) and the simplified RLS scope.
  *

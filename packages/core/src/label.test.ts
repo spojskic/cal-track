@@ -291,7 +291,7 @@ describe('labelToFoodDraft: per 100 g', () => {
     const draft = labelToFoodDraft(reading([['vitamin_d', 400, 'iu'], ['vitamin_a', 5000, 'iu'], ['protein', 4, 'g']]));
     expect(draft.nutrients).toEqual({ VITAMIN_D_UG: 10, PROTEIN_G: 4 });
     expect(draft.notes).toEqual([
-      'Vitamin A is printed in IU, which cannot be converted to the unit Cal Track stores without knowing the form of the vitamin. It was left out.',
+      'Vitamin A is printed in IU, which cannot be converted to the unit Ration stores without knowing the form of the vitamin. It was left out.',
     ]);
   });
 

@@ -154,7 +154,7 @@ describe('select, filters, order, pagination', () => {
 
   it('applies the RLS-like scope: own rows only, global foods for everybody, nothing for anon', () => {
     const fx = buildFixtures();
-    const other = { id: stableUuid('user:other'), email: 'other@caltrack.test', password: 'x', createdAt: '2026-10-02T00:00:00+00:00' };
+    const other = { id: stableUuid('user:other'), email: 'other@ration.test', password: 'x', createdAt: '2026-10-02T00:00:00+00:00' };
     const seed: MockSeed = {
       users: [...fx.seed.users, other],
       tables: {
@@ -629,7 +629,7 @@ describe('unknown endpoints', () => {
 describe('GoTrue and Edge Functions', () => {
   it('password grant: success and invalid credentials', () => {
     const { call } = setup();
-    const ok = call('POST', '/auth/v1/token?grant_type=password', { body: { email: 'DEMO@caltrack.test ', password: USER.password } });
+    const ok = call('POST', '/auth/v1/token?grant_type=password', { body: { email: 'DEMO@ration.test ', password: USER.password } });
     expect(ok.status).toBe(200);
     expect(ok.json).toMatchObject({ token_type: 'bearer', user: { id: USER.id, email: USER.email } });
     expect(ok.json.expires_at).toBeGreaterThan(FIXED_NOW_MS / 1000);

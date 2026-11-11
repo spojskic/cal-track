@@ -110,7 +110,7 @@ export function ConnectionStatusCard() {
       {!apiKey ? (
         <AppText muted>
           AI is optional. Connect your own OpenRouter key to log meals from photos or text, read nutrition labels and draft recipes. Without a
-          key, Cal Track works exactly the same and shows no AI features.
+          key, Ration works exactly the same and shows no AI features.
         </AppText>
       ) : keyStatus === 'valid' && keyInfo ? (
         <View style={styles.facts}>
@@ -209,7 +209,7 @@ export function ConnectCard() {
     <Card>
       <AppText variant="heading" accessibilityRole="header">{connected ? 'Replace key' : 'Connect'}</AppText>
       <AppText muted>
-        Cal Track never has its own AI key. You connect your own OpenRouter account, and requests go straight from this
+        Ration never has its own AI key. You connect your own OpenRouter account, and requests go straight from this
         device to OpenRouter.
       </AppText>
 
@@ -224,7 +224,7 @@ export function ConnectCard() {
       {awaitingCode ? (
         <View style={styles.panel}>
           <Notice>
-            1. Sign in to OpenRouter in the browser window and allow Cal Track. 2. Copy the code it shows. 3. Come back
+            1. Sign in to OpenRouter in the browser window and allow Ration. 2. Copy the code it shows. 3. Come back
             here and paste it below.
           </Notice>
           <TextField
@@ -328,12 +328,12 @@ export function PrivacyCard() {
       <AppText>
         What is sent: when you use Photo log, Scan nutrition label, Describe a meal or recipe drafts, the photo or text you submit (and, for the
         upcoming AI Coach, a short summary of your targets and diary) goes directly from this device to OpenRouter and the
-        model provider you selected. Cal Track does not receive it. Photos are resized on your device and are never
-        uploaded to Cal Track.
+        model provider you selected. Ration does not receive it. Photos are resized on your device and are never
+        uploaded to Ration.
       </AppText>
       <AppText>
-        Your key: stored only in {storage}. It is never sent to Cal Track&apos;s servers, logged, or synced to other devices.
-        If you sign out of Cal Track the key stays on this device until you disconnect it here.
+        Your key: stored only in {storage}. It is never sent to Ration&apos;s servers, logged, or synced to other devices.
+        If you sign out of Ration the key stays on this device until you disconnect it here.
       </AppText>
       <AppText variant="small" muted>
         Foods the AI estimates are saved as &quot;AI estimate&quot; foods in your own list. They are never presented as verified data.
@@ -364,7 +364,7 @@ export function CoachRetentionCard() {
     <Card>
       <AppText variant="heading" accessibilityRole="header">Coach chats</AppText>
       <AppText muted>
-        AI Coach conversations are stored in your Cal Track account so they sync between devices. Only the chat text is
+        AI Coach conversations are stored in your Ration account so they sync between devices. Only the chat text is
         stored; your OpenRouter key never is.
       </AppText>
       <SwitchRow

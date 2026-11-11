@@ -10,8 +10,8 @@ function client(fetchImpl: ReturnType<typeof mockFetch>['fetch'], extra: Record<
   return createOpenRouterClient({
     apiKey: KEY,
     fetch: fetchImpl,
-    appUrl: 'https://caltrack.example',
-    appTitle: 'Cal Track',
+    appUrl: 'https://ration.example',
+    appTitle: 'Ration',
     sleep: noSleep,
     random: () => 0.5,
     ...extra,
@@ -50,8 +50,8 @@ describe('chat request shape', () => {
     expect(call.method).toBe('POST');
     expect(call.headers.Authorization).toBe(`Bearer ${KEY}`);
     expect(call.headers['Content-Type']).toBe('application/json');
-    expect(call.headers['HTTP-Referer']).toBe('https://caltrack.example');
-    expect(call.headers['X-Title']).toBe('Cal Track');
+    expect(call.headers['HTTP-Referer']).toBe('https://ration.example');
+    expect(call.headers['X-Title']).toBe('Ration');
     expect(call.body).toEqual({
       model: 'google/gemini-2.5-flash',
       messages: [{ role: 'user', content: 'hello' }],

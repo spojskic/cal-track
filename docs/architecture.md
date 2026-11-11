@@ -82,12 +82,12 @@ All in `packages/core`, tested with golden values.
 The colours of every screen come from `useTheme()` in `apps/app/src/theme/`, which returns `{ colors, isDark, paletteId, corners, radius, shape }`.
 
 - **Palette data is pure TypeScript** (no React Native import, so the Node tests can load it): `colors.ts` (the `ThemeColors` tokens,
-  `withAlpha`, the original Cal Track look), `contrast.ts` (WCAG maths), `define-colors.ts` (derives each `on*` text colour, and the
+  `withAlpha`, the original Ration look), `contrast.ts` (WCAG maths), `define-colors.ts` (derives each `on*` text colour, and the
   scrim, from the palette's own darkest and lightest inks), `palettes-light.ts` / `palettes-dark.ts` (22 palettes, all plain `#RRGGBB`
   because components append a 2-digit alpha to tokens) and `palettes.ts` (the registry, the defaults, the saved-choice rules and
   `resolvePalette`). `tools/ui-smoke/src/theme.test.ts` checks every palette for completeness and for contrast floors.
 - **The choice is device-local**: `theme-store.ts` is a small zustand store
-  (`{ mode: 'system' | 'light' | 'dark', light, dark, corners: 'rounded' | 'boxy' }`) saved under `cal-track.theme.v1` in AsyncStorage (localStorage on the web), like the AI preferences. An unknown or removed id falls
+  (`{ mode: 'system' | 'light' | 'dark', light, dark, corners: 'rounded' | 'boxy' }`) saved under `ration.theme.v1` in AsyncStorage (localStorage on the web), like the AI preferences. An unknown or removed id falls
   back to the default of its side, a missing or unknown `corners` (a choice saved before the Boxy look existed) to the default, `boxy`, so the key
   was not bumped. No profile column and no migration. On the web the stored value is read synchronously when the
   module loads, so the first paint already has the right palette; on native the splash screen waits for the read (1.5 s at most).
@@ -166,7 +166,7 @@ bar** along the bottom (`STATUS_BAR_HEIGHT`), around whatever screen is open. A 
   the tabs and every query of the dashboard or diary would run twice); and from one page that is not a tab to another it is
   `router.replace`, so clicking through the sidebar swaps pages instead of piling them up (Back still leads to the tab below).
 - **Collapsing.** Each group heading is a button named like the group with `aria-expanded`; the choice is kept in a zustand store
-  (`sidebar-store.ts`, same pattern as `theme/theme-store.ts`) under the versioned key `cal-track.sidebar.v1` (read synchronously on the web,
+  (`sidebar-store.ts`, same pattern as `theme/theme-store.ts`) under the versioned key `ration.sidebar.v1` (read synchronously on the web,
   hydrated on native). `sidebar-state.ts` is the pure part: only known groups with a true / false value are kept, so an old, newer or
   garbage payload gives the defaults (every group open, the calendar closed).
 - **Status bar** (`ShellStatusBar.tsx`, texts in `status-text.ts`). Left: "Syncing..." while the Apple Health / Health Connect or Garmin

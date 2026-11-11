@@ -111,7 +111,7 @@ function setup(opts: {
     upsertFood,
     env: opts.env ?? {
       FDC_API_KEY: 'fdc-key',
-      OFF_USER_AGENT: 'cal-track-test/1.0 (me@example.com)',
+      OFF_USER_AGENT: 'ration-test/1.0 (me@example.com)',
     },
     log,
   };
@@ -348,7 +348,7 @@ describe('barcodeLookup', () => {
         expect(call.url).toContain(f);
       }
       expect((call.init!.headers as Record<string, string>)['User-Agent']).toBe(
-        'cal-track-test/1.0 (me@example.com)',
+        'ration-test/1.0 (me@example.com)',
       );
     });
 
@@ -358,7 +358,7 @@ describe('barcodeLookup', () => {
       expect((t.net.calls[0]!.init!.headers as Record<string, string>)['User-Agent']).toBe(
         DEFAULT_OFF_USER_AGENT,
       );
-      expect(DEFAULT_OFF_USER_AGENT).toBe('cal-track/0.1 (contact not configured)');
+      expect(DEFAULT_OFF_USER_AGENT).toBe('ration/1.0 (contact not configured)');
     });
 
     it('requests a UPC-A as EAN-13 (OFF stores a leading zero)', async () => {

@@ -107,4 +107,4 @@ export const ENERGY_MODE_OPTIONS: readonly OptionDef<EnergyMode>[] = [
 ];
 
 export const MEDICAL_DISCLAIMER =
-  'Cal Track gives general estimates for informational purposes only. It is not medical advice. Talk to a doctor or registered dietitian before making big changes to what you eat, especially if you are pregnant, have a medical condition or a history of disordered eating.';
+  'Ration gives general estimates for informational purposes only. It is not medical advice. Talk to a doctor or registered dietitian before making big changes to what you eat, especially if you are pregnant, have a medical condition or a history of disordered eating.';

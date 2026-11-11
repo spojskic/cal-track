@@ -1,7 +1,7 @@
-// Pure (no React Native imports): the colour tokens every screen uses, and the original Cal Track look.
+// Pure (no React Native imports): the colour tokens every screen uses, and the original Ration look.
 import { defineColors } from './define-colors';
 
-/** Brand/semantic palette of the original Cal Track look. Inspired by Cronometer's look (orange accent, green/teal/purple macros). */
+/** Brand/semantic palette of the original Ration look. Inspired by Cronometer's look (orange accent, green/teal/purple macros). */
 export const palette = {
   orange: '#EF7B54',
   green: '#85D49C',
@@ -102,7 +102,7 @@ export function withAlpha(hex: string, opacity: number): string {
 }
 
 /**
- * The original look, kept as the "Cal Track Day" and "Cal Track Night" palettes (see palettes.ts). The values are the
+ * The original look, kept as the "Ration Day" and "Ration Night" palettes (see palettes.ts). The values are the
  * first version's, except the ones marked `nudged`: on the light page the old orange (2.6 : 1), green (2.6 : 1) and
  * amber (1.7 : 1) were too faint for the 3 : 1 floor of theme.test.ts, so they are a little darker. The text on orange,
  * red and amber fills is now picked by contrast (dark on orange instead of white, which was 2.8 : 1).

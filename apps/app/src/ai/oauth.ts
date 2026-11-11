@@ -20,7 +20,7 @@ import { ensureAiRuntime } from './runtime';
  * The verifier is a one-time secret, discarded as soon as the code is exchanged.
  */
 
-const STORAGE_KEY = 'cal-track.oauth.pending';
+const STORAGE_KEY = 'ration.oauth.pending';
 
 /** expo-crypto works on every platform (native CSPRNG; crypto.getRandomValues on web). */
 const randomBytes = (length: number): Uint8Array => Crypto.getRandomBytes(length);
@@ -91,7 +91,7 @@ export interface BeginOAuth {
 export async function beginOAuth(persist: boolean): Promise<BeginOAuth> {
   ensureAiRuntime(); // PKCE needs TextEncoder
   const pkce = await createPkcePair({ randomBytes });
-  const keyLabel = `Cal Track (${Platform.OS})`;
+  const keyLabel = `Ration (${Platform.OS})`;
 
   if (Platform.OS === 'web') {
     const state = createState(randomBytes);

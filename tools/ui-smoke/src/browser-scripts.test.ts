@@ -124,14 +124,14 @@ describe('seedThemeScript / readThemeScript', () => {
     const local = storage();
     const ctx = sandbox({ location: { origin: 'https://app.test' }, localStorage: local, sessionStorage: storage() });
     run(seedSessionScript({ origin: 'https://app.test', storageKey: 'sb-mock-auth-token', session: { user: { id: 'u' } } }), ctx);
-    const theme = seedThemeScript({ origin: 'https://app.test', storageKey: 'cal-track.theme.v1', prefs });
+    const theme = seedThemeScript({ origin: 'https://app.test', storageKey: 'ration.theme.v1', prefs });
     run(theme, ctx);
-    expect(JSON.parse(local.data.get('cal-track.theme.v1') as string)).toEqual(prefs);
+    expect(JSON.parse(local.data.get('ration.theme.v1') as string)).toEqual(prefs);
     expect(local.data.has('sb-mock-auth-token')).toBe(true);
     // the user changed the theme in the app and reloaded: the seed must not win again
-    local.data.set('cal-track.theme.v1', '{"mode":"light"}');
+    local.data.set('ration.theme.v1', '{"mode":"light"}');
     run(theme, ctx);
-    expect(local.data.get('cal-track.theme.v1')).toBe('{"mode":"light"}');
+    expect(local.data.get('ration.theme.v1')).toBe('{"mode":"light"}');
     const other = sandbox({ location: { origin: 'null' }, localStorage: storage(), sessionStorage: storage() });
     run(theme, other);
     expect((other.localStorage as ReturnType<typeof storage>).data.size).toBe(0);
@@ -139,14 +139,14 @@ describe('seedThemeScript / readThemeScript', () => {
 
   it('reads the saved choice and the chrome the app set on the page', () => {
     const local = storage();
-    local.data.set('cal-track.theme.v1', JSON.stringify(prefs));
+    local.data.set('ration.theme.v1', JSON.stringify(prefs));
     const doc = {
       body: {},
       documentElement: { style: { colorScheme: 'dark' }, getAttribute: (n: string) => (n === 'data-theme' ? 'dracula' : null) },
       querySelector: (sel: string) => (sel === 'meta[name="theme-color"]' ? { getAttribute: () => '#282A36' } : null),
     };
     const ctx = sandbox({ document: doc, localStorage: local, getComputedStyle: () => ({ backgroundColor: 'rgb(40, 42, 54)' }) });
-    expect(run(readThemeScript('cal-track.theme.v1'), ctx)).toEqual({
+    expect(run(readThemeScript('ration.theme.v1'), ctx)).toEqual({
       stored: JSON.stringify(prefs),
       bodyBackground: 'rgb(40, 42, 54)',
       colorScheme: 'dark',
@@ -164,7 +164,7 @@ describe('seedThemeScript / readThemeScript', () => {
 
 describe('inspectPageScript', () => {
   const doc = (text: string, root = true) => ({
-    title: 'Cal Track',
+    title: 'Ration',
     body: { innerText: text },
     getElementById: () => (root ? { children: { length: 1 } } : null),
     querySelectorAll: () => ({ length: 3 }),

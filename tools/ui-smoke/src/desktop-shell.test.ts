@@ -452,7 +452,7 @@ describe('sidebar collapse state', () => {
   });
 
   it('uses a versioned key', () => {
-    expect(SIDEBAR_STORAGE_KEY).toBe('cal-track.sidebar.v1');
+    expect(SIDEBAR_STORAGE_KEY).toBe('ration.sidebar.v1');
   });
 
   it('tolerates nothing, garbage and payloads of other shapes: the defaults come back', () => {
@@ -538,7 +538,7 @@ describe('status bar texts', () => {
 
   it('builds the right side: AI, colour theme, version; an unknown part is left out', () => {
     expect(buildStatusRight({ aiEnabled: false, paletteName: 'Kanagawa Wave', version: '1.0.7' })).toEqual(['AI: off', 'Kanagawa Wave', 'v1.0.7']);
-    expect(buildStatusRight({ aiEnabled: true, paletteName: 'Cal Track Day', version: undefined })).toEqual(['AI: on', 'Cal Track Day']);
+    expect(buildStatusRight({ aiEnabled: true, paletteName: 'Ration Day', version: undefined })).toEqual(['AI: on', 'Ration Day']);
     expect(buildStatusRight({ aiEnabled: true, paletteName: undefined, version: '' })).toEqual(['AI: on']);
   });
 });

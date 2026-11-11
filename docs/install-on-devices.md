@@ -1,6 +1,6 @@
 # Install on devices
 
-Cal Track runs as a **web app**, an **Android app** and an **iOS app**. None of the phone builds are on an app store;
+Ration runs as a **web app**, an **Android app** and an **iOS app**. None of the phone builds are on an app store;
 you install them yourself ("sideloading"). The commands below are the standard Expo ones but **have not been run end to
 end by the author**, so treat the first build as a test.
 
@@ -44,14 +44,14 @@ which is fine for sideloading but not for Google Play.
 To get just the file, named by version, without installing it anywhere (needs `apps/app/.env` like every build):
 
 ```bash
-bash scripts/build-android-apk.sh        # writes build/CalTrack-<version>.apk
+bash scripts/build-android-apk.sh        # writes build/Ration-<version>.apk
 ```
 
 It runs `expo prebuild` and Gradle's `assembleRelease` for the phone architectures (`arm64-v8a`, `armeabi-v7a`; set
 `ANDROID_ABIS` to change that) and prints the file's SHA-256.
 
 **Health Connect:** Android 14 and newer have it built in; on older versions install *Health Connect* from the Play
-Store first. Then open Cal Track > **More > Connected apps & devices** and grant access.
+Store first. Then open Ration > **More > Connected apps & devices** and grant access.
 
 ## iOS (free Apple ID)
 
@@ -61,7 +61,7 @@ Requirements: a Mac, Xcode from the App Store, an iPhone and cable, a free Apple
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer      # once
 ```
 
-1. Pick a bundle identifier nobody else uses, for example `com.yourname.caltrack`, and set `ios.bundleIdentifier` in
+1. Pick a bundle identifier nobody else uses, for example `com.yourname.ration`, and set `ios.bundleIdentifier` in
    `apps/app/app.json` (a free team cannot reuse an identifier that exists).
 2. Generate and open the native project:
 
@@ -91,7 +91,7 @@ bash scripts/build-ios-ipa.sh        # 10-30 minutes the first time; needs apps/
 ```
 
 It runs `expo prebuild`, `pod install` and `xcodebuild archive` with code signing switched off, embeds the entitlements (HealthKit)
-with an ad-hoc signature so the sideloading tool can see them, and writes `build/CalTrack-unsigned.ipa`. Install SideStore or
+with an ad-hoc signature so the sideloading tool can see them, and writes `build/Ration-unsigned.ipa`. Install SideStore or
 AltStore on the iPhone (follow their own guides), open the `.ipa` with it and sign in with your Apple ID there.
 
 If **Connect Apple Health** answers *Missing com.apple.developer.healthkit entitlement*, the sideloading tool dropped the HealthKit
@@ -111,17 +111,17 @@ The app is built on your own machines; a release is just the two files attached 
    protected by row-level security and the invite-only sign-up):
 
    ```bash
-   bash scripts/build-android-apk.sh        # build/CalTrack-0.2.0.apk
-   bash scripts/build-ios-ipa.sh            # build/CalTrack-unsigned.ipa
+   bash scripts/build-android-apk.sh        # build/Ration-0.2.0.apk
+   bash scripts/build-ios-ipa.sh            # build/Ration-unsigned.ipa
    ```
 
 3. Create the release (needs the [GitHub CLI](https://cli.github.com), `gh auth login`, and a GitHub remote):
 
    ```bash
-   git remote add origin git@github.com:YOU/cal-track.git     # once
+   git remote add origin git@github.com:YOU/ration.git     # once
    git push origin main --tags
-   gh release create v0.2.0 build/CalTrack-0.2.0.apk build/CalTrack-unsigned.ipa \
-     --title "Cal Track 0.2.0" --notes "Android: open the .apk. iPhone: sign the .ipa with SideStore or AltStore."
+   gh release create v0.2.0 build/Ration-0.2.0.apk build/Ration-unsigned.ipa \
+     --title "Ration 0.2.0" --notes "Android: open the .apk. iPhone: sign the .ipa with SideStore or AltStore."
    ```
 
 The `.ipa` is **unsigned**: it only installs through SideStore / AltStore (or by re-signing it yourself), and Apple Health may not
@@ -136,7 +136,7 @@ There are two routes, and they can be on at the same time (for the calorie budge
    Track then picks up what arrives. Garmin-only scores such as Body Battery or Sleep Score do not come through this route.
 2. **Directly from the phone.** In **Connected Apps & Devices > Garmin** tap **Connect Garmin** and sign in on Garmin's own page
    inside the app. Needs a build that contains the web view (`react-native-webview`), so install a fresh build once; the web
-   build cannot do it. Cal Track never sees your password; the token stays in the phone's secure storage. This is
+   build cannot do it. Ration never sees your password; the token stays in the phone's secure storage. This is
    Garmin's private mobile-app interface, not an official integration. See [Features](features.md#garmin-read-only-from-the-phone).
 
 ## Turning on health sync

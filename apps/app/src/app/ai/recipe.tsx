@@ -85,7 +85,7 @@ export default function AiRecipeScreen() {
             <Button label="Draft recipe" onPress={draft} disabled={text.trim().length === 0} />
           </Card>
           <Notice>
-            What you type is sent only to OpenRouter and the model provider you chose, never to Cal Track. Nutrition
+            What you type is sent only to OpenRouter and the model provider you chose, never to Ration. Nutrition
             comes from the food database; you review every ingredient before the recipe is created.
           </Notice>
           <Button label="AI settings and model" variant="ghost" onPress={openAiSettings} />

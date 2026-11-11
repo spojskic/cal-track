@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds an UNSIGNED iOS .ipa of Cal Track. SideStore / AltStore sign it with your free Apple ID when you install it, so
+# Builds an UNSIGNED iOS .ipa of Ration. SideStore / AltStore sign it with your free Apple ID when you install it, so
 # nothing here needs your Apple ID or a paid developer account. Run from anywhere:   bash scripts/build-ios-ipa.sh
 #
 # Needs: Xcode.app (App Store), CocoaPods (`brew install cocoapods`), Node 22 + pnpm, and apps/app/.env (Supabase URL + anon key,
 # baked into the build). Takes 10-30 minutes the first time (pod install + a Release compile).
-# Output: build/CalTrack-unsigned.ipa  (build/ is git-ignored)
+# Output: build/Ration-unsigned.ipa  (build/ is git-ignored)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -29,7 +29,7 @@ npx expo prebuild --platform ios --clean
 WORKSPACE="$(ls -d ios/*.xcworkspace | head -1)"
 SCHEME="$(basename "$WORKSPACE" .xcworkspace)"
 ARCHIVE="$OUT/$SCHEME.xcarchive"
-rm -rf "$ARCHIVE" "$OUT/Payload" "$OUT/CalTrack-unsigned.ipa"
+rm -rf "$ARCHIVE" "$OUT/Payload" "$OUT/Ration-unsigned.ipa"
 mkdir -p "$OUT"
 
 echo "==> Archiving $SCHEME (Release, unsigned)"
@@ -56,8 +56,8 @@ fi
 echo "==> Packaging the .ipa"
 mkdir -p "$OUT/Payload"
 cp -R "$APP" "$OUT/Payload/"
-(cd "$OUT" && zip -qry CalTrack-unsigned.ipa Payload && rm -rf Payload)
+(cd "$OUT" && zip -qry Ration-unsigned.ipa Payload && rm -rf Payload)
 
 echo
-echo "Done: $OUT/CalTrack-unsigned.ipa"
+echo "Done: $OUT/Ration-unsigned.ipa"
 echo "Install it with SideStore or AltStore (they sign it with your free Apple ID; it expires after 7 days and is renewed from there)."

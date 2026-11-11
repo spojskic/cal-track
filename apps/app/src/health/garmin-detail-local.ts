@@ -3,10 +3,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { emptyDetailStats, parseDetailStats, type DetailStats } from '@cal/garmin';
 
-const KEY = 'cal-track.garmin.detail-stats';
+import { migrateAsyncKey } from '@/lib/migrate-key';
+
+const KEY = 'ration.garmin.detail-stats';
+/** The key from before the app was renamed, moved on first read. */
+const LEGACY_KEY = 'cal-track.garmin.detail-stats';
 
 export async function loadDetailStats(): Promise<DetailStats> {
   try {
+    await migrateAsyncKey(LEGACY_KEY, KEY);
     return parseDetailStats(await AsyncStorage.getItem(KEY));
   } catch {
     return emptyDetailStats();

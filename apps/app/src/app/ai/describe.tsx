@@ -118,7 +118,7 @@ export default function DescribeMealScreen() {
           </Card>
 
           <Notice>
-            What you type is sent only to OpenRouter and the model provider you chose, never to Cal Track. You
+            What you type is sent only to OpenRouter and the model provider you chose, never to Ration. You
             review everything before it is added.
           </Notice>
           <Button label="AI settings and model" variant="ghost" onPress={openAiSettings} />

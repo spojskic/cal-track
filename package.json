@@ -1,5 +1,5 @@
 {
-  "name": "cal-track",
+  "name": "ration",
   "private": true,
   "version": "0.0.0",
   "description": "Nutrition tracker (web, iOS, Android) with optional bring-your-own-key AI features.",

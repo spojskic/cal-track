@@ -108,7 +108,7 @@ const clip = (text: string, max = 400): string => (text.length > max ? `${text.s
 export function renderMarkdown(report: Report): string {
   const lines: string[] = [];
   const totals = totalsOf(report.results);
-  lines.push('# Cal Track UI smoke report', '');
+  lines.push('# Ration UI smoke report', '');
   lines.push(`- Started: ${report.startedAt}`, `- Finished: ${report.finishedAt}`, `- Chrome: ${report.chrome}`, `- Build: ${report.distDir}`);
   lines.push(`- Viewports: ${report.viewports.join(', ')}`);
   lines.push(`- Result: **${totals.fail > 0 ? 'FAIL' : totals.warn > 0 ? 'WARN' : 'OK'}** (${totals.ok} OK, ${totals.warn} WARN, ${totals.fail} FAIL of ${totals.total} runs)`, '');

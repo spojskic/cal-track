@@ -14,7 +14,9 @@ import { isDueByInterval } from './garmin';
 import { isGarminConnected, runGarminSync } from './garmin-runner';
 import { isHealthConnected, runHealthSync } from './runner';
 
-export const HEALTH_BACKGROUND_TASK = 'cal-track-health-sync';
+export const HEALTH_BACKGROUND_TASK = 'ration-health-sync';
+/** The task name from before the app was renamed: unregistered once so the OS does not keep running it. */
+const LEGACY_HEALTH_BACKGROUND_TASK = 'cal-track-health-sync';
 /** The OS treats this as a minimum (15 min on Android, much longer on iOS in practice). */
 const BACKGROUND_INTERVAL_MINUTES = 15;
 /** Foreground syncs triggered by app start / returning to the app are throttled to this. */
@@ -47,6 +49,9 @@ if (isNative) {
 export async function registerHealthBackgroundTask(): Promise<boolean> {
   if (!isNative) return false;
   try {
+    if (await TaskManager.isTaskRegisteredAsync(LEGACY_HEALTH_BACKGROUND_TASK)) {
+      await BackgroundTask.unregisterTaskAsync(LEGACY_HEALTH_BACKGROUND_TASK).catch(() => undefined);
+    }
     if ((await BackgroundTask.getStatusAsync()) !== BackgroundTask.BackgroundTaskStatus.Available) return false;
     if (await TaskManager.isTaskRegisteredAsync(HEALTH_BACKGROUND_TASK)) return true;
     await BackgroundTask.registerTaskAsync(HEALTH_BACKGROUND_TASK, { minimumInterval: BACKGROUND_INTERVAL_MINUTES });

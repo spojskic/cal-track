@@ -12,7 +12,7 @@
  * `parsePastedCode` and then `exchangeAuthCode` (no `state` is returned in that mode).
  *
  * OpenRouter documents `callback_url` as a public URL or a localhost URL. Custom app
- * schemes (e.g. `caltrack://`) are not documented as supported: on native prefer the
+ * schemes (e.g. `ration://`) are not documented as supported: on native prefer the
  * headless/paste flow, or an https page you control that forwards the code to the app.
  */
 
@@ -210,7 +210,7 @@ export interface BuildAuthUrlOptions {
   callbackUrl?: string;
   challenge: string;
   state?: string;
-  /** Name the key gets in the OpenRouter dashboard (e.g. "Cal Track on iPhone"). */
+  /** Name the key gets in the OpenRouter dashboard (e.g. "Ration on iPhone"). */
   keyLabel?: string;
   authUrl?: string;
 }

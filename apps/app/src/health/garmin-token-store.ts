@@ -2,8 +2,8 @@
 // tests). Pure: imports nothing from react-native / expo.
 //
 // Four small items instead of one JSON blob (an access token alone is over a kilobyte, and some platforms refuse large values):
-// the access token, the refresh token, the client id the tokens were issued for, and the Cal Track user they belong to.
-// Tokens of another Cal Track user on the same phone are never handed out.
+// the access token, the refresh token, the client id the tokens were issued for, and the Ration user they belong to.
+// Tokens of another Ration user on the same phone are never handed out.
 import { isGarminTokens, type GarminTokens } from '@cal/garmin';
 
 export interface SecretStore {
@@ -13,11 +13,37 @@ export interface SecretStore {
 }
 
 export const TOKEN_KEYS = {
+  access: 'ration.garmin.di-token',
+  refresh: 'ration.garmin.di-refresh-token',
+  client: 'ration.garmin.di-client-id',
+  user: 'ration.garmin.user-id',
+} as const;
+
+/** The same items under the names used before the app was renamed. */
+export const LEGACY_TOKEN_KEYS = {
   access: 'cal-track.garmin.di-token',
   refresh: 'cal-track.garmin.di-refresh-token',
   client: 'cal-track.garmin.di-client-id',
   user: 'cal-track.garmin.user-id',
 } as const;
+
+/**
+ * Moves a Garmin link saved before the rename to the current keys. Best effort and idempotent: an existing new value wins, and
+ * a failed move leaves the old value for the next attempt.
+ */
+export async function migrateLegacyTokens(store: SecretStore): Promise<void> {
+  for (const field of ['user', 'access', 'refresh', 'client'] as const) {
+    try {
+      if ((await store.get(TOKEN_KEYS[field])) !== null) continue;
+      const value = await store.get(LEGACY_TOKEN_KEYS[field]);
+      if (value === null) continue;
+      await store.set(TOKEN_KEYS[field], value);
+      await store.delete(LEGACY_TOKEN_KEYS[field]);
+    } catch {
+      // the token store reports failures to the caller; a missing link just asks the user to connect again
+    }
+  }
+}
 
 export interface GarminTokenStore {
   /** The tokens of `userId` on this phone, or null (none stored, or they belong to another user, or they are unreadable). */

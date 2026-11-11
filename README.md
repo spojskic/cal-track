@@ -1,4 +1,4 @@
-# Cal Track
+# Ration: Calorie Tracker
 
 A nutrition tracker for **web, iOS and Android**, built for you and a small group of
 friends. It tracks calories, macros and about 90 nutrients, works out your daily targets from your body and goal,

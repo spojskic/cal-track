@@ -3,7 +3,7 @@
  *
  * Typical wiring in the app:
  *
- *   const client = createOpenRouterClient({ apiKey, fetch: expoFetch, appTitle: 'Cal Track' });
+ *   const client = createOpenRouterClient({ apiKey, fetch: expoFetch, appTitle: 'Ration' });
  *   const check  = await validateKey(client);                    // GET /key
  *   const models = await client.listModels({ imageInput: true, structuredOutputs: true, sort: 'newest' });
  *   const model  = pickDefaultVisionModel(models);

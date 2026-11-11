@@ -2,12 +2,17 @@
 // last problem. Not secret (the report has no values and no tokens) and not worth a database column.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { migrateAsyncKey } from '@/lib/migrate-key';
+
 import { EMPTY_LOCAL_STATE, parseLocalState, serializeLocalState, type GarminLocalState } from './garmin';
 
-const KEY = 'cal-track.garmin.local-state';
+const KEY = 'ration.garmin.local-state';
+/** The key from before the app was renamed, moved on first read. */
+const LEGACY_KEY = 'cal-track.garmin.local-state';
 
 export async function loadLocalState(): Promise<GarminLocalState> {
   try {
+    await migrateAsyncKey(LEGACY_KEY, KEY);
     return parseLocalState(await AsyncStorage.getItem(KEY));
   } catch {
     return EMPTY_LOCAL_STATE;

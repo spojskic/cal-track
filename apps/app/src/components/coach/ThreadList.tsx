@@ -154,8 +154,8 @@ export function ThreadList({
       <View style={[styles.footer, { borderTopColor: colors.border }]}>
         <AppText variant="small" muted>
           {autoDelete
-            ? `Chats are stored in your Cal Track account and deleted automatically after ${RETENTION_DAYS} days.`
-            : 'Chats are stored in your Cal Track account until you delete them.'}{' '}
+            ? `Chats are stored in your Ration account and deleted automatically after ${RETENTION_DAYS} days.`
+            : 'Chats are stored in your Ration account until you delete them.'}{' '}
           Your OpenRouter key is never stored there.
         </AppText>
         <Pressable

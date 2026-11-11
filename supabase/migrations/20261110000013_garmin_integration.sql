@@ -26,7 +26,7 @@ create schema if not exists private;
 -- Tables
 -- ---------------------------------------------------------------------------
 
--- One Garmin link per Cal Track user. Tokens are stored in clear text: this table is unreachable for clients
+-- One Garmin link per Ration user. Tokens are stored in clear text: this table is unreachable for clients
 -- (see above); encrypt with Supabase Vault later if the threat model requires it.
 create table if not exists private.garmin_connections (
   user_id             uuid primary key references auth.users (id) on delete cascade,
@@ -228,7 +228,7 @@ begin
     raise exception 'invalid garmin connection arguments' using errcode = 'invalid_parameter_value';
   end if;
 
-  -- A Garmin account can be linked to one Cal Track user only (unique garmin_user_id -> SQLSTATE 23505).
+  -- A Garmin account can be linked to one Ration user only (unique garmin_user_id -> SQLSTATE 23505).
   insert into private.garmin_connections as c
     (user_id, garmin_user_id, access_token, refresh_token, expires_at, refresh_expires_at, scopes)
   values

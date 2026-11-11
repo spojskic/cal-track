@@ -34,11 +34,11 @@ import { UnavailableNotice } from './UnavailableNotice';
 import { useProviderAvailability } from './use-availability';
 
 const HEALTH_CONNECT_HISTORY_NOTE =
-  'Health Connect only lets Cal Track read the 30 days before you first connected, unless you grant "Access past data" when asked. Backfill dates older than that are skipped.';
+  'Health Connect only lets Ration read the 30 days before you first connected, unless you grant "Access past data" when asked. Backfill dates older than that are skipped.';
 const HEALTH_CONNECT_MANAGE_NOTE =
-  'Cal Track can only read what you allowed in Health Connect. To change it, open Health Connect > App permissions > Cal Track.';
+  'Ration can only read what you allowed in Health Connect. To change it, open Health Connect > App permissions > Ration.';
 const APPLE_HEALTH_NOTE =
-  'Apple Health does not tell apps which categories you allowed. If something stays empty, check Health > Sharing > Apps > Cal Track.';
+  'Apple Health does not tell apps which categories you allowed. If something stays empty, check Health > Sharing > Apps > Ration.';
 
 /** "Connected Apps & Devices" card of one platform provider: toggles, backfill, sync now, disconnect, last sync. */
 export function IntegrationCard({ providerId }: { providerId: HealthProviderId }) {
@@ -105,7 +105,7 @@ export function IntegrationCard({ providerId }: { providerId: HealthProviderId }
     if (Platform.OS === 'web') return run();
     Alert.alert(
       `Disconnect ${label}?`,
-      `Cal Track stops importing from ${label}. Data already imported stays in your diary. To revoke access completely, remove Cal Track in the ${label} app.`,
+      `Ration stops importing from ${label}. Data already imported stays in your diary. To revoke access completely, remove Ration in the ${label} app.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Disconnect', style: 'destructive', onPress: run },
@@ -131,8 +131,8 @@ export function IntegrationCard({ providerId }: { providerId: HealthProviderId }
         <>
           <AppText variant="small" muted>
             {info.connected
-              ? 'Choose what Cal Track imports. Changes apply to the next sync.'
-              : `Choose what to import, then connect. Cal Track only asks ${label} for the data you tick.`}
+              ? 'Choose what Ration imports. Changes apply to the next sync.'
+              : `Choose what to import, then connect. Ration only asks ${label} for the data you tick.`}
           </AppText>
 
           <DataTypeChecklist toggles={toggles} onToggle={onToggle} disabled={busy} />

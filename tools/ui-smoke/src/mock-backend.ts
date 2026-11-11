@@ -1,5 +1,5 @@
 /**
- * In-memory PostgREST + GoTrue emulator for the Cal Track smoke harness.
+ * In-memory PostgREST + GoTrue emulator for the Ration smoke harness.
  *
  * `createMockBackend(seed).handle({ method, url, headers, body })` answers exactly like the Supabase REST API
  * would for the queries supabase-js v2 sends: select with embedding, filters, ordering, pagination, counts,

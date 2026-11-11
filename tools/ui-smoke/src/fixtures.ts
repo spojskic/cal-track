@@ -52,8 +52,8 @@ const dayOffset = (n: number): string => addDays(TODAY, n);
 
 export const USER: MockUser = {
   id: stableUuid('user:demo'),
-  email: 'demo@caltrack.test',
-  password: 'caltrack-demo-1',
+  email: 'demo@ration.test',
+  password: 'ration-demo-1',
   createdAt: '2026-10-01T08:00:00+00:00',
 };
 

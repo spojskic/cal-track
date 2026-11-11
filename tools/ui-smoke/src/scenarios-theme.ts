@@ -1,7 +1,7 @@
 /**
  * Smoke scenario of the theme picker (Settings > Display & units > Appearance). Appended to the main list by scenarios.ts.
  *
- * The scenario drives the real picker and then reads the page: the saved choice in localStorage (`cal-track.theme.v1`), the
+ * The scenario drives the real picker and then reads the page: the saved choice in localStorage (`ration.theme.v1`), the
  * computed background of the page body, the root `color-scheme`, the `<meta name="theme-color">` and the palette id the app puts
  * on the root element. Everything it compares with comes from apps/app/src/theme/palettes.ts, so a changed palette needs no edit
  * here. The browser's own colour scheme (the default viewports are light; `--viewports=phone-dark` is dark) decides which side

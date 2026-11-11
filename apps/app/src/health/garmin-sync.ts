@@ -208,7 +208,7 @@ export interface GarminDeps {
   };
   createClient(tokens: GarminTokens, onTokensChanged: (tokens: GarminTokens) => Promise<void>): GarminSyncSource;
   writer: SyncWriter;
-  /** e.g. 'Cal Track 0.1.0 (ios)' for the head of the sync report. */
+  /** e.g. 'Ration 0.1.0 (ios)' for the head of the sync report. */
   appInfo: string;
   onProgress?: (message: string) => void;
 }
@@ -234,7 +234,7 @@ export function skipMessage(reason: GarminSkipReason, untilMs?: number | null): 
       return GARMIN_SIGNED_OUT_NOTE;
     case 'rate_limited':
       return untilMs
-        ? `Garmin asked the app to slow down. Cal Track will try again after ${formatClock(untilMs)}.`
+        ? `Garmin asked the app to slow down. Ration will try again after ${formatClock(untilMs)}.`
         : 'Garmin asked the app to slow down. Try again later.';
   }
 }
@@ -314,7 +314,7 @@ export async function executeGarminSync(deps: GarminDeps, options: { mode: Garmi
 
   if (stop.endpoint === 'writer') {
     code = 'write_failed';
-    error = `Saving the Garmin data to your Cal Track account failed: ${errorText(outcome.writeError)}`;
+    error = `Saving the Garmin data to your Ration account failed: ${errorText(outcome.writeError)}`;
   } else if (stop.kind === 'session_dead') {
     code = 'needs_sign_in';
     error = describeStop(stop, null);

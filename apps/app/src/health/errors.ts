@@ -7,7 +7,7 @@ export function friendlyPermissionError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
   if (/entitlement/i.test(message)) {
     return new Error(
-      'iOS refused Apple Health access because this installed copy of Cal Track does not carry the HealthKit permission ' +
+      'iOS refused Apple Health access because this installed copy of Ration does not carry the HealthKit permission ' +
         '(a signing issue, not something you did wrong). Install a build that is signed with HealthKit, for example from Xcode ' +
         'with your Personal Team - see docs/install-on-devices.md. Everything else in the app works without it.',
     );

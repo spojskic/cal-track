@@ -287,7 +287,7 @@ export default function DiaryScreen() {
     <Card>
       <AppText variant="heading">Set up your targets</AppText>
       <AppText muted>
-        Answer a few questions so Cal Track can calculate your calorie, macro and nutrient targets. Your entries are
+        Answer a few questions so Ration can calculate your calorie, macro and nutrient targets. Your entries are
         listed below in the meantime.
       </AppText>
       <Button label="Set up targets" onPress={() => go('/onboarding')} />

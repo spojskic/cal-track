@@ -50,7 +50,7 @@ export function planSyncRange(input: PlanInput): PlanResult {
     if (from < earliest) {
       from = earliest;
       warnings.push(
-        `Health Connect only lets Cal Track read the ${input.historyLimitDays} days before you first connected ` +
+        `Health Connect only lets Ration read the ${input.historyLimitDays} days before you first connected ` +
           `(from ${earliest}). Older days were skipped.`,
       );
     }

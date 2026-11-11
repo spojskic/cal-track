@@ -14,5 +14,5 @@ export const queryClient = new QueryClient({
 
 export const queryPersister = createAsyncStoragePersister({
   storage: AsyncStorage,
-  key: 'cal-track-query-cache',
+  key: 'ration-query-cache',
 });

@@ -89,7 +89,7 @@ on every screen (settings, workouts, the coach, search, a food or recipe page, t
 sign-in screen, the first-run wizard and the barcode camera are drawn without them. Phones are unchanged: bottom tab bar, the raised **+**
 button and the More tab.
 
-- **Sidebar**, top to bottom: the **Cal Track** mark; the **Add to diary** button (opens the add sheet); then small labelled groups, each
+- **Sidebar**, top to bottom: the **Ration** mark; the **Add to diary** button (opens the add sheet); then small labelled groups, each
   with a chevron that collapses it (the groups you close stay closed the next time you open the app on this device):
   **Daily** (Dashboard, Diary, Foods), **Training** (Workouts), **Coach** (Coach when AI is on; AI Coach & keys, or AI (optional),
   with a small *On* / *Off* at the right), **Profile** (Profile & targets, Personal details, Nutrient targets), **Connections** (Connected
@@ -178,7 +178,7 @@ overlapping manual exercise. Setup: [install on devices](install-on-devices.md#t
 
 ## Garmin (read-only, from the phone)
 
-Settings > Connected Apps & Devices > **Garmin** > **Connect Garmin**: you sign in on Garmin's own page inside the app (Cal Track
+Settings > Connected Apps & Devices > **Garmin** > **Connect Garmin**: you sign in on Garmin's own page inside the app (Ration
 never sees your password; the token Garmin issues stays in the phone's secure storage), and the phone then reads your Garmin data
 and saves it to your account. Nothing is written to Garmin.
 
@@ -208,9 +208,9 @@ Colour themes you switch in the app.
   defaults (also when only the corners differ) and brings back Match system, Kanagawa Lotus (light), Kanagawa Wave (dark) and Boxy
   corners.
 - **Light:** Kanagawa Lotus (default), Catppuccin Latte, Solarized Light, Gruvbox Light, GitHub Light, Rosé Pine Dawn, Tokyo Night Day,
-  One Light, Paper, Cal Track Day.
+  One Light, Paper, Ration Day.
   **Dark:** Kanagawa Wave (default), Kanagawa Dragon, Tokyo Night, Catppuccin Mocha, Dracula, Nord, Gruvbox Dark, Rosé Pine, One Dark,
-  GitHub Dark, Solarized Dark, Cal Track Night. *Cal Track Day* and *Night* are the original navy and orange look.
+  GitHub Dark, Solarized Dark, Ration Night. *Ration Day* and *Night* are the original navy and orange look.
 - **Saved on this device only**, not in your account, so your phone and your browser can use different themes (and corners). Nothing to
   set up in Supabase. A theme saved before the Boxy switch existed simply opens with the default (Boxy) corners; pick Rounded to keep the old look.
 - **Readable by construction:** every palette is checked in the tests for text, muted text, button labels and the red, green and amber

@@ -53,14 +53,14 @@ Set the rest for the food functions:
 
 ```bash
 npx supabase secrets set FDC_API_KEY=<key from https://fdc.nal.usda.gov/api-key-signup> \
-                         OFF_USER_AGENT="cal-track/0.1 (you@example.com)"
+                         OFF_USER_AGENT="ration/1.0 (you@example.com)"
 # optional overrides of the online-search throttle (defaults: 5 per user / 8 global per minute)
 npx supabase secrets set ONLINE_SEARCH_USER_PER_MINUTE=5 ONLINE_SEARCH_GLOBAL_PER_MINUTE=8
 ```
 
 - `FDC_API_KEY`: without it FDC is skipped and only Open Food Facts is used. FDC allows 1000 requests/hour per key.
 - `OFF_USER_AGENT`: Open Food Facts **requires** an identifying User-Agent (`AppName/version (contact)`).
-  Default `cal-track/0.1 (contact not configured)`; set a real contact before relying on it.
+  Default `ration/1.0 (contact not configured)`; set a real contact before relying on it.
 - Never commit secrets. For local runs put them in an untracked env file:
   `npx supabase functions serve --env-file supabase/functions/.env`.
 

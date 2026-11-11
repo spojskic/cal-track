@@ -1,6 +1,6 @@
 # @cal/ui-smoke
 
-Visual / runtime smoke test for the Cal Track **web build**. It loads the real Expo web export in headless Chrome
+Visual / runtime smoke test for the Ration **web build**. It loads the real Expo web export in headless Chrome
 against a **mocked Supabase backend**, walks through every screen at a phone and a desktop size, saves
 screenshots and reports console errors, uncaught exceptions, blank screens, error text, failed requests and
 backend calls the mock does not know.
@@ -34,7 +34,7 @@ Other flags: `--dist=<dir>` (export directory, default `/tmp/cal-ui-smoke-dist`)
 (downgrade `console.error` to WARN), `--timeout=<s>` (per run, default 120), `--workers=<n>` (parallel runs,
 default 2), `--keep-cache` (do not pass `--clear` to `expo export`). Run `smoke -- --help` for the list.
 
-`--theme=<paletteId>` seeds the app's saved theme choice (`localStorage['cal-track.theme.v1']`, the same init-script mechanism as
+`--theme=<paletteId>` seeds the app's saved theme choice (`localStorage['ration.theme.v1']`, the same init-script mechanism as
 the session) before the app loads, so every scenario runs in that palette, for example `--theme=kanagawa-wave` or
 `--theme=paper`. The choice is pinned to the palette's own side (mode `light` or `dark`), so `--viewports` and the browser's colour
 scheme do not matter; the other side stays at its default. Without the flag nothing is seeded and the app starts with its default

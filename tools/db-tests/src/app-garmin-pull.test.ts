@@ -101,7 +101,7 @@ describe('texts of the card', () => {
     expect(GARMIN_HOW_IT_WORKS).toContain("Garmin's own page");
     expect(GARMIN_HOW_IT_WORKS).toContain('never sees your password');
     expect(GARMIN_HOW_IT_WORKS).toContain("this phone's secure storage");
-    expect(GARMIN_HOW_IT_WORKS).toContain('saves it to your Cal Track account');
+    expect(GARMIN_HOW_IT_WORKS).toContain('saves it to your Ration account');
     expect(GARMIN_HOW_IT_WORKS).toContain('Nothing is written to Garmin');
     expect(GARMIN_UNOFFICIAL_NOTE).toContain('not an official Garmin integration');
     expect(GARMIN_UNOFFICIAL_NOTE).toContain('stop working when Garmin changes it');
@@ -170,7 +170,7 @@ describe('local state (this phone only)', () => {
 describe('describeStop', () => {
   it('speaks plainly for each ending', () => {
     expect(describeStop({ kind: 'rate_limited', message: 'm' }, new Date(2026, 10, 10, 15, 42).getTime())).toBe(
-      'Garmin asked the app to slow down. Cal Track will try again after 15:42.',
+      'Garmin asked the app to slow down. Ration will try again after 15:42.',
     );
     expect(describeStop({ kind: 'session_dead', message: 'm' }, null)).toBe(GARMIN_SIGNED_OUT_NOTE);
     expect(describeStop({ kind: 'network', message: 'm' }, null)).toContain('Could not reach Garmin');
@@ -209,7 +209,7 @@ describe('token store', () => {
     expect(await store.load(USER)).toEqual(TOKENS);
     expect(await store.has(USER)).toBe(true);
   });
-  it('never hands tokens to another Cal Track user of the same phone', async () => {
+  it('never hands tokens to another Ration user of the same phone', async () => {
     const store = createTokenStore(new MapStore());
     await store.save(USER, TOKENS);
     expect(await store.load(OTHER)).toBeNull();
@@ -486,7 +486,7 @@ function harness(opts: {
       return source;
     },
     writer,
-    appInfo: 'Cal Track 0.1.0 (ios)',
+    appInfo: 'Ration 0.1.0 (ios)',
     onProgress: (m) => h.progress.push(m),
   };
   return h;
@@ -564,8 +564,8 @@ describe('executeGarminSync: a good run', () => {
     const h = harness({ rotate: true });
     await executeGarminSync(h.deps, { mode: 'incremental' });
     const report = h.local.value.report ?? '';
-    expect(report).toContain('Cal Track - Garmin sync report');
-    expect(report).toContain('App: Cal Track 0.1.0 (ios)');
+    expect(report).toContain('Ration - Garmin sync report');
+    expect(report).toContain('App: Ration 0.1.0 (ios)');
     expect(report).toContain('userSummary: /usersummary-service/usersummary/daily/{displayName}?calendarDate={date}');
     expect(report).toContain('found 14 of 14 via totalSteps');
     for (const value of ['9000', '2650', '2038', '612', 'user-1', '81500', '81.5']) expect(report, value).not.toContain(value);

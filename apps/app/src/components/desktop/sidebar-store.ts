@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { create } from 'zustand';
 
+import { migrateAsyncKey } from '@/lib/migrate-key';
+
 import {
   SIDEBAR_STORAGE_KEY,
   isSectionCollapsed,
@@ -22,11 +24,21 @@ interface SidebarStoreState extends SidebarState {
   hydrate: () => Promise<void>;
 }
 
+/** The sidebar key from before the app was renamed; read once, then moved to `SIDEBAR_STORAGE_KEY`. */
+const LEGACY_SIDEBAR_STORAGE_KEY = 'cal-track.sidebar.v1';
+
 /** Web: localStorage is synchronous, so the sidebar is drawn the way the user left it from the first frame. */
 function readWebSync(): string | null {
   if (Platform.OS !== 'web') return null;
   try {
-    return typeof localStorage === 'undefined' ? null : localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (typeof localStorage === 'undefined') return null;
+    const current = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (current !== null) return current;
+    const legacy = localStorage.getItem(LEGACY_SIDEBAR_STORAGE_KEY);
+    if (legacy === null) return null;
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, legacy);
+    localStorage.removeItem(LEGACY_SIDEBAR_STORAGE_KEY);
+    return legacy;
   } catch {
     return null;
   }
@@ -52,6 +64,7 @@ export const useSidebarStore = create<SidebarStoreState>()((set, get) => ({
     if (get().hydrated) return;
     let stored: string | null = null;
     try {
+      await migrateAsyncKey(LEGACY_SIDEBAR_STORAGE_KEY, SIDEBAR_STORAGE_KEY);
       stored = await AsyncStorage.getItem(SIDEBAR_STORAGE_KEY);
     } catch {
       // an unreadable store means the defaults

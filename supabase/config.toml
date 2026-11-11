@@ -1,4 +1,4 @@
-# Supabase CLI configuration for cal-track.
+# Supabase CLI configuration for ration.
 #
 # Production runs on a HOSTED Supabase project (free tier); this file mainly
 # matters for `supabase link` / `supabase db push` and for anyone who runs the
@@ -8,7 +8,7 @@
 #
 # Reference: https://supabase.com/docs/guides/local-development/cli/config
 
-project_id = "cal-track"
+project_id = "ration"
 
 [api]
 enabled = true
@@ -63,7 +63,7 @@ enabled = true
 # under additional_redirect_urls). For the hosted project set it in the dashboard
 # or with `supabase config push`.
 site_url = "http://127.0.0.1:8081"
-additional_redirect_urls = ["http://127.0.0.1:8081", "http://localhost:8081", "caltrack://auth-callback"]
+additional_redirect_urls = ["http://127.0.0.1:8081", "http://localhost:8081", "ration://auth-callback"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10

@@ -95,7 +95,7 @@ async function execute(options: RunHealthSyncOptions): Promise<SyncOutcome> {
     const { types, warnings: permissionWarnings } = await resolveTypes(provider, wanted, options.interactive === true);
     warnings.push(...permissionWarnings);
     if (types.length === 0) {
-      const error = 'Cal Track has no permission to read the selected data. Review the access in your health app.';
+      const error = 'Ration has no permission to read the selected data. Review the access in your health app.';
       useHealthSyncStore.getState().finish(provider.id, null, error, warnings);
       return { status: 'failed', provider: provider.id, error, warnings };
     }

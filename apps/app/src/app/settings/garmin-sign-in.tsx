@@ -22,7 +22,7 @@ class NativeModuleBoundary extends Component<{ children: ReactNode; onBack: () =
       <View style={{ padding: spacing.lg, gap: spacing.lg }}>
         <AppText variant="heading">This copy of the app cannot show the Garmin sign-in page</AppText>
         <AppText muted>
-          It was installed before the sign-in view was added to Cal Track. Build and install the newest version of the app (a
+          It was installed before the sign-in view was added to Ration. Build and install the newest version of the app (a
           new native build, not just a reload), then try again.
         </AppText>
         <Button label="Back" variant="secondary" onPress={this.props.onBack} />

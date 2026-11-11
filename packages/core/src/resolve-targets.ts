@@ -220,7 +220,7 @@ export function parseBirthdateInput(text: string, onDateISO: string): BirthdateP
   if (normalized > onDateISO) return { ok: false, error: 'Birthdate cannot be in the future.' };
   const age = ageFromBirthdate(normalized, onDateISO);
   if (age < DRI_MIN_AGE) {
-    return { ok: false, error: `Cal Track is designed for people aged ${DRI_MIN_AGE} and over.` };
+    return { ok: false, error: `Ration is designed for people aged ${DRI_MIN_AGE} and over.` };
   }
   if (age > MAX_AGE) return { ok: false, error: 'Please check the year of your birthdate.' };
   return { ok: true, iso: normalized, age };

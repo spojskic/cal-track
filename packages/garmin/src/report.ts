@@ -9,7 +9,7 @@ import type { GarminSyncCounts, GarminSyncReport } from './sync';
 
 export interface ReportInfo {
   generatedAtMs: number;
-  /** e.g. 'Cal Track 0.1.0 (ios)'. Optional. */
+  /** e.g. 'Ration 0.1.0 (ios)'. Optional. */
   app?: string;
 }
 
@@ -37,7 +37,7 @@ function resultsText(results: Record<string, number>): string {
 /** The report as text. Deterministic for a given input (no clock reads). */
 export function formatSyncReport(report: GarminSyncReport, info: ReportInfo, counts?: GarminSyncCounts): string {
   const lines: string[] = [];
-  lines.push('Cal Track - Garmin sync report');
+  lines.push('Ration - Garmin sync report');
   lines.push(`Generated: ${new Date(info.generatedAtMs).toISOString()}`);
   if (info.app) lines.push(`App: ${info.app}`);
   lines.push(`Range: ${report.range.from} to ${report.range.to} (${plural(report.days, 'day', 'days')})`);

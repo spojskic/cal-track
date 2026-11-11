@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 
 import { ensureAiRuntime } from './runtime';
 
-export const APP_TITLE = 'Cal Track';
+export const APP_TITLE = 'Ration';
 
 /**
  * `fetch` handed to @cal/ai. On native it is `expo/fetch` (WinterCG fetch with a streaming `response.body`;

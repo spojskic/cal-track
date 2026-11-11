@@ -1,17 +1,17 @@
-# Cal Track privacy policy
+# Ration privacy policy
 
 Last updated: 10 November 2026
 
 ## Who this is for
 
-Cal Track is a private nutrition and activity tracker (web, iOS and Android). It is run by [YOUR NAME] as a personal,
+Ration is a private nutrition and activity tracker (web, iOS and Android). It is run by [YOUR NAME] as a personal,
 non-commercial project for the operator and a small number of invited friends. There is no public sign-up: accounts are created
 by invitation. Questions, requests and complaints go to [YOUR EMAIL].
 
 In short: your data is used to run the app for you and for nothing else. It is not sold, not shared for advertising, and the app
 contains no advertising, analytics or tracking tools.
 
-## What Cal Track stores about you
+## What Ration stores about you
 
 Everything below is stored in your own account in a database hosted by Supabase and can only be read by
 you (each account is separated by row-level security) and by the operator, who administers the service.
@@ -26,21 +26,21 @@ you (each account is separated by row-level security) and by the operator, who a
 - **AI coach chats**, if you use the coach: the conversation text. These are deleted automatically after 90 days unless you switch
   that off, and you can delete all of them at any time in the app.
 
-Meal photos you take for the optional photo log, and photos of a nutrition label you take for "Scan nutrition label", are **not** stored by Cal Track.
+Meal photos you take for the optional photo log, and photos of a nutrition label you take for "Scan nutrition label", are **not** stored by Ration.
 
 ## What stays on your device
 
 - Your **OpenRouter key** (only if you use the optional AI features). It is kept in the iOS Keychain or Android Keystore, or in an
-  encrypted entry of your browser on the web. It is never sent to Cal Track's database or servers and never logged.
+  encrypted entry of your browser on the web. It is never sent to Ration's database or servers and never logged.
 - Your **Garmin token** (only if you connect Garmin). It is kept in the iOS Keychain or Android Keystore, this device only, and is
-  never sent to Cal Track's database or servers.
+  never sent to Ration's database or servers.
 - A **cached copy** of recently used diary data, so the app opens quickly and offline, and your sign-in session.
-- On the web these live in your browser's local storage. Cal Track does not use advertising or tracking cookies.
+- On the web these live in your browser's local storage. Ration does not use advertising or tracking cookies.
 
 ## Optional AI features (your own OpenRouter key)
 
 AI features exist only if you connect your own [OpenRouter](https://openrouter.ai) account. Requests go **directly from your
-device to OpenRouter** (and from there to the model provider you picked); Cal Track's servers do not see them. Read OpenRouter's
+device to OpenRouter** (and from there to the model provider you picked); Ration's servers do not see them. Read OpenRouter's
 and the provider's terms; you can restrict providers in your OpenRouter settings. What is sent, and only when you use that feature:
 
 - **Photo log:** the meal photo, resized on your phone, and a short instruction (and your optional note).
@@ -60,7 +60,7 @@ Nothing is sent to OpenRouter unless you use one of these features.
 
 ## Barcode scans and online food search
 
-When you scan a barcode or choose "search online", the app sends the barcode number or the words you typed to a Cal Track
+When you scan a barcode or choose "search online", the app sends the barcode number or the words you typed to a Ration
 server function (signed in as you). That function asks **Open Food Facts** and, where configured, **USDA FoodData Central**
 for the product. They receive the barcode or search words and the server's network address; they do **not** receive your
 name, email, account id or your own network address. A product found this way is saved in the shared food list (product data
@@ -69,15 +69,15 @@ Licence.
 
 ## Garmin (optional, read by your phone)
 
-Cal Track can read your Garmin data if you choose **Connect Garmin** in Settings > Connected Apps & Devices (iPhone and Android app
-only). It does this in your phone: there is no Cal Track server in between, and Garmin sends nothing to Cal Track's servers.
+Ration can read your Garmin data if you choose **Connect Garmin** in Settings > Connected Apps & Devices (iPhone and Android app
+only). It does this in your phone: there is no Ration server in between, and Garmin sends nothing to Ration's servers.
 
-- **You sign in on Garmin's own page.** The sign-in page of Garmin opens inside the app. Cal Track **never sees your Garmin
+- **You sign in on Garmin's own page.** The sign-in page of Garmin opens inside the app. Ration **never sees your Garmin
   password**. Garmin hands the app a token, and only that token is kept.
 - **The token stays in your phone's secure storage** (the iOS Keychain or the Android Keystore, this device only). It is never sent
-  to Cal Track's database or servers, never logged, and not part of a backup.
-- **Your phone reads your Garmin data directly from Garmin** and then saves it to your Cal Track account, like the rest of
-  your data. It uses the same private interface that Garmin's own mobile app uses; Cal Track is not an official Garmin
+  to Ration's database or servers, never logged, and not part of a backup.
+- **Your phone reads your Garmin data directly from Garmin** and then saves it to your Ration account, like the rest of
+  your data. It uses the same private interface that Garmin's own mobile app uses; Ration is not an official Garmin
   integration. Garmin sees the requests as coming from your phone and your Garmin account.
 - **Nothing is ever written to Garmin.** The app only reads.
 - **What is read:** daily summaries (steps, active and resting calories, resting heart rate, average stress, body battery),
@@ -90,7 +90,7 @@ only). It does this in your phone: there is no Cal Track server in between, and 
 - **Never** sold, shared, used for advertising or used to profile you. The one optional exception is described under
   "Optional AI features": if **you** use the AI coach, the Garmin-sourced numbers listed there can be sent to your own OpenRouter
   account.
-- **Signing out (Disconnect):** Cal Track deletes the Garmin token from your phone and stops reading. You can choose to delete the
+- **Signing out (Disconnect):** Ration deletes the Garmin token from your phone and stops reading. You can choose to delete the
   Garmin data already imported as well; otherwise it stays in your diary until you delete it. Signing out does not end the
   session on Garmin's side; you can do that in your Garmin account settings. If Garmin ends the session itself, the app asks you to sign in again.
 
@@ -106,10 +106,10 @@ dialog, and does not write to your health data. Disconnecting stops the import; 
 | --- | --- |
 | **Supabase** | hosts the database, sign-in and the server functions |
 | **Open Food Facts, USDA FoodData Central** | product lookups, as described above |
-| **Garmin** | only if you connect it: your phone reads your own Garmin data from Garmin (you sign in on Garmin's page); Garmin sends nothing to Cal Track's servers |
+| **Garmin** | only if you connect it: your phone reads your own Garmin data from Garmin (you sign in on Garmin's page); Garmin sends nothing to Ration's servers |
 | **OpenRouter and the model provider you choose** | only if you use AI features, as described above |
 
-No other third party receives your data, and Cal Track does not sell or rent it.
+No other third party receives your data, and Ration does not sell or rent it.
 
 ## How long data is kept
 
@@ -121,7 +121,7 @@ No other third party receives your data, and Cal Track does not sell or rent it.
 ## Security
 
 Connections use TLS. Each account can only reach its own rows. Your Garmin token and your OpenRouter key stay in the secure
-storage of your device and are never stored on Cal Track's servers. No system is
+storage of your device and are never stored on Ration's servers. No system is
 perfectly secure, but the app is built to collect as little as possible and to keep it separated.
 
 ## Your choices and rights
@@ -137,7 +137,7 @@ perfectly secure, but the app is built to collect as little as possible and to k
 
 ## Children
 
-Cal Track is not meant for people under 16 and is not offered to them.
+Ration is not meant for people under 16 and is not offered to them.
 
 ## Changes
 

@@ -49,7 +49,7 @@ export function DesktopDiaryBody({
       {needsOnboarding ? (
         <Panel title="Set up your targets">
           <AppText muted variant="small">
-            Answer a few questions so Cal Track can calculate your calorie, macro and nutrient targets. Your entries are listed below in
+            Answer a few questions so Ration can calculate your calorie, macro and nutrient targets. Your entries are listed below in
             the meantime.
           </AppText>
           <View style={styles.alignStart}>

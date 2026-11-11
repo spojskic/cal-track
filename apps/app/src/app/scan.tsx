@@ -483,7 +483,7 @@ function CameraPlaceholder({
     action = { label: 'Allow camera', onPress: onRequest };
   } else {
     title = 'Camera access is blocked';
-    body = 'Enable camera access for Cal Track in your device settings, or enter the barcode digits below.';
+    body = 'Enable camera access for Ration in your device settings, or enter the barcode digits below.';
     if (Platform.OS !== 'web') action = { label: 'Open settings', onPress: () => void Linking.openSettings() };
   }
 

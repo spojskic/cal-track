@@ -86,7 +86,7 @@ function Brand() {
         </Svg>
       </View>
       <Text numberOfLines={1} style={[styles.brandText, { color: colors.onSidebar }]}>
-        Cal Track
+        Ration
       </Text>
     </View>
   );

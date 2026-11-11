@@ -34,7 +34,11 @@ import type { ObjectTypeIdentifier, QuantityTypeIdentifier } from '@kingstinct/r
 
 type HK = typeof import('@kingstinct/react-native-healthkit');
 
-const OWN_BUNDLE_IDS: ReadonlySet<string> = new Set(['com.spojskic.caltrack', 'com.caltrack.app']);
+const OWN_BUNDLE_IDS: ReadonlySet<string> = new Set([
+  'com.spojskic.ration',
+  'com.spojskic.caltrack', // the app's bundle id before the rename
+  'com.caltrack.app',
+]);
 
 function loadHealthKit(): HK {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -185,7 +189,7 @@ export const appleHealthProvider: HealthProvider = {
       return {
         available: false,
         reason: 'native_module_missing',
-        message: 'Apple Health needs a development build of Cal Track (it does not work in Expo Go).',
+        message: 'Apple Health needs a development build of Ration (it does not work in Expo Go).',
       };
     }
     try {
@@ -197,7 +201,7 @@ export const appleHealthProvider: HealthProvider = {
       return {
         available: false,
         reason: 'native_module_missing',
-        message: 'Apple Health needs a development build of Cal Track (it does not work in Expo Go).',
+        message: 'Apple Health needs a development build of Ration (it does not work in Expo Go).',
       };
     }
   },
@@ -231,7 +235,7 @@ export const appleHealthProvider: HealthProvider = {
       granted: completed,
       grantedTypes: completed ? [...types] : [],
       missingTypes: completed ? [] : [...types],
-      note: 'To change what Cal Track can read, open Health > Sharing > Apps > Cal Track.',
+      note: 'To change what Ration can read, open Health > Sharing > Apps > Ration.',
     };
   },
 
@@ -368,7 +372,7 @@ export const appleHealthProvider: HealthProvider = {
   },
 
   openSystemSettings() {
-    // Opens the Health app; permissions live under Sharing > Apps > Cal Track.
+    // Opens the Health app; permissions live under Sharing > Apps > Ration.
     Linking.openURL('x-apple-health://').catch(() => {
       Linking.openSettings().catch(() => {});
     });
