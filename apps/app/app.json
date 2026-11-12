@@ -89,7 +89,8 @@
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 26
+            "minSdkVersion": 26,
+            "extraProguardRules": "# Keeps the Room-generated databases WorkManager initializes reflectively (androidx.startup -> WorkManagerInitializer). R8 full mode strips their constructors otherwise and the release build crashes before any UI (NoSuchMethodException: androidx.work.impl.WorkDatabase_Impl.<init>).\n-keep class * extends androidx.room.RoomDatabase { <init>(); }\n"
           }
         }
       ]

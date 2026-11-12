@@ -50,6 +50,20 @@ bash scripts/build-android-apk.sh        # writes build/Ration-<version>.apk
 It runs `expo prebuild` and Gradle's `assembleRelease` for the phone architectures (`arm64-v8a`, `armeabi-v7a`; set
 `ANDROID_ABIS` to change that) and prints the file's SHA-256.
 
+**Emulator testing:** the phone-architecture APK cannot run on an x86_64 emulator (React Native's `libreactnative.so`
+would be missing). Build with both ABIs for a file that runs everywhere:
+
+```bash
+cd apps/app/android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --no-daemon
+```
+
+(For a slow machine, cap Gradle's memory: add `-Dorg.gradle.jvmargs="-Xmx2g" -Dorg.gradle.workers.max=2`.)
+
+**Apple Health note:** the release build is minified with R8; a ProGuard keep rule in `app.json`
+(`expo-build-properties.extraProguardRules`) keeps the Room-generated database that WorkManager initializes
+reflectively (via `expo-background-task`). Without it a minified release crashes at startup before any UI
+(`NoSuchMethodException: androidx.work.impl.WorkDatabase_Impl.<init>`).
+
 **Health Connect:** Android 14 and newer have it built in; on older versions install *Health Connect* from the Play
 Store first. Then open Ration > **More > Connected apps & devices** and grant access.
 
