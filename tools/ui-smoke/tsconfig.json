@@ -1,5 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "lib": ["ES2022", "DOM"], "types": ["node"], "allowImportingTsExtensions": true },
-  "include": ["src"]
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../apps/app/src/*"]
+    }
+  },
+  "include": ["src", "../../apps/app/src/health/types.ts", "../../apps/app/src/health/settings.ts", "../../apps/app/src/health/dates.ts", "../../apps/app/src/components/health/format.ts"]
 }

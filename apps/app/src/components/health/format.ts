@@ -1,6 +1,26 @@
 // Pure formatting helpers for the health sync UI.
 import { diffDays, isLocalDate, toLocalDate } from '@/health/dates';
-import type { SyncProgress } from '@/health/types';
+import type { HealthDataType, SyncProgress } from '@/health/types';
+
+/** The collapsed "Connected Apps & Devices" checklist opens with this many rows; every "Show more" adds CHECKLIST_MORE. */
+export const CHECKLIST_INITIAL = 2;
+export const CHECKLIST_MORE = 5;
+
+/**
+ * The data types the checklist shows for an "expanded pages" count (0 = collapsed): the first
+ * `CHECKLIST_INITIAL + CHECKLIST_MORE * expandedPages` types, but never fewer than everything up to and
+ * including the last ENABLED type - a ticked checkbox must not hide behind "Show more", and the order stays
+ * intact.
+ */
+export function visibleHealthDataTypes(
+  all: readonly HealthDataType[],
+  enabled: readonly HealthDataType[],
+  expandedPages: number,
+): readonly HealthDataType[] {
+  const lastEnabled = all.reduce((acc, type, index) => (enabled.includes(type) ? index + 1 : acc), 0);
+  const paged = CHECKLIST_INITIAL + CHECKLIST_MORE * Math.max(0, expandedPages);
+  return all.slice(0, Math.max(paged, lastEnabled));
+}
 
 /** 'just now' | '5 min ago' | '3 h ago' | 'yesterday' | '12 Nov 2026' */
 export function formatRelativeTime(date: Date, now: Date = new Date()): string {
