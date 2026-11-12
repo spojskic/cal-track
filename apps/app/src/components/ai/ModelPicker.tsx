@@ -10,7 +10,8 @@ import { spacing, useTheme } from '@/theme';
 
 import { Notice, Pill } from './AiBits';
 
-const PAGE = 25;
+/** How many models the list shows before "Show more": five, and every tap reveals five more. */
+const PAGE = 5;
 
 /** Searchable list of image-capable OpenRouter models with context, price and capability badges. */
 export function ModelPicker() {
