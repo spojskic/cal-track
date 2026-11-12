@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_INVITE_LIMITS } from '../../../supabase/functions/_shared/invite.ts';
 import { SendInviteFunctionMock, type SendInviteHost } from './send-invite-function';
 
 // The Edge Function `send-invite` as the smoke harness's mock backend answers it. Validation is the REAL one
@@ -67,12 +68,12 @@ describe('SendInviteFunctionMock', () => {
     expect(m.mails[0]).toMatchObject({ to: 'anna@example.com', code: 'H3KT-2XQP-9MWD', subject: "You're invited to Ration" });
   });
 
-  it('throttles after 10 calls (the real DEFAULT_INVITE_LIMITS) with 429 + Retry-After', () => {
+  it('throttles after the real DEFAULT_INVITE_LIMITS.perAdmin calls with 429 + Retry-After', () => {
     const { m, host } = mock();
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < DEFAULT_INVITE_LIMITS.perAdmin; i++) {
       expect(m.handle('POST', JSON.stringify({ email: `p${i}@example.com` }), host).status).toBe(201);
     }
-    const res = m.handle('POST', JSON.stringify({ email: 'p11@example.com' }), host);
+    const res = m.handle('POST', JSON.stringify({ email: 'past@example.com' }), host);
     expect(res.status).toBe(429);
     expect((res.body as { retryAfterSeconds: number }).retryAfterSeconds).toBeGreaterThan(0);
     expect(res.headers?.['Retry-After']).toBeTruthy();
