@@ -175,7 +175,8 @@ export const FRIEND_SCENARIOS: Scenario[] = [
           await clickButton(page, 'Send request', { exact: true });
         },
         async () => {
-          await ctx.expectMutation('rpc:send_friend_request', 'rpc', (m) => payloadOf(m).p_email === 'erin@example.com');
+          // the app asks the `friend-request` Edge Function, which creates the request and mails a real addressee
+          await ctx.expectMutation('function:friend-request', 'function', (m) => payloadOf(m).email === 'erin@example.com');
           await ctx.expectText('Request sent. If erin@example.com uses Ration, they will see it the next time they open the app.');
           await ctx.expectInputValue("Friend's e-mail", '', { timeout: 3000 });
           await ctx.check('nobody new is listed as waiting (there is no such account)', async () => {
@@ -227,7 +228,7 @@ export const FRIEND_SCENARIOS: Scenario[] = [
         async () => {
           await ctx.expectText('Enter a valid e-mail address, for example anna@example.com.');
           await ctx.check('nothing was sent', () => {
-            if (ctx.backend.mutationsOf('rpc:send_friend_request').length > 0) throw new Error('a request was sent');
+            if (ctx.backend.mutationsOf('function:friend-request').length > 0) throw new Error('a request was sent');
           });
         },
       );

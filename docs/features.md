@@ -163,7 +163,9 @@ Simple on purpose: friends share their **custom foods and recipes**, and nothing
 
 - **Add a friend**: type the e-mail address of somebody who uses Ration and tap *Send request*. The screen says "If ... uses Ration, they
   will see it": an address without an account gets the same answer (the request just never appears for anybody; it is not listed under
-  *Waiting for an answer*). Asking somebody who already asked you makes you friends at once. At most 20 requests a day.
+  *Waiting for an answer*). A request to a real account also arrives by **e-mail** ("... wants to be your friend on Ration"; through
+  Resend, see [supabase/functions/README.md](../supabase/functions/README.md)). Asking somebody who already asked you makes you friends at
+  once. At most 20 requests a day.
 - **Requests**: the person you asked sees a count on the **More** tab of the phone (a red number), on the **Friends** row (*2 requests*) and in
   the desktop sidebar; open Friends and tap **Accept** or **Decline** (a decline just removes the request). There is no push message: the
   count appears when the app is opened or comes back to the foreground, and once a minute while it is open.
@@ -183,9 +185,11 @@ Accounts are invite-only. One person, the app owner, is the **super admin**: a s
 the SQL editor can set (see [Getting started](getting-started.md#invite-people-from-the-app-super-admin)). Only that account has the
 **Admin** group in More (a phone) or the sidebar (a wide window), with **Invite people**:
 
-- **Create an invite code**: the person's **E-mail** (required and checked; it is only kept with the code, **nothing is sent**), *Number of
-  uses* (how many accounts it can create, usually 1) and how long it is valid (7, 14, 30 days or no expiry). The new code is shown large
-  with **Copy code** and **Copy message** (a sentence that tells the person to tap Create account and enter the code).
+- **Create an invite code**: the person's **E-mail** (required and checked; the code is stored with it), *Number of uses* (how many
+  accounts it can create, usually 1) and how long it is valid (7, 14, 30 days or no expiry). The code is created AND sent: the person
+  gets an **e-mail with the code and the link** (through Resend; see [supabase/functions/README.md](../supabase/functions/README.md)). The
+  new code is also shown large with **Copy code** and **Copy message** (a sentence that tells the person to tap Create account and enter
+  the code) — the fallback for an e-mail that did not go out, and the screen says which of the two happened.
 - **Active codes**: the codes that can still be used, each with the e-mail it was made for, *Not used yet* or *1 of 3 used*, when it
   expires and the day it was made; **Copy** and **Revoke** (after a confirmation; people who already signed up with it keep their
   account). Codes made before the e-mail field existed show their old note instead.
@@ -280,5 +284,3 @@ label (photograph a label and review a pre-filled New food form), AI recipe draf
 - UK CoFID food import
 - Writing your nutrition back to Apple Health / Health Connect
 - Over-the-air app updates
-- Inviting people by e-mail from the app (the admin copies the code and sends it themselves for now; sending the mail itself, for
-  example through Cloudflare's e-mail sending on a paid plan, is a possible later step that can reuse the same admin check)

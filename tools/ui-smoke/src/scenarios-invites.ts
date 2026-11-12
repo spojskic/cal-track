@@ -176,11 +176,13 @@ export const INVITE_SCENARIOS: Scenario[] = [
           await clickButton(page, 'Create code', { exact: true });
         },
         async () => {
-          await ctx.expectMutation('rpc:admin_create_invite_code_for', 'rpc', (m) => {
+          // the app asks the `send-invite` Edge Function, which makes the code AND e-mails it (the mock records the mail)
+          await ctx.expectMutation('function:send-invite', 'function', (m) => {
             const p = m.payload as Record<string, unknown>;
-            return p.p_email === 'dora@example.com' && p.p_max_uses === 2 && p.p_valid_days === 30;
+            return p.email === 'dora@example.com' && p.maxUses === 2 && p.validDays === 30;
           });
           await ctx.expectText('New invite code for dora@example.com');
+          await ctx.expectText('The invite e-mail was sent to dora@example.com');
           await ctx.expectText(/[A-HJKMNP-TV-Z2-9]{4}-[A-HJKMNP-TV-Z2-9]{4}-[A-HJKMNP-TV-Z2-9]{4}/);
           await ctx.expectText('Expires in 30 days');
           await ctx.expectText('Not used yet');

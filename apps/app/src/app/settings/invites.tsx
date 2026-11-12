@@ -29,9 +29,10 @@ import { spacing, useTheme } from '@/theme';
 const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' });
 
 /**
- * Invite people (More > Admin): the super admin creates invite codes for e-mail addresses and sees which are still unused. Nothing is
- * sent by e-mail: the owner copies the code (or a ready-made message) and sends it to the person. The screen is for profiles.is_admin
- * only, and the database refuses everybody else (supabase/migrations/20261110000107_super_admin_invites.sql).
+ * Invite people (More > Admin): the super admin creates invite codes for e-mail addresses and the person gets the code by
+ * e-mail (the `send-invite` Edge Function through Resend). The screen is for profiles.is_admin only, and the database
+ * refuses everybody else (supabase/migrations/20261110000107_super_admin_invites.sql). Copying the code stays as the
+ * fallback for an e-mail that did not go out.
  *
  * The lists are paged (20 codes a page, newest first) by the server, so thousands of codes cost the same as a few.
  */
@@ -59,7 +60,7 @@ function InviteAdmin() {
   const revoke = useRevokeInviteCode();
   const [form, setForm] = useState<InviteForm>({ ...DEFAULT_INVITE_FORM });
   const [errors, setErrors] = useState<InviteFormErrors>({});
-  const [created, setCreated] = useState<{ code: string; email: string } | null>(null);
+  const [created, setCreated] = useState<{ code: string; email: string; sent: boolean } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [toRevoke, setToRevoke] = useState<InviteCode | null>(null);
   const [showClosed, setShowClosed] = useState(false);
@@ -96,8 +97,8 @@ function InviteAdmin() {
     }
     setErrors({});
     create.mutate(parsed.value, {
-      onSuccess: (code) => {
-        setCreated({ code, email: parsed.value.email });
+      onSuccess: ({ code, sent }) => {
+        setCreated({ code, email: parsed.value.email, sent });
         setForm({ ...DEFAULT_INVITE_FORM });
         setActivePage(0); // newest first: the new code is on the first page
       },
@@ -109,11 +110,11 @@ function InviteAdmin() {
       <Card>
         <AppText variant="heading">Create an invite code</AppText>
         <AppText variant="small" muted>
-          Send the code to the person yourself. They enter it under Create account on the sign-in screen.
+          The person gets an e-mail with the code. They enter it under Create account on the sign-in screen.
         </AppText>
         <TextField
           label="E-mail"
-          hint="The person you are inviting. Nothing is sent: copy the code and send it to them yourself."
+          hint="The person you are inviting. They get an e-mail with the code and the link."
           placeholder="anna@example.com"
           value={form.email}
           onChangeText={(email) => setForm({ ...form, email })}
@@ -283,14 +284,14 @@ function PageControls({
   );
 }
 
-/** The code that was just made, big, with the two ways to hand it on. */
+/** The code that was just made, big, with the e-mail state and the two ways to hand it on. */
 function CreatedCode({
   created,
   copied,
   onCopy,
   onDismiss,
 }: {
-  created: { code: string; email: string };
+  created: { code: string; email: string; sent: boolean };
   copied: string | null;
   onCopy: (key: string, text: string) => void;
   onDismiss: () => void;
@@ -301,6 +302,11 @@ function CreatedCode({
       <AppText variant="label" muted>New invite code for {created.email}</AppText>
       <AppText selectable accessibilityLabel={`New invite code ${created.code}`} style={[styles.bigCode, { fontFamily: MONO }]}>
         {created.code}
+      </AppText>
+      <AppText variant="small" muted>
+        {created.sent
+          ? `The invite e-mail was sent to ${created.email}.`
+          : `The e-mail could not be sent to ${created.email}. Copy the code and send it yourself.`}
       </AppText>
       <View style={styles.buttons}>
         <View style={styles.flex}>

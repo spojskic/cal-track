@@ -104,3 +104,18 @@ verify_jwt = true
 [functions.sign-up]
 enabled = true
 verify_jwt = false
+
+# The Invite people screen for the super admin: creates the code AND sends it by e-mail through Resend
+# (secrets: RESEND_API_KEY, plus the optional RESEND_BASE_URL / APP_URL / DRY_RUN_EMAIL; see
+# supabase/functions/README.md). verify_jwt = true: the caller is read from the verified JWT claims.
+# Deploy: npx supabase functions deploy send-invite --use-api
+[functions.send-invite]
+enabled = true
+verify_jwt = true
+
+# The Friends screen: creates the request through send_friend_request_internal (migration 110) and, only when a
+# request was actually created, e-mails the addressee through Resend (same secrets as send-invite).
+# Deploy: npx supabase functions deploy friend-request --use-api
+[functions.friend-request]
+enabled = true
+verify_jwt = true

@@ -147,7 +147,7 @@ export function renderMarkdown(report: Report): string {
   }
 
   if (report.edgeFunctions.length > 0) {
-    lines.push('## Edge functions invoked (answered 404 not_deployed, except sign-up)', '');
+    lines.push('## Edge functions invoked (404 not_deployed except sign-up, send-invite and friend-request)', '');
     for (const f of report.edgeFunctions) lines.push(`- \`${f.name}\` x ${f.count}`);
     lines.push('');
   }

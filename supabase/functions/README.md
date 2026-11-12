@@ -8,6 +8,8 @@ on the Supabase **free** plan.
 | `barcode-lookup` | barcode -> food. Local DB first, then USDA FDC Branded, then Open Food Facts; remote hits are saved globally. |
 | `online-search`  | text search in FDC Branded + Open Food Facts (Search-a-licious first, the classic search only as fallback: the classic `cgi/search.pl` answers 503 to Supabase's cloud IPs). Returns summaries only (nothing is saved). |
 | `sign-up` | invite-code registration: validates, throttles, consumes the owner's invite code and creates the account with the admin API (no e-mail, public sign-up stays disabled). The only function that is called without a signed-in user. |
+| `send-invite` | the Invite people screen (super admin): creates the code for an e-mail address AND sends it by e-mail through Resend. |
+| `friend-request` | the Friends screen: creates the friend request through the database and, only when it was actually created, e-mails the addressee through Resend. |
 
 ```
 functions/
@@ -23,10 +25,18 @@ functions/
     http.ts                      CORS, JSON helpers, JWT claims, upstream fetch
     signup.ts                    sign-up flow: validation, throttle, invite code, create user (all I/O injected), hashed client key
     signup-store.ts              adapters: invite-code RPCs and auth.admin.createUser (error classification)
+    emails.ts                    the invite / friend-request e-mail templates (HTML + plain text, app look)
+    email-send.ts                the Resend client (POST /emails; dry run for local dev; outcome, never throws)
+    invite.ts                    send-invite flow: validation, throttle, admin gate, create code, send (all I/O injected)
+    invite-store.ts              adapters: profiles.is_admin and public.create_invite_code_for
+    friend-request.ts            friend-request flow: validation, throttle, create request, mail on creation (all I/O injected)
+    friend-request-store.ts      adapters: public.send_friend_request_internal (error classification) and the sender's display name
     nutrient-map.generated.ts    GENERATED from packages/core (see below)
   barcode-lookup/index.ts        thin Deno.serve wiring
   online-search/index.ts         thin Deno.serve wiring
   sign-up/index.ts               thin Deno.serve wiring (verify_jwt = false, see config.toml)
+  send-invite/index.ts           thin Deno.serve wiring (verify_jwt = true)
+  friend-request/index.ts        thin Deno.serve wiring (verify_jwt = true)
 ```
 
 Edge code cannot import workspace packages (`@ration/core`), hence the generated nutrient map.
@@ -42,6 +52,7 @@ Apply the migrations first (`npx supabase db push --remote`):
 
 - `20261110000107_super_admin_invites.sql`: `profiles.is_admin` (guarded by a trigger) and the `admin_create_invite_code()` / `admin_list_invite_codes()` / `admin_revoke_invite_code()` wrappers, which check the flag and are for signed-in users.
 - `20261110000108_invite_email.sql`: `private.invite_codes.invited_email`, `create_invite_code_for()` (owner / service role: a code for an e-mail address) and the app's `admin_create_invite_code_for()` / `admin_list_invites()` (the Invite people screen). The functions of 107 stay for app builds made before.
+- `20261110000110_friend_request_internal.sql`: `public.send_friend_request_internal(requester, email)` (service role: the same rules as `send_friend_request`, but the requester comes as an argument and the answer says whether a request was created - which is when `friend-request` sends the e-mail). `send_friend_request` becomes a thin wrapper with unchanged behaviour.
 
 The functions of the other migrations are executable by `service_role` only (the owner's SQL editor runs as `postgres`, which can execute them too).
 
@@ -61,6 +72,17 @@ npx supabase secrets set FDC_API_KEY=<key from https://fdc.nal.usda.gov/api-key-
 npx supabase secrets set ONLINE_SEARCH_USER_PER_MINUTE=5 ONLINE_SEARCH_GLOBAL_PER_MINUTE=8
 ```
 
+The e-mail functions (`send-invite`, `friend-request`) send through **Resend** (resend.com):
+
+```bash
+npx supabase secrets set RESEND_API_KEY=<key from https://resend.com/api-keys>
+```
+
+- `RESEND_API_KEY`: without it both functions still work over the database and answer `sent=false` (invite) / the plain status (friend request) without a mail; the owner's copy flow is the fallback. The From domain (`ration.safetpojskic.com`) must be verified in Resend first (add the DNS records it shows to the Cloudflare zone).
+- `RESEND_BASE_URL` (optional, default `https://api.resend.com`): only set it to put a fullsend-style proxy in front.
+- `APP_URL` (optional, default `https://ration.safetpojskic.com`): the web app the e-mails link to.
+- `DRY_RUN_EMAIL=true`: local dev - the rendered e-mail is logged instead of sent (`npx supabase functions serve --env-file supabase/functions/.env`).
+
 - `FDC_API_KEY`: without it FDC is skipped and only Open Food Facts is used. FDC allows 1000 requests/hour per key.
 - `OFF_USER_AGENT`: Open Food Facts **requires** an identifying User-Agent (`AppName/version (contact)`).
   Default `ration/1.0 (contact not configured)`; set a real contact before relying on it.
@@ -72,9 +94,10 @@ npx supabase secrets set ONLINE_SEARCH_USER_PER_MINUTE=5 ONLINE_SEARCH_GLOBAL_PE
 ```bash
 npx supabase functions deploy barcode-lookup online-search --use-api   # --use-api: no Docker needed
 npx supabase functions deploy sign-up --use-api                        # invite-code registration (verify_jwt = false)
+npx supabase functions deploy send-invite friend-request --use-api     # the e-mail functions (verify_jwt = true)
 ```
 
-`verify_jwt = true` is set for `barcode-lookup` and `online-search` in `config.toml`; `sign-up` has `verify_jwt = false` because its caller has no account yet. **Do not deploy the signed-in functions with
+`verify_jwt = true` is set for `barcode-lookup`, `online-search`, `send-invite` and `friend-request` in `config.toml`; `sign-up` has `verify_jwt = false` because its caller has no account yet. **Do not deploy the signed-in functions with
 `--no-verify-jwt`**: they read the caller from the JWT claims and rely on the gateway to have verified the signature
 (they additionally refuse the project's anon key, which is also a valid JWT). If the project moves to
 asymmetric JWT signing keys and the gateway check starts failing, verify in the function instead
@@ -219,6 +242,44 @@ reduced to its /64), turned into an HMAC-SHA-256 keyed with the service role key
 itself is never stored or logged (a plain hash of an IPv4 address could be reversed in seconds). Without any address header all callers
 share one "unknown" client bucket. Logs contain outcome kinds only (`created`, `invite_expired`, `rate_limited_client`, ...), never
 passwords, codes, e-mail addresses or addresses.
+
+### `send-invite`
+
+The Invite people screen of the super admin (More > Admin). The caller must be signed in (`verify_jwt = true`) and their
+`profiles.is_admin` must be true (read with the service role; the database's own `create_invite_code_for` refuses everybody
+else anyway).
+
+Request: `{ "email": "anna@example.com", "maxUses"?: 1..1000, "validDays"?: 1..3650 | null }` (`maxUses` default 1,
+`validDays` default null = never expires; the same limits as the form and the database).
+
+Response `201 { "code": "K7M2-9QXA-F3TW", "sent": true }`: the code exists and the mail with it went out. **The code is
+returned either way**: `sent: false` (mail failure, Resend unreachable, `RESEND_API_KEY` missing) still returns the code, so
+the screen falls back to the copy flow that was there before.
+
+Errors: `400 invalid_json | invalid_request | invalid_email | invalid_max_uses | invalid_valid_days`,
+`401 unauthorized`, `403 not_admin`, `429 rate_limited` (`retryAfterSeconds`), `500 internal_error`.
+
+Throttle: 10 invites per admin per hour (`private.edge_rate_limits`, consumed BEFORE the code table is touched). Logs
+contain outcome kinds only, never e-mail addresses or codes.
+
+### `friend-request`
+
+The Friends screen. The caller must be signed in (`verify_jwt = true`); the requester is taken from the verified JWT, never
+from the body.
+
+Request: `{ "email": "anna@example.com" }` (trimmed and lower-cased).
+
+Response `200 { "status": "sent" | "accepted" | "already_friends" | "already_requested" }` - the same answers the screen
+knows from `public.send_friend_request`, and an e-mail without an account answers `sent` too (nothing exists to tell the
+caller apart). A request that was ACTUALLY created also mails the addressee ("Anna wants to be your friend on Ration",
+through `public.send_friend_request_internal`'s `created` flag, migration 110); a failed mail does NOT fail the request.
+
+Errors: `400 invalid_json | invalid_request | invalid_email | own_email`,
+`401 unauthorized`, `429 rate_limited` (`retryAfterSeconds`; the database's 20-requests-a-day limit also surfaces here),
+`500 internal_error`.
+
+Throttle: 20 requests per user per day (the same pace as the database's own limit), consumed before the friendship table
+is touched. Logs contain outcome kinds only, never e-mail addresses.
 
 ## Free plan notes
 

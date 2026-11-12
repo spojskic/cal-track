@@ -1,8 +1,9 @@
 // react-query hooks for friends. Two people who are friends see each other's custom foods and recipes (read-only); nothing else is shared.
-// The database does the work (supabase/migrations/20261110000109_friends.sql): the RPCs send_friend_request / respond_friend_request /
-// list_friendships, the row level security that lets friends read each other's custom foods and recipes, and the search rule.
+// The work happens in the `friend-request` Edge Function and in the database RPCs (supabase/migrations/20261110000109_friends.sql and
+// 20261110000110_friend_request_internal.sql); the function also e-mails the addressee when a request was actually created.
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
+import { readFunctionFailure } from '@/lib/function-error';
 import { FORMER_FRIEND, splitFriendships, type Friendship, type SendAnswer } from '@/components/friends/friends-view';
 import { supabase } from '@/lib/supabase';
 
@@ -87,16 +88,64 @@ export function invalidateFriendData(qc: QueryClient): Promise<unknown> {
   ]);
 }
 
+/**
+ * The `friend-request` Edge Function creates the request and e-mails the addressee when it was actually created. When the
+ * function cannot answer at all (not deployed, network) the direct RPC keeps working, exactly as before.
+ *
+ * The function's error tokens are re-shaped into the SQLSTATE forms the screen already words (friendErrorMessage): the
+ * database refusals of the request go out of the function as `own_email` / `invalid_email` / `too_many`.
+ */
+async function sendFriendRequest(email: string): Promise<SendResult> {
+  const fromFunction = (body: Record<string, unknown> | null): SendResult => {
+    const status = typeof body?.status === 'string' ? body.status : '';
+    return status === 'accepted' || status === 'already_friends' || status === 'already_requested' ? status : 'sent';
+  };
+
+  let res: Awaited<ReturnType<typeof supabase.functions.invoke>>;
+  try {
+    res = await supabase.functions.invoke('friend-request', { body: { email } });
+  } catch {
+    return sendFriendRequestByRpc(email); // network: the request must not depend on the mail path
+  }
+  if (res.error) {
+    const failure = await readFunctionFailure(res.error);
+    if (failure.status === null || failure.status === 404) return sendFriendRequestByRpc(email);
+    const token = typeof failure.body?.error === 'string' ? failure.body.error : '';
+    const dbShape =
+      token === 'own_email'
+        ? { code: '22023', message: 'that is your own e-mail address' }
+        : token === 'invalid_email'
+          ? { code: '22023', message: 'that is not a valid e-mail address' }
+          : token === 'rate_limited' || failure.status === 429
+            ? { code: '54000', message: 'too many friend requests today, try again tomorrow' }
+            : null;
+    if (dbShape) {
+      const refused = new Error(dbShape.message) as Error & { code?: string };
+      refused.code = dbShape.code;
+      throw refused;
+    }
+    throw new Error(
+      typeof failure.body?.message === 'string' && failure.body.message !== ''
+        ? failure.body.message
+        : 'Something went wrong. Try again.',
+    );
+  }
+  return fromFunction(res.data as Record<string, unknown> | null);
+}
+
+/** The direct RPC of the app builds made before the friend-request function existed (the fallback). */
+async function sendFriendRequestByRpc(email: string): Promise<SendResult> {
+  const { data, error } = await supabase.rpc('send_friend_request', { p_email: email });
+  if (error) throw error;
+  const answer = String(data);
+  return answer === 'accepted' || answer === 'already_friends' || answer === 'already_requested' ? answer : 'sent';
+}
+
 /** Sends a request to an e-mail address. Resolves with the server's answer; see {@link SendResult}. */
 export function useSendFriendRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (email: string): Promise<SendResult> => {
-      const { data, error } = await supabase.rpc('send_friend_request', { p_email: email });
-      if (error) throw error;
-      const answer = String(data);
-      return answer === 'accepted' || answer === 'already_friends' || answer === 'already_requested' ? answer : 'sent';
-    },
+    mutationFn: sendFriendRequest,
     onSuccess: () => invalidateFriendData(qc),
   });
 }

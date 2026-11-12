@@ -47,6 +47,9 @@ import {
   seedInvites,
 } from './invite-admin';
 import { SignUpFunctionMock } from './signup-function';
+import { SendInviteFunctionMock } from './send-invite-function';
+import { FriendRequestFunctionMock, type FriendRequestHost } from './friend-request-function';
+import { classifyFriendRequestError } from '../../../supabase/functions/_shared/friend-request-store.ts';
 import {
   FriendsError,
   friendIdsOf,
@@ -97,7 +100,7 @@ export interface CallRecord {
 export interface MutationRecord {
   seq: number;
   table: string;
-  op: 'insert' | 'upsert' | 'update' | 'delete' | 'rpc';
+  op: 'insert' | 'upsert' | 'update' | 'delete' | 'rpc' | 'function';
   payload: unknown;
   /** Raw query string of the request (filters). */
   filter: string;
@@ -205,6 +208,8 @@ class MockBackendImpl implements MockBackend {
   private readonly users = new Map<string, MockUser>();
   private readonly refreshTokens = new Map<string, string>();
   private readonly signUps = new SignUpFunctionMock();
+  private readonly sendInvites = new SendInviteFunctionMock();
+  private readonly friendRequests = new FriendRequestFunctionMock();
   private readonly nowBase: number;
   private tick = 0;
   private seq = 0;
@@ -316,7 +321,31 @@ class MockBackendImpl implements MockBackend {
         response =
           target === 'sign-up'
             ? this.signUpFunction(method, req.body ?? null)
-            : jsonResponse(404, { code: 'NOT_FOUND', message: 'Requested function was not found', error: 'not_deployed' });
+            : target === 'send-invite'
+              ? this.sendInviteFunction(method, req.body ?? null, headers)
+              : target === 'friend-request'
+                ? this.friendRequestFunction(method, req.body ?? null, headers)
+                : jsonResponse(404, { code: 'NOT_FOUND', message: 'Requested function was not found', error: 'not_deployed' });
+        // The two e-mail functions change data (a code, a friendship row): recorded like a mutation, so the
+        // scenarios can assert on them (and on the ABSENCE of them after a refused form).
+        if (target === 'send-invite' || target === 'friend-request') {
+          let payload: unknown = null;
+          try {
+            payload = req.body ? (JSON.parse(req.body) as unknown) : null;
+          } catch {
+            payload = null;
+          }
+          this.mutations.push({
+            seq: this.seq,
+            table: `function:${target}`,
+            op: 'function',
+            payload,
+            filter: '',
+            rows: response.status < 400 ? 1 : 0,
+            ok: response.status < 400,
+            status: response.status,
+          });
+        }
       } else {
         this.unhandled.push({ seq: this.seq, method, path, reason: 'endpoint not emulated' });
         response = jsonResponse(404, { message: `Mock backend has no handler for ${method} ${path}`, error: 'not_found' });
@@ -671,6 +700,50 @@ class MockBackendImpl implements MockBackend {
     seedRow('profiles', { user_id: user.id, display_name: user.email.split('@')[0] || null });
     ['Breakfast', 'Lunch', 'Dinner', 'Snacks'].forEach((name, i) => seedRow('meal_groups', { user_id: user.id, name, sort_order: i * 10 }));
     this.touch();
+  }
+
+  // ------------------------------------------------------------------- Edge Function `send-invite`
+
+  private sendInviteFunction(method: string, body: string | null, headers: Record<string, string>): MockResponse {
+    const ctx = this.ctxOf(headers);
+    const answer = this.sendInvites.handle(method, body, {
+      // the gateway verified the JWT; a missing / anon / expired one is refused exactly like the real function
+      isAdmin: () => {
+        if (ctx.uid === null) return false;
+        const row = this.table('profiles').find((p) => p.user_id === ctx.uid);
+        return row?.is_admin === true;
+      },
+      // public.create_invite_code_for with the service role: the same state the admin_create_invite_code_for RPC uses
+      createInviteFor: (email, maxUses, validDays) =>
+        createInviteFor(this.table(INVITES_TABLE), this.txMs, ++this.inviteSeq, { email, maxUses, validDays }),
+    });
+    return jsonResponse(answer.status, answer.body, answer.headers ?? {});
+  }
+
+  // ------------------------------------------------------------------- Edge Function `friend-request`
+
+  private friendRequestFunction(method: string, body: string | null, headers: Record<string, string>): MockResponse {
+    const ctx = this.ctxOf(headers);
+    const answer = this.friendRequests.handle(method, body, {
+      uid: ctx.uid ?? '',
+      // public.send_friend_request_internal with the service role: the requester is the ARGUMENT here (the JWT
+      // claim), the SQLSTATE refusals are classified the same way the real store maps them
+      send: (requesterId, email) => {
+        const before = this.table('friendships').length;
+        try {
+          const status = sendFriendRequest(this.friendsEnv(requesterId), email);
+          return { kind: 'ok' as const, status, created: this.table('friendships').length > before };
+        } catch (e) {
+          if (!(e instanceof FriendsError)) throw e;
+          return classifyFriendRequestError({ code: e.sqlstate, message: e.message });
+        }
+      },
+      displayNameOf: (requesterId) => {
+        const row = this.table('profiles').find((p) => p.user_id === requesterId);
+        return row && typeof row.display_name === 'string' ? row.display_name : '';
+      },
+    } satisfies FriendRequestHost);
+    return jsonResponse(answer.status, answer.body, answer.headers ?? {});
   }
 
   // ------------------------------------------------------------------- REST dispatch
