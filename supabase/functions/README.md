@@ -259,7 +259,7 @@ the screen falls back to the copy flow that was there before.
 Errors: `400 invalid_json | invalid_request | invalid_email | invalid_max_uses | invalid_valid_days`,
 `401 unauthorized`, `403 not_admin`, `429 rate_limited` (`retryAfterSeconds`), `500 internal_error`.
 
-Throttle: 10 invites per admin per hour (`private.edge_rate_limits`, consumed BEFORE the code table is touched). Logs
+Throttle: 20 invites per admin per hour (`private.edge_rate_limits`, consumed BEFORE the code table is touched). Logs
 contain outcome kinds only, never e-mail addresses or codes.
 
 ### `friend-request`

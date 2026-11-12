@@ -28,8 +28,8 @@ export const INVITE_USES_LIMITS = { min: 1, max: 1000 } as const;
 export const INVITE_VALID_DAYS_LIMITS = { min: 1, max: 3650 } as const;
 
 export const INVITE_RATE_LIMIT_BUCKET = 'send-invite';
-/** 10 invites per hour is far beyond what one owner sends; the throttle only catches accidents and abuse. */
-export const DEFAULT_INVITE_LIMITS = { perAdmin: 10, windowSeconds: 3600 } as const;
+/** 20 invites per hour is far beyond what one owner sends; the throttle only catches accidents and abuse. */
+export const DEFAULT_INVITE_LIMITS = { perAdmin: 20, windowSeconds: 3600 } as const;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 /** RFC 5321 limit for a mailbox address (the same rule as the sign-up function). */

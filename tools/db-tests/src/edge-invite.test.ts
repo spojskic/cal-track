@@ -33,6 +33,10 @@ const run = async (d: InviteDeps, body: unknown, userId = '00000000-0000-4000-80
   sendInvite(userId, body, d);
 
 describe('parseInviteBody', () => {
+  it('the admin throttle is 20 invites per hour', () => {
+    expect(DEFAULT_INVITE_LIMITS).toEqual({ perAdmin: 20, windowSeconds: 3600 });
+  });
+
   it('accepts the form of the Invite people screen, with defaults for the omitted fields', () => {
     expect(parseInviteBody({ email: '  Anna@Example.COM ', maxUses: '3', validDays: 7 })).toEqual({
       email: 'anna@example.com',
