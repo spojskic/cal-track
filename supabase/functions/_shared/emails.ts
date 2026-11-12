@@ -138,6 +138,17 @@ export interface InviteEmailInput {
   /** How long the code works, in days; null or undefined for a code that never expires. */
   validDays?: number | null;
   appUrl?: string;
+  /**
+   * The recipient's address: the CTA then links to the sign-up screen WITH the code and the e-mail as query
+   * parameters, so the app pre-fills them ("Create your account" -> the form is almost complete). Absent keeps
+   * the plain link.
+   */
+  to?: string;
+}
+
+/** The sign-up link of the invite: with the code and the e-mail pre-filled when the recipient is known. */
+export function inviteSignUpUrl(code: string, appUrl: string, to?: string): string {
+  return to ? `${appUrl}/sign-in?code=${encodeURIComponent(code)}&email=${encodeURIComponent(to)}` : `${appUrl}/sign-in`;
 }
 
 export function inviteEmail(input: InviteEmailInput): EmailMessage {
@@ -150,7 +161,7 @@ export function inviteEmail(input: InviteEmailInput): EmailMessage {
     input.validDays === null || input.validDays === undefined
       ? ''
       : `The code works for ${input.validDays} ${input.validDays === 1 ? 'day' : 'days'}.\n`;
-  const url = `${appUrl}/sign-in`;
+  const url = inviteSignUpUrl(input.code, appUrl, input.to);
 
   const html = card(
     [

@@ -131,7 +131,7 @@ export async function sendInvite(userId: string, body: unknown, deps: InviteDeps
     return apiError(500, 'internal_error', 'Something went wrong. Please try again.');
   }
 
-  const mail = inviteEmail({ code, validDays, appUrl: deps.appUrl });
+  const mail = inviteEmail({ code, validDays, to: email, appUrl: deps.appUrl });
   const outcome = await deps.sendEmail({ ...mail, to: email });
   if (!outcome.ok) {
     log(`send_failed:${outcome.reason}`);

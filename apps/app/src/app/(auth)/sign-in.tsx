@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
 import { TextField } from '@/components/forms';
 import { AppText, Button, Card, Screen } from '@/components/ui';
@@ -16,6 +17,11 @@ import { spacing, useTheme } from '@/theme';
 
 type Mode = 'sign-in' | 'sign-up';
 
+/** The invite e-mail links here with the code and the e-mail, so the Create account form starts half filled. */
+function firstParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
 /**
  * Sign in, or create an account with an invite code (the owner generates codes in the Supabase SQL editor, see
  * docs/getting-started.md). Creating an account calls the Edge Function `sign-up`, then signs in with the same credentials:
@@ -24,14 +30,20 @@ type Mode = 'sign-in' | 'sign-up';
 export default function SignInScreen() {
   const { signIn } = useAuth();
   const { colors } = useTheme();
-  const [mode, setMode] = useState<Mode>('sign-in');
-  const [email, setEmail] = useState('');
+  const params = useLocalSearchParams<{ code?: string | string[]; email?: string | string[] }>();
+  // The invite e-mail's link (?code=...&email=...) pre-fills the Create account form. What the user typed wins:
+  // typed values are stored as soon as they edit, and the link values only fill the fields still untouched
+  // (they keep applying while the router is still resolving the URL, which can happen after the first render).
+  const [typedEmail, setTypedEmail] = useState<string | null>(null);
+  const [typedCode, setTypedCode] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
   const [fieldErrors, setFieldErrors] = useState<SignUpFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<Mode>('sign-in');
+  const email = typedEmail ?? firstParam(params.email);
+  const inviteCode = typedCode ?? formatInviteCodeInput(firstParam(params.code));
 
   const signingUp = mode === 'sign-up';
 
@@ -47,14 +59,18 @@ export default function SignInScreen() {
   function resetSecrets() {
     setPassword('');
     setConfirmPassword('');
-    setInviteCode('');
+    setTypedCode('');
   }
 
   function switchMode() {
     if (busy) return;
     setMode(signingUp ? 'sign-in' : 'sign-up');
-    // The e-mail address carries over; everything else starts empty and no old error stays on screen.
-    resetSecrets();
+    // The e-mail address carries over; everything else starts empty and no old error stays on screen. The
+    // invite code only clears when the user had typed it: a code that came from the invite link stays, it is
+    // what they came with.
+    setPassword('');
+    setConfirmPassword('');
+    if (typedCode !== null) setTypedCode('');
     setFieldErrors({});
     setError(null);
   }
@@ -115,7 +131,7 @@ export default function SignInScreen() {
               <TextField
                 label="Email"
                 value={email}
-                onChangeText={edit('email', setEmail)}
+                onChangeText={edit('email', setTypedEmail)}
                 placeholder="you@example.com"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -150,7 +166,7 @@ export default function SignInScreen() {
               <TextField
                 label="Invite code"
                 value={inviteCode}
-                onChangeText={edit('inviteCode', (text) => setInviteCode(formatInviteCodeInput(text)))}
+                onChangeText={edit('inviteCode', (text) => setTypedCode(formatInviteCodeInput(text)))}
                 placeholder="XXXX-XXXX-XXXX"
                 autoCapitalize="characters"
                 autoCorrect={false}
@@ -167,7 +183,7 @@ export default function SignInScreen() {
               <TextField
                 label="Email"
                 value={email}
-                onChangeText={edit('email', setEmail)}
+                onChangeText={edit('email', setTypedEmail)}
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete="email"

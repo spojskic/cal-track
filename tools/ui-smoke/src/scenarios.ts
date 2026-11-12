@@ -395,6 +395,20 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    name: 'sign-in: an invite e-mail link pre-fills the code and the e-mail',
+    route: '/sign-in',
+    // the link the invite e-mail puts in its "Create your account" button (emails.ts inviteSignUpUrl)
+    path: `/sign-in?code=${SIGNUP_VALID_CODE}&email=new.friend@example.com`,
+    auth: 'signed-out',
+    expect: ['Sign in'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'open the Create account form', () => clickButton(page, 'Create account', { exact: true }), async () => {
+        await ctx.expectInputValue('Email', NEW_FRIEND.email);
+        await ctx.expectInputValue('Invite code', SIGNUP_VALID_CODE);
+      });
+    },
+  },
+  {
     name: 'sign-in: create account shows the code as typed and refuses a wrong or expired invite code',
     route: '/sign-in',
     path: '/sign-in',

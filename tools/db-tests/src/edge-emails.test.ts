@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { APP_URL, FROM_ADDRESS, friendRequestEmail, inviteEmail } from '../../../supabase/functions/_shared/emails.ts';
+import { APP_URL, FROM_ADDRESS, friendRequestEmail, inviteEmail, inviteSignUpUrl } from '../../../supabase/functions/_shared/emails.ts';
 
 // The web app lives on its own subdomain and the sending domain is the same one.
 describe('addresses', () => {
@@ -38,10 +38,12 @@ describe('emails', () => {
       expect(never.text).not.toMatch(/expires in|no expiry/i);
     });
 
-    it('links to the given app URL when one is passed', () => {
-      const other = inviteEmail({ code: 'K7M2-9QXA-F3TW', appUrl: 'https://staging.example.com' });
-      expect(other.html).toContain('https://staging.example.com');
-      expect(other.text).toContain('https://staging.example.com');
+    it('links to the given app URL when one is passed, with the code and the e-mail pre-filled', () => {
+      const other = inviteEmail({ code: 'K7M2-9QXA-F3TW', appUrl: 'https://staging.example.com', to: 'anna@example.com' });
+      // in the HTML the & of the query string is escaped; the plain-text part carries the raw URL
+      const url = 'https://staging.example.com/sign-in?code=K7M2-9QXA-F3TW&email=anna%40example.com';
+      expect(other.html).toContain('https://staging.example.com/sign-in?code=K7M2-9QXA-F3TW&amp;email=anna%40example.com');
+      expect(other.text).toContain(url);
       expect(other.html).not.toContain(APP_URL);
     });
 
@@ -82,5 +84,22 @@ describe('emails', () => {
 
   it('the sender is Ration on the app subdomain', () => {
     expect(FROM_ADDRESS).toBe('Ration <no-reply@ration.safetpojskic.com>');
+  });
+});
+
+describe('inviteSignUpUrl', () => {
+  it('with the recipient, the link pre-fills the code and the e-mail on the sign-up screen', () => {
+    expect(inviteSignUpUrl('K7M2-9QXA-F3TW', 'https://ration.safetpojskic.com', 'anna@example.com')).toBe(
+      'https://ration.safetpojskic.com/sign-in?code=K7M2-9QXA-F3TW&email=anna%40example.com',
+    );
+  });
+
+  it('encodes the parts, and without a recipient the link stays plain', () => {
+    expect(inviteSignUpUrl('A  B-C D/E', 'https://s.example', 'a+b@example.com')).toBe(
+      'https://s.example/sign-in?code=A%20%20B-C%20D%2FE&email=a%2Bb%40example.com',
+    );
+    expect(inviteSignUpUrl('K7M2-9QXA-F3TW', 'https://ration.safetpojskic.com')).toBe(
+      'https://ration.safetpojskic.com/sign-in',
+    );
   });
 });
