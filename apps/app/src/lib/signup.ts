@@ -85,6 +85,23 @@ export function validateSignUp(input: SignUpInput): SignUpFieldErrors {
 
 export const hasErrors = (errors: SignUpFieldErrors): boolean => Object.keys(errors).length > 0;
 
+/** Field errors of the "set a new password" form (the reset-password screen); an empty object means "send it". */
+export function validateNewPassword(
+  password: string,
+  confirmPassword: string,
+): Pick<SignUpFieldErrors, 'password' | 'confirmPassword'> {
+  const errors: Pick<SignUpFieldErrors, 'password' | 'confirmPassword'> = {};
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    errors.password = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
+  } else if (utf8Length(password) > MAX_PASSWORD_BYTES) {
+    errors.password = `Use at most ${MAX_PASSWORD_BYTES} characters.`;
+  }
+
+  if (confirmPassword === '') errors.confirmPassword = 'Repeat the password.';
+  else if (confirmPassword !== password) errors.confirmPassword = 'The passwords do not match.';
+  return errors;
+}
+
 // ---------------------------------------------------------------------------
 // Server answers -> friendly text
 // ---------------------------------------------------------------------------

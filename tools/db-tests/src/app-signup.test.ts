@@ -14,6 +14,7 @@ import {
   normalizeInviteCode,
   retryText,
   utf8Length,
+  validateNewPassword,
   validateSignUp,
   type SignUpInput,
 } from '../../../apps/app/src/lib/signup.ts';
@@ -268,6 +269,38 @@ describe('app signup: form validation', () => {
       );
       expect(isPlausibleEmail(email), email).toBe(serverOk);
     }
+  });
+});
+
+describe('app signup: validateNewPassword (the reset-password form)', () => {
+  it('accepts a good password pair', () => {
+    expect(validateNewPassword('correct horsE 9', 'correct horsE 9')).toEqual({});
+  });
+
+  it.each([
+    ['short password', '1234567', '1234567', { password: 'Use at least 8 characters.' }],
+    [
+      'password over 72 bytes',
+      'ć'.repeat(37),
+      'ć'.repeat(37),
+      { password: 'Use at most 72 characters.' },
+    ],
+    ['empty confirmation', 'correct horsE 9', '', { confirmPassword: 'Repeat the password.' }],
+    [
+      'different confirmation',
+      'correct horsE 9',
+      'correct horsE 8',
+      { confirmPassword: 'The passwords do not match.' },
+    ],
+  ] as const)('reports %s', (_label, password, confirmPassword, expected) => {
+    expect(validateNewPassword(password, confirmPassword)).toEqual(expected);
+  });
+
+  it('reports both fields at once when both are wrong', () => {
+    expect(Object.keys(validateNewPassword('short', 'other')).sort()).toEqual([
+      'confirmPassword',
+      'password',
+    ]);
   });
 });
 

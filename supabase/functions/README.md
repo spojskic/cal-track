@@ -83,6 +83,42 @@ npx supabase secrets set RESEND_API_KEY=<key from https://resend.com/api-keys>
 - `APP_URL` (optional, default `https://ration.safetpojskic.com`): the web app the e-mails link to.
 - `DRY_RUN_EMAIL=true`: local dev - the rendered e-mail is logged instead of sent (`npx supabase functions serve --env-file supabase/functions/.env`).
 
+### The password-reset e-mail (Supabase Auth, not an Edge Function)
+
+"Forgot password" on the sign-in screen calls Supabase Auth's own recovery flow (`auth.resetPasswordForEmail`):
+Supabase builds and sends that e-mail itself, so it is not one of the templates in `_shared/emails.ts` and there is
+no Edge Function behind it. Two one-time dashboard settings make it match the rest of the app's mail:
+
+1. **Route it through Resend** - Dashboard > *Authentication* > *SMTP Settings*: enable custom SMTP with
+   host `smtp.resend.com`, port `465`, username `resend`, password = the same `RESEND_API_KEY` as above, sender
+   `Ration <no-reply@ration.safetpojskic.com>`. Without this the mail still works, from Supabase's built-in sender.
+2. **Redirect allow-list** - Dashboard > *Authentication* > *URL Configuration* > *Redirect URLs*: the reset link
+   opens `https://ration.safetpojskic.com/reset-password` (`redirectTo` of `resetPasswordForEmail`), and Supabase
+   refuses redirects to URLs that are not listed. Add `https://ration.safetpojskic.com/**` if it is not there.
+
+3. **Wording** - Dashboard > *Authentication* > *Emails* > *Templates* > *Reset Password*: replace the default with
+   the Ration-styled template below (the same white card, primary-blue button and Boxy corners as the invite mail;
+   `{{ .ConfirmationURL }}` is the signed reset link Supabase generates - the only required variable):
+
+   ```html
+   <div style="max-width:480px;margin:0 auto;border:1px solid #E4E2DA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+     <div style="padding:28px 24px;color:#43436C;font-size:15px;line-height:1.5;">
+       <p style="margin:0 0 12px;font-size:20px;font-weight:700;color:#43436C;">Reset your password</p>
+       <p style="margin:0 0 12px;">Somebody asked for a password reset for your Ration account. Tap the button to choose a new password:</p>
+       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;"><tr><td style="background-color:#4D699B;border-radius:0;">
+         <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">Set a new password</a>
+       </td></tr></table>
+       <p style="margin:0 0 12px;">The link works for an hour and can be used once.</p>
+       <p style="margin:0;color:#77746A;font-size:12px;">If it wasn't you, ignore this e-mail - your password stays as it is.</p>
+     </div>
+   </div>
+   ```
+
+   The client-side flow: the link opens `/reset-password` on the web app, which exchanges the token, asks for the
+   new password (`New password` + `Confirm new password`, validated by `validateNewPassword` in
+   `apps/app/src/lib/signup.ts`), saves it with `auth.updateUser`, signs the recovery session out and ends on the
+   sign-in screen with a confirmation. Locally, recovery mails land in the Inbucket mail catcher instead of Resend.
+
 - `FDC_API_KEY`: without it FDC is skipped and only Open Food Facts is used. FDC allows 1000 requests/hour per key.
 - `OFF_USER_AGENT`: Open Food Facts **requires** an identifying User-Agent (`AppName/version (contact)`).
   Default `ration/1.0 (contact not configured)`; set a real contact before relying on it.

@@ -652,6 +652,30 @@ class MockBackendImpl implements MockBackend {
       }
       return jsonResponse(200, authUserJson(this.users.get(ctx.uid) as MockUser, this.txMs));
     }
+    // `auth.updateUser({ password })`: the reset-password screen sets the new password on the recovery session.
+    if (endpoint === '/user' && method === 'PUT') {
+      const ctx = this.ctxOf(headers);
+      if (ctx.uid === null) {
+        return jsonResponse(401, { code: 401, error_code: 'bad_jwt', msg: ctx.tokenError ? ctx.tokenError.body.message : 'invalid claim: missing sub claim' });
+      }
+      const data = parseBody();
+      if (typeof data.password !== 'string' || data.password === '') {
+        return jsonResponse(422, { code: 422, error_code: 'validation_failed', msg: 'Password cannot be empty' });
+      }
+      const user = this.users.get(ctx.uid) as MockUser | undefined;
+      if (!user) return jsonResponse(404, { code: 404, error_code: 'user_not_found', msg: 'User from sub claim in JWT does not exist' });
+      user.password = data.password;
+      return jsonResponse(200, authUserJson(user, this.txMs));
+    }
+    // `auth.resetPasswordForEmail(email)`: the Forgot password form. Supabase answers 200 even for an address it
+    // has no account for (it must not reveal which addresses exist), so the mock does the same.
+    if (endpoint === '/recover' && method === 'POST') {
+      const data = parseBody();
+      if (typeof data.email !== 'string' || data.email === '') {
+        return jsonResponse(422, { code: 422, error_code: 'validation_failed', msg: 'Unable to validate email address: invalid format' });
+      }
+      return jsonResponse(200, {});
+    }
     if (endpoint === '/logout' && method === 'POST') return emptyResponse(204);
     if (endpoint === '/settings' && method === 'GET') {
       return jsonResponse(200, {

@@ -6,16 +6,19 @@ import { TextField } from '@/components/forms';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { createAccount } from '@/data/signup';
 import { useAuth } from '@/lib/auth';
+import { APP_URL } from '@/lib/app-url';
+import { supabase } from '@/lib/supabase';
 import {
   formatInviteCodeInput,
   hasErrors,
+  isPlausibleEmail,
   validateSignUp,
   type SignUpField,
   type SignUpFieldErrors,
 } from '@/lib/signup';
 import { spacing, useTheme } from '@/theme';
 
-type Mode = 'sign-in' | 'sign-up';
+type Mode = 'sign-in' | 'sign-up' | 'forgot';
 
 /** The invite e-mail links here with the code and the e-mail, so the Create account form starts half filled. */
 function firstParam(value: string | string[] | undefined): string {
@@ -30,7 +33,7 @@ function firstParam(value: string | string[] | undefined): string {
 export default function SignInScreen() {
   const { signIn } = useAuth();
   const { colors } = useTheme();
-  const params = useLocalSearchParams<{ code?: string | string[]; email?: string | string[] }>();
+  const params = useLocalSearchParams<{ code?: string | string[]; email?: string | string[]; reset?: string | string[] }>();
   // The invite e-mail's link (?code=...&email=...) pre-fills the Create account form. What the user typed wins:
   // typed values are stored as soon as they edit, and the link values only fill the fields still untouched
   // (they keep applying while the router is still resolving the URL, which can happen after the first render).
@@ -44,10 +47,15 @@ export default function SignInScreen() {
   // The invite e-mail's link (?code=...&email=...) opens the CREATE ACCOUNT form directly: a link that carries a
   // code is by definition an invitation, so nobody has to find the Create account toggle after arriving.
   const [mode, setMode] = useState<Mode>(firstParam(params.code) ? 'sign-up' : 'sign-in');
+  // The reset-password screen sends ?reset=1 after the password was changed: the user ends their reset flow here.
+  const [resetDone, setResetDone] = useState(firstParam(params.reset) === '1');
+  // The Forgot password form hides its fields once the e-mail went out; only "Back to sign in" remains.
+  const [resetSent, setResetSent] = useState(false);
   const email = typedEmail ?? firstParam(params.email);
   const inviteCode = typedCode ?? formatInviteCodeInput(firstParam(params.code));
 
   const signingUp = mode === 'sign-up';
+  const forgotting = mode === 'forgot';
 
   /** Edits a field and clears the error that was shown for it. */
   function edit(field: SignUpField, set: (value: string) => void) {
@@ -64,9 +72,9 @@ export default function SignInScreen() {
     setTypedCode('');
   }
 
-  function switchMode() {
+  function switchMode(next?: Mode) {
     if (busy) return;
-    setMode(signingUp ? 'sign-in' : 'sign-up');
+    setMode(next ?? (mode === 'sign-in' ? 'sign-up' : 'sign-in'));
     // The e-mail address carries over; everything else starts empty and no old error stays on screen. The
     // invite code only clears when the user had typed it: a code that came from the invite link stays, it is
     // what they came with.
@@ -75,6 +83,26 @@ export default function SignInScreen() {
     if (typedCode !== null) setTypedCode('');
     setFieldErrors({});
     setError(null);
+    setResetDone(false);
+    setResetSent(false);
+  }
+
+  async function submitForgot() {
+    if (!isPlausibleEmail(email)) {
+      setFieldErrors({ email: 'Enter a valid e-mail address.' });
+      setError(null);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    // The link opens the web app's /reset-password screen (same pattern as the invite e-mail's link): the
+    // recovery token is exchanged there and the password is set on the web app, whatever device opened the mail.
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${APP_URL}/reset-password`,
+    });
+    setBusy(false);
+    if (resetError) setError(resetError.message);
+    else setResetSent(true);
   }
 
   async function submitSignIn() {
@@ -111,6 +139,7 @@ export default function SignInScreen() {
 
   function submit() {
     if (busy) return;
+    if (forgotting) return void submitForgot();
     void (signingUp ? submitSignUp() : submitSignIn());
   }
 
@@ -121,12 +150,24 @@ export default function SignInScreen() {
   return (
     <Screen title="Ration" safeTop>
       <Card>
-        <AppText variant="heading">{signingUp ? 'Create account' : 'Sign in'}</AppText>
+        <AppText variant="heading">{signingUp ? 'Create account' : forgotting ? 'Reset password' : 'Sign in'}</AppText>
         <AppText muted variant="small">
           {signingUp
             ? 'You need an invite code from the app owner to create an account.'
-            : 'New here? Ask the app owner for an invite code, then choose Create account.'}
+            : forgotting
+              ? 'Enter your e-mail and we send you a reset link. It works for an hour.'
+              : 'New here? Ask the app owner for an invite code, then choose Create account.'}
         </AppText>
+        {resetDone ? (
+          <AppText variant="small" style={{ color: colors.success }}>
+            Password updated. Sign in with your new password.
+          </AppText>
+        ) : null}
+        {forgotting && resetSent ? (
+          <AppText variant="small" style={{ color: colors.success }}>
+            Check your inbox — the reset link is on its way to {email.trim()}.
+          </AppText>
+        ) : null}
         <View style={styles.form}>
           {signingUp ? (
             <>
@@ -180,6 +221,21 @@ export default function SignInScreen() {
                 error={fieldErrors.inviteCode}
               />
             </>
+          ) : forgotting ? (
+            <TextField
+              label="Email"
+              value={email}
+              onChangeText={edit('email', setTypedEmail)}
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              keyboardType="email-address"
+              returnKeyType="go"
+              onSubmitEditing={submit}
+              error={fieldErrors.email}
+            />
           ) : (
             <>
               <TextField
@@ -211,24 +267,46 @@ export default function SignInScreen() {
               {error}
             </AppText>
           ) : null}
-          <Button label={signingUp ? 'Create account' : 'Sign in'} onPress={submit} loading={busy} disabled={!ready} />
+          {!(forgotting && resetSent) ? (
+            <Button
+              label={signingUp ? 'Create account' : forgotting ? 'Send reset link' : 'Sign in'}
+              onPress={submit}
+              loading={busy}
+              disabled={forgotting ? !email : !ready}
+            />
+          ) : null}
         </View>
         <View style={styles.switchRow}>
           <AppText variant="small" muted>
-            {signingUp ? 'Already have an account?' : 'Have an invite code?'}
+            {signingUp ? 'Already have an account?' : forgotting ? 'Remembered it after all?' : 'Have an invite code?'}
           </AppText>
           <Pressable
             accessibilityRole="button"
-            onPress={switchMode}
+            onPress={() => switchMode()}
             disabled={busy}
             style={({ pressed }) => [styles.switchLink, { opacity: busy ? 0.5 : pressed ? 0.7 : 1 }]}>
             <AppText
               variant="small"
               style={{ color: colors.accent, fontWeight: '700', textDecorationLine: 'underline' }}>
-              {signingUp ? 'Sign in' : 'Create account'}
+              {signingUp ? 'Sign in' : forgotting ? 'Back to sign in' : 'Create account'}
             </AppText>
           </Pressable>
         </View>
+        {mode === 'sign-in' ? (
+          <View style={styles.switchRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => switchMode('forgot')}
+              disabled={busy}
+              style={({ pressed }) => [styles.switchLink, { opacity: busy ? 0.5 : pressed ? 0.7 : 1 }]}>
+              <AppText
+                variant="small"
+                style={{ color: colors.accent, fontWeight: '700', textDecorationLine: 'underline' }}>
+                Forgot password?
+              </AppText>
+            </Pressable>
+          </View>
+        ) : null}
       </Card>
     </Screen>
   );

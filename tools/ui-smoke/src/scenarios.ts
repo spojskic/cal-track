@@ -408,6 +408,96 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    name: 'sign-in: Forgot password sends the reset e-mail',
+    route: '/sign-in',
+    path: '/sign-in',
+    auth: 'signed-out',
+    expect: ['Sign in'],
+    async after(page, ctx) {
+      await stepThen(
+        ctx,
+        'open the Forgot password form',
+        () => clickButton(page, 'Forgot password?'),
+        async () => {
+          await ctx.expectText('Reset password');
+          await ctx.expectText('Send reset link');
+          await ctx.expectText('Back to sign in');
+        },
+      );
+      await stepThen(
+        ctx,
+        'submit the e-mail address',
+        async () => {
+          await fill(page, 'Email', USER.email);
+          await clickButton(page, 'Send reset link');
+        },
+        async () => {
+          await ctx.expectText('Check your inbox');
+          await ctx.check('the recover endpoint was called with 200', () => {
+            if (!ctx.backend.calls.some((c) => c.kind === 'auth' && c.target === '/recover' && c.status === 200)) {
+              throw new Error('no successful POST /auth/v1/recover call');
+            }
+          });
+        },
+      );
+    },
+  },
+  {
+    name: 'reset-password: a recovery session sets a new password and ends on the sign-in screen',
+    // the e-mail's link lands here with a recovery session in the browser (supabase-js exchanges the token in the
+    // URL hash); a plain signed-in session behaves the same for the screen, so the smoke run signs in first
+    route: '/reset-password',
+    path: '/reset-password',
+    auth: 'signed-in',
+    expect: ['Set a new password', 'New password', 'Confirm new password'],
+    async after(page, ctx) {
+      const newPassword = 'the-new-password-9';
+      await stepThen(
+        ctx,
+        'set the new password',
+        async () => {
+          await fill(page, 'New password', newPassword);
+          await fill(page, 'Confirm new password', newPassword);
+          await clickButton(page, 'Set new password');
+        },
+        async () => {
+          await ctx.expectText('Password updated. Sign in with your new password.');
+          await ctx.expectUrl(/\/sign-in\?reset=1/);
+          await ctx.check('the user endpoint updated the password', () => {
+            if (!ctx.backend.calls.some((c) => c.kind === 'auth' && c.target === '/user' && c.status === 200)) {
+              throw new Error('no successful PUT /auth/v1/user call');
+            }
+          });
+        },
+      );
+      await stepThen(
+        ctx,
+        'sign in with the new password',
+        async () => {
+          await fill(page, 'Email', USER.email);
+          await fill(page, 'Password', newPassword);
+          await clickButton(page, 'Sign in', { exact: true });
+        },
+        async () => {
+          await ctx.expectText('Dashboard', { timeout: 15_000 });
+        },
+      );
+    },
+  },
+  {
+    name: 'reset-password: an expired or missing recovery session shows the expired state',
+    route: '/reset-password',
+    path: '/reset-password',
+    auth: 'signed-out',
+    expect: ['has expired'],
+    async after(page, ctx) {
+      await stepThen(ctx, 'go back to the sign-in screen', () => clickButton(page, 'Back to sign in'), async () => {
+        await ctx.expectText('Sign in');
+        await ctx.expectUrl(/\/sign-in/);
+      });
+    },
+  },
+  {
     name: 'sign-in: create account shows the code as typed and refuses a wrong or expired invite code',
     route: '/sign-in',
     path: '/sign-in',
