@@ -171,7 +171,7 @@ export function inviteEmail(input: InviteEmailInput): EmailMessage {
       ),
       codeBlock(input.code),
       expiry,
-      paragraph('Open the app, tap <strong>Create account</strong> on the sign-in screen and enter the code.'),
+      paragraph('Tap the button: the sign-up form opens with your code and e-mail already filled in. You only choose a password.'),
       button(url, 'Create your account'),
     ].join('\n'),
   );
@@ -184,7 +184,7 @@ export function inviteEmail(input: InviteEmailInput): EmailMessage {
     `Your invite code: ${input.code}`,
     '',
     textExpiry,
-    `Open ${url}, tap Create account and enter the code.`,
+    `Open ${url}, and the sign-up form opens with the code and your e-mail already filled in.`,
     '',
     'You received this e-mail because somebody used your address in Ration.',
   ].join('\n');

@@ -41,7 +41,9 @@ export default function SignInScreen() {
   const [fieldErrors, setFieldErrors] = useState<SignUpFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<Mode>('sign-in');
+  // The invite e-mail's link (?code=...&email=...) opens the CREATE ACCOUNT form directly: a link that carries a
+  // code is by definition an invitation, so nobody has to find the Create account toggle after arriving.
+  const [mode, setMode] = useState<Mode>(firstParam(params.code) ? 'sign-up' : 'sign-in');
   const email = typedEmail ?? firstParam(params.email);
   const inviteCode = typedCode ?? formatInviteCodeInput(firstParam(params.code));
 
