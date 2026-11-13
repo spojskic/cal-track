@@ -178,8 +178,8 @@ jobs:
             echo "::error::The SUPABASE_URL repo secret does not look like a Supabase project URL (expected https://<ref>.supabase.co)"
             exit 1
           fi
-          if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
-            echo "::error::The SUPABASE_ANON_KEY repo secret does not look like a Supabase anon key (a JWT starting with eyJ)"
+          if [[ ! "$SUPABASE_ANON_KEY" =~ ^(eyJ|sb_publishable_) ]]; then
+            echo "::error::The SUPABASE_ANON_KEY repo secret is neither a legacy anon JWT (eyJ...) nor a new-style publishable key (sb_publishable_...)"
             exit 1
           fi
           printf 'EXPO_PUBLIC_SUPABASE_URL=%s\nEXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > apps/app/.env
@@ -234,8 +234,8 @@ jobs:
             echo "::error::The SUPABASE_URL repo secret does not look like a Supabase project URL (expected https://<ref>.supabase.co)"
             exit 1
           fi
-          if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
-            echo "::error::The SUPABASE_ANON_KEY repo secret does not look like a Supabase anon key (a JWT starting with eyJ)"
+          if [[ ! "$SUPABASE_ANON_KEY" =~ ^(eyJ|sb_publishable_) ]]; then
+            echo "::error::The SUPABASE_ANON_KEY repo secret is neither a legacy anon JWT (eyJ...) nor a new-style publishable key (sb_publishable_...)"
             exit 1
           fi
           printf 'EXPO_PUBLIC_SUPABASE_URL=%s\nEXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > apps/app/.env
