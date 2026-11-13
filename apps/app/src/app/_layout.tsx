@@ -43,8 +43,9 @@ function RootNavigator() {
   const inAuthGroup = segments[0] === '(auth)';
   if (!session && !inAuthGroup) return <Redirect href="/sign-in" />;
   // The reset-password screen is the one auth screen a signed-in user stays on: the recovery link's token exchange
-  // signs the browser in with a recovery session, and only then can the password form call updateUser.
-  if (session && inAuthGroup && segments[1] !== 'reset-password') return <Redirect href="/" />;
+  // signs the browser in with a recovery session, and only then can the password form call updateUser. .at(1) and
+  // not [1]: without expo-router's generated typed routes (as on CI) useSegments() is a 1-length tuple.
+  if (session && inAuthGroup && segments.at(1) !== 'reset-password') return <Redirect href="/" />;
 
   // First run: send signed-in users who have not completed onboarding to the setup wizard.
   if (session && profile.isLoading) return null;
