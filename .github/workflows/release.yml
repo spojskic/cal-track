@@ -53,6 +53,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       existing: ${{ steps.version.outputs.existing }}
+      prev_tag: ${{ steps.version.outputs.prev_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,6 +79,10 @@ jobs:
             echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
             echo "existing=true" >> "$GITHUB_OUTPUT"
           else
+            # The previous tag must be captured BEFORE the new one exists, or `git describe` finds the
+            # tag this run is about to create and the "what changed" range comes out empty.
+            PREV=$(git describe --tags --abbrev=0 2>/dev/null || true)
+            echo "prev_tag=$PREV" >> "$GITHUB_OUTPUT"
             NEXT=$(BUMP=$BUMP node -e '
               const fs = require("fs");
               const app = JSON.parse(fs.readFileSync("apps/app/app.json", "utf8"));
@@ -108,6 +113,7 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
           EXISTING: ${{ steps.version.outputs.existing }}
+          PREV_TAG: ${{ steps.version.outputs.prev_tag }}
         run: |
           set -euo pipefail
           if [ "$EXISTING" = true ]; then
@@ -120,10 +126,9 @@ jobs:
             if [ -n "$GIVEN_NOTES" ]; then
               printf '%s\n' "$GIVEN_NOTES"
             else
-              PREV=$(git describe --tags --abbrev=0 2>/dev/null || true)
-              if [ -n "$PREV" ]; then
-                COUNT=$(git log --format='%s' "$PREV..HEAD" | wc -l)
-                git log --format='- %s' "$PREV..HEAD" | head -n 50
+              if [ -n "$PREV_TAG" ]; then
+                COUNT=$(git log --format='%s' "$PREV_TAG..HEAD" | wc -l)
+                git log --format='- %s' "$PREV_TAG..HEAD" | head -n 50
                 if [ "$COUNT" -gt 50 ]; then echo "- and $((COUNT - 50)) more"; fi
               fi
             fi
