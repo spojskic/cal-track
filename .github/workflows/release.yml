@@ -169,11 +169,17 @@ jobs:
 
       - name: Write apps/app/.env from the repo secrets
         env:
-          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::Repo secrets EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are not set (Settings > Secrets and variables > Actions)"
+          # Shape checks, because secrets are write-only: a wrong value here would be baked into a
+          # shipped APK. The project URL is https://<ref>.supabase.co and the anon key is a JWT.
+          if [[ ! "$SUPABASE_URL" =~ ^https://[a-z0-9]+\.supabase\.co/?$ ]]; then
+            echo "::error::The SUPABASE_URL repo secret does not look like a Supabase project URL (expected https://<ref>.supabase.co)"
+            exit 1
+          fi
+          if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
+            echo "::error::The SUPABASE_ANON_KEY repo secret does not look like a Supabase anon key (a JWT starting with eyJ)"
             exit 1
           fi
           printf 'EXPO_PUBLIC_SUPABASE_URL=%s\nEXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > apps/app/.env
@@ -220,11 +226,16 @@ jobs:
 
       - name: Write apps/app/.env from the repo secrets
         env:
-          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::Repo secrets EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are not set (Settings > Secrets and variables > Actions)"
+          # Same shape checks as the APK job: secrets are write-only, and the iOS build bakes them in too.
+          if [[ ! "$SUPABASE_URL" =~ ^https://[a-z0-9]+\.supabase\.co/?$ ]]; then
+            echo "::error::The SUPABASE_URL repo secret does not look like a Supabase project URL (expected https://<ref>.supabase.co)"
+            exit 1
+          fi
+          if [[ ! "$SUPABASE_ANON_KEY" =~ ^eyJ ]]; then
+            echo "::error::The SUPABASE_ANON_KEY repo secret does not look like a Supabase anon key (a JWT starting with eyJ)"
             exit 1
           fi
           printf 'EXPO_PUBLIC_SUPABASE_URL=%s\nEXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > apps/app/.env
