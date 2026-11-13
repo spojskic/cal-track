@@ -47,22 +47,18 @@ To get just the file, named by version, without installing it anywhere (needs `a
 bash scripts/build-android-apk.sh        # writes build/Ration-<version>.apk
 ```
 
-It runs `expo prebuild` and Gradle's `assembleRelease` for the phone architectures (`arm64-v8a`, `armeabi-v7a`; set
-`ANDROID_ABIS` to change that) and prints the file's SHA-256.
+It runs `expo prebuild` and Gradle's `assembleRelease` for `arm64-v8a` + `x86_64` (phones and emulators, one file;
+set `ANDROID_ABIS` to change that) with laptop-safe Gradle memory caps baked in, and prints the file's SHA-256.
+The release build is minified with R8; the ProGuard keep rule that keeps WorkManager's Room database intact lives
+in `app.json` (`expo-build-properties.extraProguardRules`) and rides in through the prebuild - without it a
+minified release crashes at startup before any UI (`NoSuchMethodException:
+androidx.work.impl.WorkDatabase_Impl.<init>`).
 
-**Emulator testing:** the phone-architecture APK cannot run on an x86_64 emulator (React Native's `libreactnative.so`
-would be missing). Build with both ABIs for a file that runs everywhere:
-
-```bash
-cd apps/app/android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --no-daemon
-```
-
-(For a slow machine, cap Gradle's memory: add `-Dorg.gradle.jvmargs="-Xmx2g" -Dorg.gradle.workers.max=2`.)
-
-**Apple Health note:** the release build is minified with R8; a ProGuard keep rule in `app.json`
-(`expo-build-properties.extraProguardRules`) keeps the Room-generated database that WorkManager initializes
-reflectively (via `expo-background-task`). Without it a minified release crashes at startup before any UI
-(`NoSuchMethodException: androidx.work.impl.WorkDatabase_Impl.<init>`).
+**Releases:** the `Release` workflow in `.github/workflows/release.yml` (Actions tab, run manually) builds this
+APK **and** the unsigned iOS IPA on GitHub's machines and publishes them as a GitHub release - pick the version
+bump (patch / minor / major / none) when starting the run. Needs the repo secrets
+`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` once. The IPA it produces is the same unsigned
+one EAS built (re-sign with AltStore/Sideloadly); Apple Health still needs TestFlight or a signed build.
 
 **Health Connect:** Android 14 and newer have it built in; on older versions install *Health Connect* from the Play
 Store first. Then open Ration > **More > Connected apps & devices** and grant access.

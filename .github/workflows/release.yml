@@ -1,0 +1,289 @@
+# Builds and publishes a GitHub release with the Android APK and the unsigned iOS IPA.
+#
+# Run manually from the Actions tab ("Release" -> Run workflow): pick the version bump, optionally
+# paste release notes (markdown; empty = generated from the commits since the last tag - the body
+# can also be edited on the release page afterwards). Both builds attach to a DRAFT release; the
+# draft is published only when both succeeded, so a failed build never leaves a half-empty
+# public release (delete the draft, or fix and re-run with bump=none).
+#
+# Android: release build with R8 minification - the ProGuard keep rule for the WorkManager
+# database lives in app.json (expo-build-properties.extraProguardRules) and rides in through
+# `expo prebuild`, exactly like the fixed local builds. Two ABIs (arm64-v8a + x86_64) so the same
+# file runs on phones and emulators, and a generous Gradle heap (runners have 16 GB).
+#
+# iOS: unsigned archive (CODE_SIGNING_ALLOWED=NO) packaged as Payload/*.app -> .ipa, the same
+# unsigned IPA the EAS builds produced - re-sign with AltStore/Sideloadly; no Apple Developer
+# account or secrets needed. Free on public repos: macOS runners cost nothing there.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump (none = rebuild the current version and re-attach its assets)
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+          - none
+      notes:
+        description: Release notes in markdown (empty = generated from the commits since the last tag)
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  tag:
+    name: Bump version, tag, draft release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      existing: ${{ steps.version.outputs.existing }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Work out the next version
+        id: version
+        env:
+          BUMP: ${{ github.event.inputs.bump }}
+        run: |
+          VERSION=$(node -p "require('./apps/app/app.json').expo.version")
+          if [ "$BUMP" = none ]; then
+            if ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+              echo "::error::bump=none but the tag v$VERSION does not exist; pick patch/minor/major instead"
+              exit 1
+            fi
+            echo "Rebuilding the existing v$VERSION: no version commit, assets re-attached to its release"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+            echo "existing=true" >> "$GITHUB_OUTPUT"
+          else
+            NEXT=$(BUMP=$BUMP node -e '
+              const fs = require("fs");
+              const app = JSON.parse(fs.readFileSync("apps/app/app.json", "utf8"));
+              const [maj, min, pat] = app.expo.version.split(".").map(Number);
+              app.expo.version =
+                process.env.BUMP === "major" ? `${maj + 1}.0.0`
+                : process.env.BUMP === "minor" ? `${maj}.${min + 1}.0`
+                : `${maj}.${min}.${pat + 1}`;
+              fs.writeFileSync("apps/app/app.json", JSON.stringify(app, null, 2) + "\n");
+              console.log(app.expo.version);
+            ')
+            echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+            echo "tag=v$NEXT" >> "$GITHUB_OUTPUT"
+            echo "existing=false" >> "$GITHUB_OUTPUT"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add apps/app/app.json
+            git commit -m "chore(app): version $NEXT"
+            git push origin HEAD:main
+            git tag "v$NEXT"
+            git push origin "v$NEXT"
+          fi
+
+      - name: Write the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GIVEN_NOTES: ${{ github.event.inputs.notes }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          EXISTING: ${{ steps.version.outputs.existing }}
+        run: |
+          set -euo pipefail
+          if [ "$EXISTING" = true ]; then
+            echo "Existing release keeps its notes; nothing to write"
+            exit 0
+          fi
+          {
+            echo "Sideloading only: nothing here is on an app store."
+            echo
+            if [ -n "$GIVEN_NOTES" ]; then
+              printf '%s\n' "$GIVEN_NOTES"
+            else
+              PREV=$(git describe --tags --abbrev=0 2>/dev/null || true)
+              if [ -n "$PREV" ]; then
+                COUNT=$(git log --format='%s' "$PREV..HEAD" | wc -l)
+                git log --format='- %s' "$PREV..HEAD" | head -n 50
+                if [ "$COUNT" -gt 50 ]; then echo "- and $((COUNT - 50)) more"; fi
+              fi
+            fi
+            cat <<'BOILERPLATE'
+
+            ## Downloads
+
+            - **Android**: `Ration-__VERSION__.apk` - send it to a phone and open it (allow "install unknown
+              apps" for the app you open it with). Contains arm64-v8a and x86_64 (runs on phones and emulators).
+              If a phone refuses to update over an older build, uninstall the old one first.
+            - **iOS**: `Ration-__VERSION__-unsigned.ipa` - an **unsigned** IPA: it must be signed (for example
+              with a re-signing tool such as AltStore or Sideloadly) before an iPhone accepts it.
+
+            ## Apple Health on iOS
+
+            **Apple Health does not work on unsigned IPAs.** Reading workouts and body measurements from
+            Apple Health needs the HealthKit entitlement, which unsigned / freely re-signed builds do not
+            carry. Sign the IPA with an Apple Developer account profile that includes HealthKit (or install
+            the app through TestFlight) for the feature to work.
+
+            ## Install and setup
+
+            See [docs/install-on-devices.md](https://github.com/spojskic/ration-calorie-tracker/blob/main/docs/install-on-devices.md).
+            The web app runs at https://ration.safetpojskic.com; accounts are invite-only.
+          BOILERPLATE
+          } | sed 's/^ *//' | sed "s/__VERSION__/$VERSION/g" > notes.md
+          gh release create "$TAG" --draft --title "Ration $VERSION" --notes-file notes.md
+
+  apk:
+    name: Build the APK
+    needs: tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Write apps/app/.env from the repo secrets
+        env:
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Repo secrets EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are not set (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          printf 'EXPO_PUBLIC_SUPABASE_URL=%s\nEXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > apps/app/.env
+
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Generate the native Android project
+        run: npx expo prebuild --platform android --clean
+        working-directory: apps/app
+
+      # Two ABIs and a sized Gradle heap: the command shape of the fixed local builds (the R8 keep
+      # rule for the WorkManager database comes from app.json through the prebuild above).
+      - name: Build the release APK (arm64-v8a + x86_64)
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g"
+        working-directory: apps/app/android
+
+      - name: Attach the APK to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.tag.outputs.tag }}
+          VERSION: ${{ needs.tag.outputs.version }}
+        run: |
+          cp apps/app/android/app/build/outputs/apk/release/app-release.apk "Ration-$VERSION.apk"
+          gh release upload "$TAG" "Ration-$VERSION.apk" --clobber
+
+  ipa:
+    name: Build the unsigned IPA
+    needs: tag
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Write apps/app/.env from the repo secrets
+        env:
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Repo secrets EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are not set (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          printf 'EXPO_PUBLIC_SUPABASE_URL=%s\nEXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > apps/app/.env
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate the native iOS project
+        run: npx expo prebuild --platform ios --clean
+        working-directory: apps/app
+
+      # Unsigned archive: no certificates, no secrets. Repackaged as Payload/*.app -> .ipa below.
+      - name: Archive the app (unsigned)
+        working-directory: apps/app/ios
+        run: |
+          set -euo pipefail
+          WS=$(find . -maxdepth 1 -name "*.xcworkspace" | head -n 1)
+          PROJ=$(find . -maxdepth 1 -name "*.xcodeproj" | head -n 1)
+          if [ -n "$WS" ]; then
+            SOURCE=(-workspace "$WS")
+          else
+            SOURCE=(-project "$PROJ")
+          fi
+          SCHEME=$(basename "${WS:-$PROJ}" | sed 's/\.[^.]*$//')
+          echo "Archiving scheme $SCHEME from ${WS:-$PROJ}"
+          xcodebuild archive \
+            "${SOURCE[@]}" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Ration.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package the unsigned IPA
+        working-directory: apps/app/ios
+        run: |
+          set -euo pipefail
+          APP=$(find build/Ration.xcarchive/Products/Applications -maxdepth 1 -name "*.app")
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry "Ration-unsigned.ipa" Payload
+
+      - name: Attach the IPA to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.tag.outputs.tag }}
+          VERSION: ${{ needs.tag.outputs.version }}
+        run: |
+          cp apps/app/ios/Ration-unsigned.ipa "Ration-$VERSION-unsigned.ipa"
+          gh release upload "$TAG" "Ration-$VERSION-unsigned.ipa" --clobber
+
+  publish:
+    name: Publish the release
+    needs: [tag, apk, ipa]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false

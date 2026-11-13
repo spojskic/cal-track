@@ -6,8 +6,8 @@
 # and apps/app/.env (Supabase URL + anon key, baked into the build). Takes 10-20 minutes the first time (Gradle downloads a lot).
 # Output: build/Ration-<version>.apk  (build/ is git-ignored)
 #
-# ANDROID_ABIS (default arm64-v8a,armeabi-v7a) limits the CPU architectures in the file, which keeps it small. Use
-# ANDROID_ABIS=arm64-v8a,armeabi-v7a,x86_64,x86 for one file that also runs on x86 emulators.
+# ANDROID_ABIS (default arm64-v8a,x86_64) limits the CPU architectures in the file, which keeps it small. Use
+# ANDROID_ABIS=arm64-v8a,armeabi-v7a,x86_64,x86 for every architecture.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -34,7 +34,17 @@ fi
 [ -n "$SDK" ] && [ -d "$SDK" ] || fail "Android SDK not found: install Android Studio, open it once, or set ANDROID_HOME"
 export ANDROID_HOME="$SDK"
 
-ABIS="${ANDROID_ABIS:-arm64-v8a,armeabi-v7a}"
+# arm64-v8a + x86_64: phones and emulators, one file. The Gradle flags are the laptop-safe shape of the
+# startup-crash fix era (capped heap, 2 workers, no daemon - a bare `./gradlew assembleRelease` OOMs a 15 GB
+# machine during a release build); they also work on bigger machines, just a bit slower. Override with
+# GRADLE_FLAGS="..." (word-split, so quote the -D value yourself) or ANDROID_ABIS for other architectures.
+ABIS="${ANDROID_ABIS:-arm64-v8a,x86_64}"
+if [ -n "${GRADLE_FLAGS:-}" ]; then
+  # shellcheck disable=SC2086
+  set -- $GRADLE_FLAGS
+else
+  set -- -Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=2 --no-daemon
+fi
 VERSION="$(node -p "require('$ROOT/apps/app/app.json').expo.version")"
 
 cd "$ROOT/apps/app"
@@ -43,7 +53,7 @@ npx expo prebuild --platform android --clean
 printf 'sdk.dir=%s\n' "$SDK" > android/local.properties
 
 echo "==> Building the release APK with Gradle (architectures: $ABIS)"
-(cd android && ./gradlew assembleRelease "-PreactNativeArchitectures=$ABIS" | tail -n 40)
+(cd android && ./gradlew assembleRelease "-PreactNativeArchitectures=$ABIS" "$@" | tail -n 40)
 
 APK="android/app/build/outputs/apk/release/app-release.apk"
 [ -f "$APK" ] || fail "no APK at apps/app/$APK; see the Gradle output above"
