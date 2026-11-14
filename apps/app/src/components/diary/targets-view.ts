@@ -34,11 +34,13 @@ export interface MacroRow {
  * Macro targets for ONE day: the resolved macros re-derived from the day's energy budget (the plan target plus
  * what burning above the baseline adds) when the mode can be recomputed, so a day with a workout gets proportionally
  * bigger carb/fat targets while protein-per-kg stays anchored to the body weight. A `fixed` mode recomputes to the
- * same typed grams, and when there is nothing to recompute from (an older cached resolution without a macro mode) the
- * static macros stand. Returns null when there are no targets at all.
+ * same typed grams, and when the mode cannot be recomputed (or produces nothing) the static macros stand.
  */
 function dayMacros(targets: ResolvedTargets, budgetExtraKcal: number) {
-  const budget = targets.energy.target + Math.max(0, budgetExtraKcal);
+  // The budget is also the Energy row's target (same expression below); Number.isFinite keeps both rows on the
+  // static plan when the extra is not a finite number, instead of NaN on one row and a fallback on the other.
+  const extra = Number.isFinite(budgetExtraKcal) ? Math.max(0, budgetExtraKcal) : 0;
+  const budget = targets.energy.target + extra;
   const attempt =
     budget > 0
       ? tryComputeMacroTargets(targets.macroMode, budget, {
@@ -67,6 +69,8 @@ export function buildMacroRows(args: {
 }): MacroRow[] {
   const { colors, totals, hasEntries, targets, netCarbs, budgetExtraKcal } = args;
   const energy = amountOf(totals, 'ENERGY_KCAL', hasEntries);
+  // The same clamped extra dayMacros uses, so the energy row and the macro rows always speak of one budget.
+  const extra = Number.isFinite(budgetExtraKcal) ? Math.max(0, budgetExtraKcal) : 0;
   const macros = targets ? dayMacros(targets, budgetExtraKcal) : undefined;
   const carbsCode: NutrientCode = netCarbs ? 'NET_CARBS_G' : 'CARBS_G';
   return [
@@ -75,7 +79,7 @@ export function buildMacroRows(args: {
       label: 'Energy',
       unit: 'kcal',
       value: energy,
-      target: targets ? targets.energy.target + Math.max(0, budgetExtraKcal) : undefined,
+      target: targets ? targets.energy.target + extra : undefined,
       color: colors.energy,
       overIsBad: true,
       decimals: 0,

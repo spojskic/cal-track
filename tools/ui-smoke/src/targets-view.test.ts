@@ -128,6 +128,29 @@ describe('buildMacroRows: the macro targets scale with the day budget', () => {
     expect(fat.target).toBe(45);
   });
 
+  it('keto: protein and net carbs stay, fat absorbs the budget growth', async () => {
+    // 20 g net carbs, 1.5 g/kg lean of protein at 25 % body fat: lean mass is 61.546875 kg so protein is 92.30 g,
+    // and at the plan target (2000) fat is (2000 - 20*4 - 92.302*4) / 9 = 172.30 g. With a 300 kcal burn the
+    // budget is 2300 and fat grows to (2300 - 80 - 369.208) / 9 = 205.64 g while protein and carbs stand still.
+    const keto = { ...resolved, weightKg: 82.0625, bodyFatPct: 25, macroMode: { mode: 'keto', netCarbsG: 20, proteinGPerKgLean: 1.5 }, energy: { target: 2000 } };
+    const [planEnergy, , , planFat] = await buildMacroRowsLoader()(0, keto);
+    expect(planEnergy.target).toBe(2000);
+    expect(planFat.target).toBeCloseTo(172.3, 1);
+    const [budgetEnergy, protein, carbs, fat] = await buildMacroRowsLoader()(300, keto);
+    expect(budgetEnergy.target).toBe(2300);
+    expect(protein.target).toBeCloseTo(92.3, 1);
+    expect(carbs.target).toBe(20);
+    expect(fat.target).toBeCloseTo(205.6, 1);
+  });
+
+  it('a non-finite extra falls back to the static plan on every row alike', async () => {
+    const [energy, protein, carbs, fat] = await buildMacroRowsLoader()(Number.NaN);
+    expect(energy.target).toBe(1500);
+    expect(protein.target).toBeCloseTo(131.3, 1);
+    expect(carbs.target).toBeCloseTo(131.2, 1);
+    expect(fat.target).toBeCloseTo(50, 1);
+  });
+
   it('without a macro mode (an older cached resolution) the static macros are shown', async () => {
     const [energy, protein] = await loadRows(719, targets);
     expect(energy.target).toBe(2219);
