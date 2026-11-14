@@ -110,3 +110,35 @@ export const enabledTypes = (toggles: HealthToggles): HealthDataType[] =>
 /** Types enabled in `next` but not in `prev` (they need a new permission prompt). */
 export const newlyEnabled = (prev: HealthToggles, next: HealthToggles): HealthDataType[] =>
   HEALTH_DATA_TYPES.filter((type) => next[type] && !prev[type]);
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Card order of the "Connected apps & devices" screen
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** One integration card of the screen, before ordering. */
+export interface ConnectionEntry {
+  key: string;
+  connected: boolean;
+  /** When the integration last synced successfully; null for a never-synced (or disconnected) card. */
+  lastSyncAt: Date | null;
+}
+
+/**
+ * Screen order of the integration cards: connected services first (nobody should scroll past a card to reach the one
+ * they actually use), then the most recently synced among the connected, and a never-synced card keeps its position
+ * within the group (a stable sort). The disconnected cards keep their original order below.
+ */
+export function orderConnections(entries: readonly ConnectionEntry[]): ConnectionEntry[] {
+  return entries
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => {
+      if (a.entry.connected !== b.entry.connected) return a.entry.connected ? -1 : 1;
+      if (a.entry.connected && a.entry.lastSyncAt !== b.entry.lastSyncAt) {
+        const at = a.entry.lastSyncAt?.getTime() ?? -1;
+        const bt = b.entry.lastSyncAt?.getTime() ?? -1;
+        if (at !== bt) return bt - at;
+      }
+      return a.index - b.index;
+    })
+    .map(({ entry }) => entry);
+}
