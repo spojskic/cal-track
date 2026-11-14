@@ -2,6 +2,7 @@
 import {
   HIGHLIGHT_NUTRIENT_CODES,
   NUTRIENT_BY_CODE,
+  tryComputeMacroTargets,
   type NutrientCode,
   type NutrientMap,
   type Target,
@@ -30,10 +31,30 @@ export interface MacroRow {
 }
 
 /**
+ * Macro targets for ONE day: the resolved macros re-derived from the day's energy budget (the plan target plus
+ * what burning above the baseline adds) when the mode can be recomputed, so a day with a workout gets proportionally
+ * bigger carb/fat targets while protein-per-kg stays anchored to the body weight. A `fixed` mode recomputes to the
+ * same typed grams, and when there is nothing to recompute from (an older cached resolution without a macro mode) the
+ * static macros stand. Returns null when there are no targets at all.
+ */
+function dayMacros(targets: ResolvedTargets, budgetExtraKcal: number) {
+  const budget = targets.energy.target + Math.max(0, budgetExtraKcal);
+  const attempt =
+    budget > 0
+      ? tryComputeMacroTargets(targets.macroMode, budget, {
+          weightKg: targets.weightKg,
+          bodyFatPct: targets.bodyFatPct,
+        })
+      : { macros: null };
+  return attempt.macros ?? targets.macros;
+}
+
+/**
  * Energy / protein / (net) carbs / fat rows for the macro bars. The energy row compares what was eaten with the day's budget: the
  * energy target plus what burning above the baseline adds to it (`budgetExtraKcal`), the same budget the energy summary's third
  * circle uses. It used to compare the eaten energy minus the burned energy with the plain target, which showed an empty bar and
- * 0% for a day with a hard workout and a normal breakfast.
+ * 0% for a day with a hard workout and a normal breakfast. The macro rows compare with the macros of the SAME day budget
+ * (see {@link dayMacros}), so a workout grows the carb/fat targets with the budget instead of leaving them at the plan numbers.
  */
 export function buildMacroRows(args: {
   colors: ThemeColors;
@@ -46,6 +67,7 @@ export function buildMacroRows(args: {
 }): MacroRow[] {
   const { colors, totals, hasEntries, targets, netCarbs, budgetExtraKcal } = args;
   const energy = amountOf(totals, 'ENERGY_KCAL', hasEntries);
+  const macros = targets ? dayMacros(targets, budgetExtraKcal) : undefined;
   const carbsCode: NutrientCode = netCarbs ? 'NET_CARBS_G' : 'CARBS_G';
   return [
     {
@@ -63,7 +85,7 @@ export function buildMacroRows(args: {
       label: 'Protein',
       unit: 'g',
       value: amountOf(totals, 'PROTEIN_G', hasEntries),
-      target: targets?.macros.protein.grams,
+      target: macros?.protein.grams,
       color: colors.protein,
       overIsBad: false,
       decimals: 1,
@@ -73,7 +95,7 @@ export function buildMacroRows(args: {
       label: netCarbs ? 'Net Carbs' : 'Carbs',
       unit: 'g',
       value: amountOf(totals, carbsCode, hasEntries),
-      target: targets?.macros.carbs.grams,
+      target: macros?.carbs.grams,
       color: colors.carbs,
       overIsBad: true,
       decimals: 1,
@@ -83,7 +105,7 @@ export function buildMacroRows(args: {
       label: 'Fat',
       unit: 'g',
       value: amountOf(totals, 'FAT_G', hasEntries),
-      target: targets?.macros.fat.grams,
+      target: macros?.fat.grams,
       color: colors.fat,
       overIsBad: true,
       decimals: 1,
