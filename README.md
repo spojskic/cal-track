@@ -11,9 +11,9 @@ recipe draft, a health-only coach) run on **your own OpenRouter key, which never
 
 <img width="1499" height="921" alt="image" src="https://github.com/user-attachments/assets/792b7dea-1409-440f-a816-f13d4fa26cd7" />
 <p align="center">
-  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/8ef61ac0-3703-4148-9ae6-2582af289380" />
-  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/dc798fcc-5933-4e0e-b005-3765db1a4721" />
-  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/30cec586-66a2-4fae-bf15-618af2fe0345" />
+  <img width="30%" alt="image" src="https://github.com/user-attachments/assets/8ef61ac0-3703-4148-9ae6-2582af289380" />
+  <img width="30%" alt="image" src="https://github.com/user-attachments/assets/dc798fcc-5933-4e0e-b005-3765db1a4721" />
+  <img width="30%" alt="image" src="https://github.com/user-attachments/assets/30cec586-66a2-4fae-bf15-618af2fe0345" />
 </p>
 
 ## What you get
